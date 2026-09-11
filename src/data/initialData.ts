@@ -14,9 +14,9 @@ export const initialSiteConfig: SiteConfig = {
   defaultVleCommissionRate: 20,
   allowPublicRegistrations: true,
   targetToolsGoal: 999,
-  vleOneTimeFee: 299, // ₹299 One-Time Lifetime Registration Fee for CSC / Cyber Cafe
-  ownerSecurityPin: '9999', // Master PIN for Owner Panel
-  ownerPassword: 'admin@999tools', // Master Password for Owner Panel
+  vleOneTimeFee: 299,
+  ownerSecurityPin: '9999',
+  ownerPassword: 'admin@999tools',
   adsterra: {
     enabled: true,
     headerBannerActive: true,
@@ -35,7 +35,6 @@ export const initialSiteConfig: SiteConfig = {
 };
 
 export const initialServices: ServiceItem[] = [
-  // Cyber Cafe / VLE Core Tools
   {
     id: 'tool_passport_sheet',
     name: 'Passport Photo Sheet Maker',
@@ -118,8 +117,6 @@ export const initialServices: ServiceItem[] = [
     iconName: 'Sparkles',
     enabled: true,
   },
-
-  // Assisted Online Services (VLE / User Orders)
   {
     id: 'srv_pan_new',
     name: 'New PAN Card Application (NSDL/UTI)',
@@ -228,83 +225,9 @@ export const initialServices: ServiceItem[] = [
   },
 ];
 
-export const initialVles: VleOperator[] = [
-  {
-    id: 'vle_1',
-    vleId: 'VLE-999-1001',
-    password: 'pass123',
-    centerName: 'Shiv Digital Cyber Cafe & CSC Center',
-    operatorName: 'Ramesh Kumar',
-    mobile: '9876500111',
-    email: 'shivdigital@gmail.com',
-    state: 'Uttar Pradesh',
-    district: 'Lucknow',
-    address: 'Near Main Chauraha, Hazratganj, Lucknow',
-    walletBalance: 0,
-    membershipPlan: 'lifetime_vip',
-    status: 'active',
-    kycVerified: true,
-    totalOrdersCompleted: 148,
-    joinedDate: '2025-11-10',
-    shopUpiId: 'shivdigital@paytm',
-    shopNoticeBanner: 'आधार कार्ड एवं सभी ओरिजिनल मार्कशीट साथ लाएं | फोटो एवं लेमिनेशन तुरंत उपलब्ध',
-  },
-  {
-    id: 'vle_2',
-    vleId: 'VLE-999-1002',
-    password: 'pass123',
-    centerName: 'Balaji Jan Seva Kendra',
-    operatorName: 'Sunil Sharma',
-    mobile: '9876500222',
-    email: 'balajikendra@gmail.com',
-    state: 'Bihar',
-    district: 'Patna',
-    address: 'Opposite Railway Station, Kankarbagh, Patna',
-    walletBalance: 0,
-    membershipPlan: 'lifetime_vip',
-    status: 'active',
-    kycVerified: true,
-    totalOrdersCompleted: 89,
-    joinedDate: '2025-12-04',
-    shopUpiId: 'balajikendra@upi',
-  },
-  {
-    id: 'vle_3',
-    vleId: 'VLE-999-1003',
-    password: 'pass123',
-    centerName: 'Guru Nanak Cyber Zone & Form Hub',
-    operatorName: 'Harpreet Singh',
-    mobile: '9876500333',
-    email: 'gurunanakzone@gmail.com',
-    state: 'Punjab',
-    district: 'Ludhiana',
-    address: 'GT Road, Near Bus Stand, Ludhiana',
-    walletBalance: 0,
-    membershipPlan: 'lifetime_vip',
-    status: 'active',
-    kycVerified: true,
-    totalOrdersCompleted: 312,
-    joinedDate: '2025-08-15',
-  },
-  {
-    id: 'vle_4',
-    vleId: 'VLE-999-1004',
-    password: 'pass123',
-    centerName: 'Sai Samarth Online Center',
-    operatorName: 'Amol Deshmukh',
-    mobile: '9876500444',
-    email: 'saisamarth@gmail.com',
-    state: 'Maharashtra',
-    district: 'Pune',
-    address: 'FC Road, Shivajinagar, Pune',
-    walletBalance: 0,
-    membershipPlan: 'lifetime_vip',
-    status: 'active',
-    kycVerified: true,
-    totalOrdersCompleted: 24,
-    joinedDate: '2026-01-20',
-  },
-];
+// ✅ VLE accounts ab khaali hain - sirf Owner Panel se approved VLEs hi yahan aayenge
+// Yeh chhota sa array jaan-boojh kar khaali rakha gaya hai
+export const initialVles: VleOperator[] = [];
 
 export const initialOrders: CustomerOrder[] = [
   {
@@ -568,7 +491,34 @@ export const initialImportantLinks: ImportantLink[] = [
 // Fallback alias for existing code
 export const quickGovtLinks = initialImportantLinks;
 
-export const initialVles: VleOperator[] = [
-  // ✅ Demo VLE accounts hataye gaye
-  // Ab sirf Owner Panel se approved VLEs hi yahan add honge
+export const initialVleApplications: VleApplication[] = [
+  {
+    id: 'app_vle_01',
+    operatorName: 'Vijay Prajapati',
+    centerName: 'Prajapati Cyber Point & Common Service',
+    mobile: '9891234567',
+    email: 'vijay.prajapati88@gmail.com',
+    state: 'Uttar Pradesh',
+    district: 'Varanasi',
+    address: 'Near BHU Gate, Lanka, Varanasi',
+    cscId: 'CSC-UP-54219',
+    paymentUtr: 'UTR202609110014298',
+    paymentAmount: 299,
+    status: 'pending',
+    appliedDate: '2026-09-11 11:30 AM',
+  },
+  {
+    id: 'app_vle_02',
+    operatorName: 'Deepak Kumar Sahu',
+    centerName: 'Maa Vaishno Digital Seva',
+    mobile: '9435012345',
+    email: 'deepak.sahu99@gmail.com',
+    state: 'Madhya Pradesh',
+    district: 'Bhopal',
+    address: 'Shop No. 4, Main Market, MP Nagar, Bhopal',
+    paymentUtr: 'UTR202609109823411',
+    paymentAmount: 299,
+    status: 'pending',
+    appliedDate: '2026-09-10 04:15 PM',
+  },
 ];
