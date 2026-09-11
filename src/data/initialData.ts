@@ -569,7 +569,6 @@ export const initialImportantLinks: ImportantLink[] = [
 export const quickGovtLinks = initialImportantLinks;
 
 export const initialVles: VleOperator[] = [
-  // Demo data hataya gaya - Real VLEs sirf Owner Approval ke baad add honge
-  // Jab Owner VLE Application approve karega, tab yahan automatically entry aayegi
-
+  // ✅ Demo VLE accounts hataye gaye
+  // Ab sirf Owner Panel se approved VLEs hi yahan add honge
 ];
