@@ -21,7 +21,9 @@ import {
   Printer,
   ChevronRight,
   ExternalLink,
-  Stamp
+  Stamp,
+  Lock,
+  KeyRound
 } from 'lucide-react';
 import { quickGovtLinks } from '../../data/initialData';
 import { PassportPhotoMaker } from '../tools/PassportPhotoMaker';
@@ -31,7 +33,6 @@ import { ResumeMaker } from '../tools/ResumeMaker';
 import { ReceiptGenerator } from '../tools/ReceiptGenerator';
 import { AgeCalculator } from '../tools/AgeCalculator';
 import { DocumentCleanTool } from '../tools/DocumentCleanTool';
-import { WatermarkTool } from '../tools/WatermarkTool';
 import { ToolsExplorer } from '../tools/ToolsExplorer';
 import { ShopBrandingManager } from './ShopBrandingManager';
 import { VleRegistrationModal } from './VleRegistrationModal';
@@ -58,17 +59,103 @@ export const VlePortal: React.FC = () => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // Quick Apply Modal for customer coming to cyber cafe
+  // Quick Apply Modal
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('srv_pan_new');
   const [customerName, setCustomerName] = useState('');
   const [customerMobile, setCustomerMobile] = useState('');
   const [customerNote, setCustomerNote] = useState('');
 
-  // Current VLE Center
-  const currentCenter = activeVle || vles[0];
+  // ============================================
+  // 🔒 LOGIN GUARD - Bina login ke andar nahi aayega
+  // ============================================
+  if (!activeVle) {
+    return (
+      <div id="vle-portal-login" className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+        <div className="max-w-lg w-full bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-8 sm:p-10 text-center shadow-2xl border border-blue-700/40 relative overflow-hidden">
+          {/* Decorative background */}
+          <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl"></div>
+          
+          <div className="relative z-10">
+            {/* Lock Icon */}
+            <div className="w-20 h-20 mx-auto bg-amber-400/20 border border-amber-400/40 rounded-2xl flex items-center justify-center mb-6">
+              <Lock className="w-10 h-10 text-amber-400" />
+            </div>
 
-  // Orders for this VLE
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-[10px] font-bold uppercase tracking-wider mb-4">
+              <Store className="w-3 h-3" />
+              CSC VLE & Cyber Cafe Portal
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-black text-white mb-3 tracking-tight">
+              🔒 Login Required
+            </h1>
+
+            <p className="text-sm text-blue-200 mb-2 leading-relaxed">
+              Yeh portal sirf <strong className="text-amber-300">registered CSC VLE</strong> aur 
+              <strong className="text-amber-300"> Cyber Cafe operators</strong> ke liye hai.
+            </p>
+            <p className="text-xs text-blue-300/80 mb-8">
+              Pehle apne VLE ID aur Password se login karein. Agar abhi tak register nahi kiya hai, 
+              toh ₹{siteConfig.vleOneTimeFee} ka one-time lifetime registration karein.
+            </p>
+
+            {/* Login Button */}
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-blue-900/30 active:scale-[0.98]"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>VLE Operator Login</span>
+              </button>
+
+              <button
+                onClick={() => setShowRegisterModal(true)}
+                className="w-full flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold py-3.5 rounded-xl transition shadow-lg shadow-amber-900/20 active:scale-[0.98]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New VLE Registration (₹{siteConfig.vleOneTimeFee || 299})</span>
+              </button>
+            </div>
+
+            {/* Benefits */}
+            <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-3 text-[10px] text-blue-200">
+              <div>
+                <div className="text-amber-400 font-black text-lg">50+</div>
+                <div>Lifetime Tools</div>
+              </div>
+              <div>
+                <div className="text-amber-400 font-black text-lg">₹299</div>
+                <div>One-Time Fee</div>
+              </div>
+              <div>
+                <div className="text-amber-400 font-black text-lg">∞</div>
+                <div>No Renewal</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Modals */}
+        <VleRegistrationModal
+          isOpen={showRegisterModal}
+          onClose={() => setShowRegisterModal(false)}
+        />
+        <VleLoginModal
+          isOpen={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          onOpenRegister={() => setShowRegisterModal(true)}
+        />
+      </div>
+    );
+  }
+
+  // ============================================
+  // ✅ LOGGED IN - Ab normal dashboard dikhao
+  // ============================================
+  const currentCenter = activeVle;
   const vleOrders = orders.filter((o) => o.vleId === currentCenter.vleId);
   const totalCounterEarnings = vleOrders.reduce((sum, o) => sum + o.amount, 0);
 
@@ -79,7 +166,6 @@ export const VlePortal: React.FC = () => {
     const srv = services.find((s) => s.id === selectedServiceId);
     if (!srv) return;
 
-    // Create Order with 100% direct counter cash collection (No wallet deduction for lifetime VIP)
     addCustomerOrder({
       customerName,
       customerMobile,
@@ -96,6 +182,11 @@ export const VlePortal: React.FC = () => {
     setCustomerName('');
     setCustomerMobile('');
     setCustomerNote('');
+  };
+
+  const handleLogout = () => {
+    setActiveVle(null);
+    showNotification('VLE Portal se logout ho gaye!');
   };
 
   return (
@@ -125,7 +216,6 @@ export const VlePortal: React.FC = () => {
             </p>
           </div>
 
-          {/* Membership Status & Counter Revenue Card */}
           <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center gap-4 shadow-inner">
             <div>
               <div className="text-[11px] uppercase tracking-wider text-amber-300 font-bold flex items-center gap-1.5">
@@ -142,11 +232,12 @@ export const VlePortal: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row gap-2">
               <button
-                onClick={() => setShowLoginModal(true)}
-                className="px-3 py-2 bg-white/20 hover:bg-white/30 text-white font-bold text-xs rounded-xl transition border border-white/30 flex items-center gap-1"
-                title="Switch Operator ID or Login"
+                onClick={handleLogout}
+                className="px-3 py-2 bg-red-500/30 hover:bg-red-500/50 text-white font-bold text-xs rounded-xl transition border border-red-400/40 flex items-center gap-1"
+                title="Logout from VLE Portal"
               >
-                <span>Switch / Login</span>
+                <Lock className="w-3.5 h-3.5" />
+                <span>Logout</span>
               </button>
               <button
                 onClick={() => setShowRegisterModal(true)}
@@ -188,7 +279,7 @@ export const VlePortal: React.FC = () => {
         </div>
       </div>
 
-      {/* RENDER ACTIVE TOOL MODAL IF ANY */}
+      {/* RENDER ACTIVE TOOL MODAL */}
       {activeTool === 'passport' && (
         <div className="animate-in fade-in zoom-in-95">
           <PassportPhotoMaker onClose={() => setActiveTool(null)} />
@@ -228,12 +319,6 @@ export const VlePortal: React.FC = () => {
       {activeTool === 'doc_clean' && (
         <div className="animate-in fade-in zoom-in-95">
           <DocumentCleanTool onClose={() => setActiveTool(null)} />
-        </div>
-      )}
-
-      {(activeTool === 'watermark' || activeTool === 'tool-pdf-watermark') && (
-        <div className="animate-in fade-in zoom-in-95">
-          <WatermarkTool onClose={() => setActiveTool(null)} />
         </div>
       )}
 
@@ -285,125 +370,125 @@ export const VlePortal: React.FC = () => {
             <ToolsExplorer />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {/* Passport Sheet */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <Camera className="w-6 h-6" />
+              {/* Passport Sheet */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                    <Camera className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Passport Photo Sheet Maker</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Make 6, 8, 16, or 32 photos on 4x6" lab paper or A4 sheet with 1px border & Govt exam name/date stamp.
+                  </p>
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">Passport Photo Sheet Maker</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Make 6, 8, 16, or 32 photos on 4x6" lab paper or A4 sheet with 1px border & Govt exam name/date stamp.
-                </p>
+                <button
+                  onClick={() => setActiveTool('passport')}
+                  className="mt-5 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+                >
+                  Launch Photo Maker <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => setActiveTool('passport')}
-                className="mt-5 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
-              >
-                Launch Photo Maker <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
 
-            {/* Govt Resizer */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <Maximize2 className="w-6 h-6" />
+              {/* Govt Resizer */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                    <Maximize2 className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Govt Exam Photo & Sign Resizer</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Exact KB & pixel presets for SSC, UPSC, Railway, PAN Card, and State Police with live range badge.
+                  </p>
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">Govt Exam Photo & Sign Resizer</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Exact KB & pixel presets for SSC, UPSC, Railway, PAN Card, and State Police with live range badge.
-                </p>
+                <button
+                  onClick={() => setActiveTool('resizer')}
+                  className="mt-5 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+                >
+                  Launch Resizer <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => setActiveTool('resizer')}
-                className="mt-5 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
-              >
-                Launch Resizer <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
 
-            {/* CR80 Smart Card */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <CreditCard className="w-6 h-6" />
+              {/* CR80 Smart Card */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Aadhaar & Smart Card Formatter</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Align front and back scans into standard 85.6mm x 54mm CR80 PVC dimensions with cut guide markers.
+                  </p>
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">Aadhaar & Smart Card Formatter</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Align front and back scans into standard 85.6mm x 54mm CR80 PVC dimensions with cut guide markers.
-                </p>
+                <button
+                  onClick={() => setActiveTool('aadhaar')}
+                  className="mt-5 w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+                >
+                  Format Smart Card <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => setActiveTool('aadhaar')}
-                className="mt-5 w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
-              >
-                Format Smart Card <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
 
-            {/* Resume / Bio-Data */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <FileText className="w-6 h-6" />
+              {/* Resume / Bio-Data */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Cyber Cafe Bio-Data & Resume</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Fill candidate profile and generate a clean 1-page professional resume/bio-data ready for printing.
+                  </p>
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">Cyber Cafe Bio-Data & Resume</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Fill candidate profile and generate a clean 1-page professional resume/bio-data ready for printing.
-                </p>
+                <button
+                  onClick={() => setActiveTool('resume')}
+                  className="mt-5 w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+                >
+                  Create Bio-Data <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => setActiveTool('resume')}
-                className="mt-5 w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
-              >
-                Create Bio-Data <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
 
-            {/* Receipt & Token */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <Receipt className="w-6 h-6" />
+              {/* Receipt & Token */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                    <Receipt className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Customer Job Slip & Receipt</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Print thermal 80mm or slip bill with QR code, token number, advance paid, and delivery time.
+                  </p>
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">Customer Job Slip & Receipt</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Print thermal 80mm or slip bill with QR code, token number, advance paid, and delivery time.
-                </p>
+                <button
+                  onClick={() => setActiveTool('receipt')}
+                  className="mt-5 w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+                >
+                  Generate Token Slip <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => setActiveTool('receipt')}
-                className="mt-5 w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
-              >
-                Generate Token Slip <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
 
-            {/* Document Cleaner */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <Sparkles className="w-6 h-6" />
+              {/* Document Cleaner */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Scanned Document Cleaner</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Turn dark mobile camera shots of marksheets and certificates into clean photocopy-ready black & white.
+                  </p>
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">Scanned Document Cleaner</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Turn dark mobile camera shots of marksheets and certificates into clean photocopy-ready black & white.
-                </p>
+                <button
+                  onClick={() => setActiveTool('doc_clean')}
+                  className="mt-5 w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+                >
+                  Clean Scanned Doc <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => setActiveTool('doc_clean')}
-                className="mt-5 w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
-              >
-                Clean Scanned Doc <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
             </div>
-          </div>
           )}
         </div>
       )}
 
-      {/* TAB 2: ASSISTED ONLINE SERVICES (APPLY FOR CUSTOMER) */}
+      {/* TAB 2: ASSISTED ONLINE SERVICES */}
       {activeTab === 'apply' && (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -469,7 +554,7 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: VLE ORDER HISTORY / CUSTOMER JOBS QUEUE */}
+      {/* TAB 3: VLE ORDER HISTORY */}
       {activeTab === 'orders' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -551,12 +636,12 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: SHOP BRANDING & CUSTOMER COUNTER UPI QR */}
+      {/* TAB 4: SHOP BRANDING */}
       {activeTab === 'branding' && (
         <ShopBrandingManager currentCenter={currentCenter} />
       )}
 
-      {/* TAB 5: OFFICIAL AFFIDAVITS & PRINT FORMATS */}
+      {/* TAB 5: AFFIDAVITS */}
       {activeTab === 'formats' && (
         <div className="space-y-6">
           <div>
