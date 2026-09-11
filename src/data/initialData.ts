@@ -568,34 +568,8 @@ export const initialImportantLinks: ImportantLink[] = [
 // Fallback alias for existing code
 export const quickGovtLinks = initialImportantLinks;
 
-export const initialVleApplications: VleApplication[] = [
-  {
-    id: 'app_vle_01',
-    operatorName: 'Vijay Prajapati',
-    centerName: 'Prajapati Cyber Point & Common Service',
-    mobile: '9891234567',
-    email: 'vijay.prajapati88@gmail.com',
-    state: 'Uttar Pradesh',
-    district: 'Varanasi',
-    address: 'Near BHU Gate, Lanka, Varanasi',
-    cscId: 'CSC-UP-54219',
-    paymentUtr: 'UTR202609110014298',
-    paymentAmount: 299,
-    status: 'pending',
-    appliedDate: '2026-09-11 11:30 AM',
-  },
-  {
-    id: 'app_vle_02',
-    operatorName: 'Deepak Kumar Sahu',
-    centerName: 'Maa Vaishno Digital Seva',
-    mobile: '9435012345',
-    email: 'deepak.sahu99@gmail.com',
-    state: 'Madhya Pradesh',
-    district: 'Bhopal',
-    address: 'Shop No. 4, Main Market, MP Nagar, Bhopal',
-    paymentUtr: 'UTR202609109823411',
-    paymentAmount: 299,
-    status: 'pending',
-    appliedDate: '2026-09-10 04:15 PM',
-  },
+export const initialVles: VleOperator[] = [
+  // Demo data hataya gaya - Real VLEs sirf Owner Approval ke baad add honge
+  // Jab Owner VLE Application approve karega, tab yahan automatically entry aayegi
+
 ];
