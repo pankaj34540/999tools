@@ -1,0 +1,6 @@
+{
+  "name": "999tools",
+  "description": "Professional multi-portal platform for online digital services featuring Public User Panel, CSC VLE / Cyber Cafe Owner Panel, and Master Owner Panel with full administrative control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
