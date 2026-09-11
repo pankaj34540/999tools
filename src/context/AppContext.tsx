@@ -32,7 +32,6 @@ interface AppContextType {
   addService: (service: Omit<ServiceItem, 'id'>) => void;
   deleteService: (id: string) => void;
   
-  // VLEs & Membership
   vles: VleOperator[];
   activeVle: VleOperator | null;
   setActiveVle: (vle: VleOperator | null) => void;
@@ -41,45 +40,38 @@ interface AppContextType {
   addVle: (vle: Omit<VleOperator, 'id' | 'vleId' | 'totalOrdersCompleted' | 'joinedDate'>) => void;
   updateVleProfile: (vleId: string, updates: Partial<VleOperator>) => void;
   
-  // VLE Applications & Approval Workflow
   vleApplications: VleApplication[];
   submitVleApplication: (app: Omit<VleApplication, 'id' | 'status' | 'appliedDate'>) => string;
   approveVleApplication: (appId: string, customVleId?: string, customPassword?: string) => { vleId: string; password: string } | null;
   rejectVleApplication: (appId: string, reason: string) => void;
   
-  // VLE Login Session
   vleLoggedIn: boolean;
   vleLogin: (vleId: string, password?: string) => boolean;
   vleLogout: () => void;
 
-  // Owner Security & Session
   ownerAuthenticated: boolean;
   ownerLockedUntil: number | null;
   verifyOwnerAuth: (input: string) => boolean;
   lockOwnerSession: () => void;
   changeOwnerCredentials: (newPin: string, newPassword?: string) => void;
 
-  // Important Government & Utility Links
   importantLinks: ImportantLink[];
   addImportantLink: (link: Omit<ImportantLink, 'id'>) => void;
   updateImportantLink: (link: ImportantLink) => void;
   deleteImportantLink: (id: string) => void;
   resetImportantLinks: () => void;
 
-  // Tools Management
   allTools: ToolDefinition[];
   customTools: ToolDefinition[];
   addCustomTool: (tool: Omit<ToolDefinition, 'id' | 'isCustom'>) => void;
   updateTool: (tool: ToolDefinition) => void;
   deleteCustomTool: (id: string) => void;
 
-  // Orders
   orders: CustomerOrder[];
   addCustomerOrder: (order: Omit<CustomerOrder, 'id' | 'tokenNumber' | 'date'>) => CustomerOrder;
   updateOrderStatus: (orderId: string, status: CustomerOrder['status'], notes?: string, rejectionReason?: string) => void;
   transactions: WalletTransaction[];
   
-  // Modals & Notifications
   activeTool: string | null;
   setActiveTool: (toolId: string | null) => void;
   resetToDefaultData: () => void;
@@ -105,7 +97,6 @@ const STORAGE_KEYS = {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Role
   const [role, setRoleState] = useState<UserRole>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ROLE);
     return (saved as UserRole) || 'user';
@@ -116,7 +107,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.ROLE, newRole);
   };
 
-  // Site Config
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SITE_CONFIG);
     if (saved) {
@@ -134,7 +124,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Site configuration updated successfully.');
   };
 
-  // Services
   const [services, setServices] = useState<ServiceItem[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SERVICES);
     if (saved) {
@@ -170,7 +159,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Service deleted.');
   };
 
-  // VLEs
   const [vles, setVles] = useState<VleOperator[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.VLES);
     if (saved) {
@@ -183,21 +171,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.VLES, JSON.stringify(vles));
   }, [vles]);
 
-  // Active VLE
+  // ============================================
+  // ✅ FIX #1: Active VLE — Bina login koi active nahi hoga
+  // ============================================
   const [activeVleId, setActiveVleId] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEYS.ACTIVE_VLE_ID) || initialVles[0]?.id || '';
+    // Sirf wahi VLE pick hoga jo localStorage mein saved hai
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_VLE_ID) || '';
   });
 
-  const activeVle = vles.find((v) => v.id === activeVleId) || vles[0] || null;
+  // Fallback hata diya — bina login ke koi VLE active nahi
+  const activeVle = vles.find((v) => v.id === activeVleId) || null;
 
   const setActiveVle = (vle: VleOperator | null) => {
     if (vle) {
       setActiveVleId(vle.id);
       localStorage.setItem(STORAGE_KEYS.ACTIVE_VLE_ID, vle.id);
+    } else {
+      // Logout pe localStorage bhi clear karo
+      setActiveVleId('');
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_VLE_ID);
     }
   };
 
-  // Orders
   const [orders, setOrders] = useState<CustomerOrder[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
     if (saved) {
@@ -210,7 +205,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
   }, [orders]);
 
-  // Transactions
   const [transactions, setTransactions] = useState<WalletTransaction[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
     if (saved) {
@@ -223,7 +217,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
   }, [transactions]);
 
-  // IMPORTANT LINKS & GOVT SITES
   const [importantLinks, setImportantLinks] = useState<ImportantLink[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.IMPORTANT_LINKS);
     if (saved) {
@@ -261,7 +254,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Default Government portals restored.');
   };
 
-  // VLE REGISTRATION APPLICATIONS
   const [vleApplications, setVleApplications] = useState<VleApplication[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.VLE_APPLICATIONS);
     if (saved) {
@@ -294,7 +286,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const generatedVleId = customVleId || `VLE-999-${Math.floor(1000 + Math.random() * 9000)}`;
     const generatedPassword = customPassword || 'Cyber#' + Math.floor(1000 + Math.random() * 9000);
 
-    // Create active VLE account with lifetime VIP membership
     const newVle: VleOperator = {
       id: 'vle_' + Date.now().toString(36),
       vleId: generatedVleId,
@@ -342,7 +333,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('VLE Application rejected.');
   };
 
+  // ============================================
   // VLE OPERATOR AUTHENTICATION
+  // ============================================
   const [vleLoggedIn, setVleLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEYS.VLE_LOGGED_IN) === 'true';
   });
@@ -353,7 +346,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         (v.vleId.toLowerCase() === vleIdOrEmail.trim().toLowerCase() ||
           v.email.toLowerCase() === vleIdOrEmail.trim().toLowerCase() ||
           v.mobile === vleIdOrEmail.trim()) &&
-        (password ? v.password === password || password === 'pass123' || password === '123456' : true)
+        (password ? v.password === password : true)
     );
 
     if (found) {
@@ -373,9 +366,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
+  // ============================================
+  // ✅ FIX #2: vleLogout — Sab kuch clear karo
+  // ============================================
   const vleLogout = () => {
     setVleLoggedIn(false);
+    setActiveVleId('');
     localStorage.removeItem(STORAGE_KEYS.VLE_LOGGED_IN);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_VLE_ID);
     showNotification('VLE Operator logged out successfully.');
   };
 
@@ -384,7 +382,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Center Profile & Shop Branding updated!');
   };
 
-  // OWNER PANEL SECURITY & PIN VERIFICATION
   const [ownerAuthenticated, setOwnerAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('999tools_owner_auth_v1') === 'true';
   });
@@ -414,7 +411,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOwnerFailedAttempts(nextAttempts);
 
     if (nextAttempts >= 5) {
-      const lockDuration = 60 * 1000; // 60 seconds
+      const lockDuration = 60 * 1000;
       setOwnerLockedUntil(Date.now() + lockDuration);
       showNotification('Too many failed attempts! Security Lockout for 60 seconds.');
     } else {
@@ -438,7 +435,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Master Security Credentials updated successfully!');
   };
 
-  // CUSTOM TOOLS & TOOL REGISTRY MANAGER
   const [customTools, setCustomTools] = useState<ToolDefinition[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CUSTOM_TOOLS);
     if (saved) {
@@ -477,7 +473,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Custom tool removed from registry.');
   };
 
-  // Wallet operations
   const updateVleWallet = (vleId: string, amount: number, type: 'credit' | 'debit', reason: string): boolean => {
     const targetVle = vles.find((v) => v.id === vleId);
     if (!targetVle) return false;
@@ -536,7 +531,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification(`New VLE ${newVle.centerName} (${newVle.vleId}) registered!`);
   };
 
-  // Orders
   const addCustomerOrder = (orderData: Omit<CustomerOrder, 'id' | 'tokenNumber' | 'date'>): CustomerOrder => {
     const randomToken = '999-2026-' + Math.floor(1000 + Math.random() * 9000);
     const newOrder: CustomerOrder = {
@@ -548,7 +542,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setOrders((prev) => [newOrder, ...prev]);
 
-    // If assigned to a VLE, also register commission or order count
     if (newOrder.vleId) {
       setVles((prev) =>
         prev.map((v) =>
@@ -585,10 +578,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification(`Order status updated to ${status.toUpperCase()}`);
   };
 
-  // Active Tool Modal
   const [activeTool, setActiveTool] = useState<string | null>(null);
 
-  // Notification Toast
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
   const showNotification = (msg: string) => {
     setNotificationMessage(msg);
@@ -605,12 +596,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.removeItem(STORAGE_KEYS.ORDERS);
       localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_VLE_ID);
+      localStorage.removeItem(STORAGE_KEYS.VLE_LOGGED_IN);
       setSiteConfig(initialSiteConfig);
       setServices(initialServices);
       setVles(initialVles);
       setOrders(initialOrders);
       setTransactions(initialTransactions);
-      setActiveVleId(initialVles[0]?.id || '');
+      setActiveVleId('');
       showNotification('Factory default data restored successfully.');
     }
   };
