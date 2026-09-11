@@ -2,30 +2,20 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   Store, 
-  Wallet, 
   Camera, 
   Maximize2, 
   CreditCard, 
   FileText, 
   Receipt, 
   Sparkles, 
-  Calendar, 
   Plus, 
-  QrCode, 
-  Search, 
   ArrowUpRight, 
-  CheckCircle2, 
-  Clock, 
   FileCheck2,
   Copy,
   Printer,
-  ChevronRight,
-  ExternalLink,
-  Stamp,
   Lock,
   KeyRound
 } from 'lucide-react';
-import { quickGovtLinks } from '../../data/initialData';
 import { PassportPhotoMaker } from '../tools/PassportPhotoMaker';
 import { PhotoSignResizer } from '../tools/PhotoSignResizer';
 import { AadhaarCardFormatter } from '../tools/AadhaarCardFormatter';
@@ -41,17 +31,15 @@ import { VleLoginModal } from './VleLoginModal';
 export const VlePortal: React.FC = () => {
   const { 
     activeVle, 
-    vles, 
-    setActiveVle, 
     siteConfig, 
     services, 
     orders, 
     addCustomerOrder, 
-    updateVleWallet,
-    transactions,
     activeTool,
     setActiveTool,
-    showNotification
+    showNotification,
+    vleLoggedIn,
+    vleLogout,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'tools' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
@@ -59,7 +47,6 @@ export const VlePortal: React.FC = () => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // Quick Apply Modal
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('srv_pan_new');
   const [customerName, setCustomerName] = useState('');
@@ -67,18 +54,16 @@ export const VlePortal: React.FC = () => {
   const [customerNote, setCustomerNote] = useState('');
 
   // ============================================
-  // 🔒 LOGIN GUARD - Bina login ke andar nahi aayega
+  // 🔒 LOGIN GUARD — Bina login ke andar nahi aayega
   // ============================================
-  if (!activeVle) {
+  if (!activeVle || !vleLoggedIn) {
     return (
       <div id="vle-portal-login" className="min-h-[80vh] flex items-center justify-center px-4 py-12">
         <div className="max-w-lg w-full bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-8 sm:p-10 text-center shadow-2xl border border-blue-700/40 relative overflow-hidden">
-          {/* Decorative background */}
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl"></div>
           
           <div className="relative z-10">
-            {/* Lock Icon */}
             <div className="w-20 h-20 mx-auto bg-amber-400/20 border border-amber-400/40 rounded-2xl flex items-center justify-center mb-6">
               <Lock className="w-10 h-10 text-amber-400" />
             </div>
@@ -101,7 +86,6 @@ export const VlePortal: React.FC = () => {
               toh ₹{siteConfig.vleOneTimeFee} ka one-time lifetime registration karein.
             </p>
 
-            {/* Login Button */}
             <div className="space-y-3">
               <button
                 onClick={() => setShowLoginModal(true)}
@@ -120,7 +104,6 @@ export const VlePortal: React.FC = () => {
               </button>
             </div>
 
-            {/* Benefits */}
             <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-3 text-[10px] text-blue-200">
               <div>
                 <div className="text-amber-400 font-black text-lg">50+</div>
@@ -138,7 +121,6 @@ export const VlePortal: React.FC = () => {
           </div>
         </div>
 
-        {/* Modals */}
         <VleRegistrationModal
           isOpen={showRegisterModal}
           onClose={() => setShowRegisterModal(false)}
@@ -153,7 +135,7 @@ export const VlePortal: React.FC = () => {
   }
 
   // ============================================
-  // ✅ LOGGED IN - Ab normal dashboard dikhao
+  // ✅ LOGGED IN — Normal dashboard
   // ============================================
   const currentCenter = activeVle;
   const vleOrders = orders.filter((o) => o.vleId === currentCenter.vleId);
@@ -185,13 +167,11 @@ export const VlePortal: React.FC = () => {
   };
 
   const handleLogout = () => {
-    setActiveVle(null);
-    showNotification('VLE Portal se logout ho gaye!');
+    vleLogout();
   };
 
   return (
     <div id="vle-portal" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* VLE Center Dashboard Banner */}
       <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-blue-700/40 relative overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-6 relative z-10">
           <div className="space-y-2">
@@ -239,18 +219,10 @@ export const VlePortal: React.FC = () => {
                 <Lock className="w-3.5 h-3.5" />
                 <span>Logout</span>
               </button>
-              <button
-                onClick={() => setShowRegisterModal(true)}
-                className="px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl shadow-md transition active:scale-95 flex items-center gap-1 shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>New Registration (₹{siteConfig.vleOneTimeFee || 299})</span>
-              </button>
             </div>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
         <div className="mt-8 pt-4 border-t border-white/10 flex flex-wrap gap-2">
           {[
             { id: 'tools', label: 'Cyber Cafe Quick Tools (Unlimited)', icon: Camera },
@@ -279,7 +251,6 @@ export const VlePortal: React.FC = () => {
         </div>
       </div>
 
-      {/* RENDER ACTIVE TOOL MODAL */}
       {activeTool === 'passport' && (
         <div className="animate-in fade-in zoom-in-95">
           <PassportPhotoMaker onClose={() => setActiveTool(null)} />
@@ -322,7 +293,6 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 1: CYBER CAFE ESSENTIAL TOOLS */}
       {activeTab === 'tools' && !activeTool && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200">
@@ -370,7 +340,6 @@ export const VlePortal: React.FC = () => {
             <ToolsExplorer />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {/* Passport Sheet */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
                 <div>
                   <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
@@ -389,7 +358,6 @@ export const VlePortal: React.FC = () => {
                 </button>
               </div>
 
-              {/* Govt Resizer */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
                 <div>
                   <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
@@ -408,7 +376,6 @@ export const VlePortal: React.FC = () => {
                 </button>
               </div>
 
-              {/* CR80 Smart Card */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
                 <div>
                   <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
@@ -427,7 +394,6 @@ export const VlePortal: React.FC = () => {
                 </button>
               </div>
 
-              {/* Resume / Bio-Data */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
                 <div>
                   <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
@@ -446,7 +412,6 @@ export const VlePortal: React.FC = () => {
                 </button>
               </div>
 
-              {/* Receipt & Token */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
                 <div>
                   <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
@@ -465,7 +430,6 @@ export const VlePortal: React.FC = () => {
                 </button>
               </div>
 
-              {/* Document Cleaner */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
                 <div>
                   <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
@@ -488,7 +452,6 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: ASSISTED ONLINE SERVICES */}
       {activeTab === 'apply' && (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -554,7 +517,6 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: VLE ORDER HISTORY */}
       {activeTab === 'orders' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -636,12 +598,10 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: SHOP BRANDING */}
       {activeTab === 'branding' && (
         <ShopBrandingManager currentCenter={currentCenter} />
       )}
 
-      {/* TAB 5: AFFIDAVITS */}
       {activeTab === 'formats' && (
         <div className="space-y-6">
           <div>
@@ -771,7 +731,6 @@ Verification: Verified at [City] that the contents of this affidavit are true to
         </div>
       )}
 
-      {/* MODAL: Apply for Customer */}
       {showApplyModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
@@ -855,13 +814,11 @@ Verification: Verified at [City] that the contents of this affidavit are true to
         </div>
       )}
 
-      {/* VLE REGISTRATION MODAL */}
       <VleRegistrationModal
         isOpen={showRegisterModal}
         onClose={() => setShowRegisterModal(false)}
       />
 
-      {/* VLE OPERATOR LOGIN MODAL */}
       <VleLoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
