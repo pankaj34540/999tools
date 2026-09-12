@@ -39,12 +39,10 @@ export const UserPortal: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  // Track status state
   const [trackQuery, setTrackQuery] = useState('');
   const [trackedOrder, setTrackedOrder] = useState<any | null>(null);
   const [trackSearched, setTrackSearched] = useState(false);
 
-  // Online application assistance form
   const [reqCustomerName, setReqCustomerName] = useState('');
   const [reqMobile, setReqMobile] = useState('');
   const [reqServiceId, setReqServiceId] = useState('srv_pan_new');
@@ -82,7 +80,6 @@ export const UserPortal: React.FC = () => {
     setReqNotes('');
   };
 
-  // Filter services
   const filteredServices = services.filter((s) => {
     if (!s.enabled) return false;
     const matchSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -93,7 +90,6 @@ export const UserPortal: React.FC = () => {
 
   return (
     <div id="user-portal" className="space-y-12 pb-16">
-      {/* Maintenance Mode Alert if enabled by Owner */}
       {siteConfig.maintenanceMode && (
         <div className="bg-amber-500 text-slate-950 px-4 py-3 text-center text-xs font-bold flex items-center justify-center gap-2">
           <AlertCircle className="w-4 h-4" />
@@ -121,7 +117,6 @@ export const UserPortal: React.FC = () => {
             {siteConfig.tagline}. Prepare passport photo sheets, crop exam signatures to exact KB, format CR80 smart cards, and generate bio-data in seconds.
           </p>
 
-          {/* Search Box */}
           <div className="max-w-2xl mx-auto relative pt-2">
             <div className="relative">
               <Search className="w-5 h-5 absolute left-4 top-3.5 text-slate-400" />
@@ -135,7 +130,6 @@ export const UserPortal: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Category Chips */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
             {[
               { id: 'all', label: 'All Tools & Services' },
@@ -161,15 +155,19 @@ export const UserPortal: React.FC = () => {
         </div>
       </section>
 
-      {/* COMPREHENSIVE 999TOOLS 50-TOOL ENGINE & DIRECTORY */}
+      {/* 50-TOOL ENGINE */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ToolsExplorer initialToolId={activeTool} onSelectTool={setActiveTool} />
+      </section>
+
+      {/* 🎯 NATIVE BANNER AD — Natural content break ke baad */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <AdsterraBanner slot="native_banner" className="my-8" />
       </section>
 
       {/* TRACK APPLICATION & ASSISTED REQUEST DUAL PANEL */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* TRACK STATUS (LEFT) */}
           <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 to-slate-850 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-slate-800 flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold">
@@ -200,7 +198,6 @@ export const UserPortal: React.FC = () => {
               </form>
             </div>
 
-            {/* Track Result Display */}
             {trackSearched && (
               <div className="pt-4 border-t border-slate-800">
                 {trackedOrder ? (
@@ -233,7 +230,6 @@ export const UserPortal: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Visual Progress Steps */}
                     <div className="pt-2 flex items-center justify-between text-[10px] text-slate-500 font-bold">
                       <span className="text-emerald-400">1. Submitted</span>
                       <span className={trackedOrder.status !== 'pending' ? 'text-emerald-400' : 'text-slate-600'}>
@@ -253,7 +249,6 @@ export const UserPortal: React.FC = () => {
             )}
           </div>
 
-          {/* ONLINE APPLICATION ASSISTANCE (RIGHT) */}
           <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl space-y-5">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
@@ -340,7 +335,12 @@ export const UserPortal: React.FC = () => {
         </div>
       </section>
 
-      {/* DIRECT GOVERNMENT OFFICIAL PORTAL DIRECTORY */}
+      {/* 🎯 SECOND NATIVE BANNER — Government Portals section ke pehle */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <AdsterraBanner slot="native_banner" />
+      </section>
+
+      {/* GOVERNMENT OFFICIAL PORTAL DIRECTORY */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -381,7 +381,7 @@ export const UserPortal: React.FC = () => {
         </div>
       </section>
 
-      {/* FOOTER FOR USER PORTAL */}
+      {/* FOOTER */}
       <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 border-t border-slate-200 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="font-bold text-slate-800">{siteConfig.siteName}</span> • {siteConfig.tagline}
