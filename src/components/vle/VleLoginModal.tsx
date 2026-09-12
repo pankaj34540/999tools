@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
-  Lock, 
-  Key, 
   Store, 
   ArrowRight, 
   AlertCircle, 
   Eye, 
   EyeOff, 
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  Loader2
 } from 'lucide-react';
 
 interface VleLoginModalProps {
@@ -19,36 +18,44 @@ interface VleLoginModalProps {
 }
 
 export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, onOpenRegister }) => {
-  const { vleLogin, vles, showNotification } = useApp();
+  const { vleLogin, showNotification } = useApp();
   const [operatorId, setOperatorId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!operatorId.trim()) {
       setErrorMsg('Please enter your Operator ID or Email');
       return;
     }
-
-    const success = vleLogin(operatorId.trim(), password.trim() || undefined);
-    if (success) {
-      setErrorMsg('');
-      onClose();
-    } else {
-      setErrorMsg('Invalid Operator ID or Password.');
+    if (!password.trim()) {
+      setErrorMsg('Please enter your Password');
+      return;
     }
-  };
 
-  const handleDemoLogin = (vleId: string, pass: string) => {
-    setOperatorId(vleId);
-    setPassword(pass);
-    const success = vleLogin(vleId, pass);
-    if (success) {
-      onClose();
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      const success = await vleLogin(operatorId.trim(), password.trim());
+      if (success) {
+        setErrorMsg('');
+        setOperatorId('');
+        setPassword('');
+        onClose();
+      } else {
+        setErrorMsg('Login failed. Check your ID/Email and Password.');
+      }
+    } catch (error) {
+      setErrorMsg('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -62,7 +69,10 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base">VLE Operator Login</h3>
-              <p className="text-xs text-slate-500">Sign in to your Cyber Cafe Portal</p>
+              <p className="text-xs text-slate-500 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                Firebase Secured
+              </p>
             </div>
           </div>
           <button
@@ -76,36 +86,43 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div>
             <label className="block font-bold text-slate-700 mb-1">
-              Operator ID / Email / Mobile *
+              Registered Email *
             </label>
             <input
-              type="text"
+              type="email"
               required
               value={operatorId}
               onChange={(e) => {
                 setOperatorId(e.target.value);
                 setErrorMsg('');
               }}
-              placeholder="e.g. VLE-999-1001 or registered email"
-              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-slate-900"
+              disabled={loading}
+              placeholder="e.g. yourname@gmail.com"
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-slate-900 disabled:bg-slate-50 disabled:opacity-60"
+              autoComplete="email"
             />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Jo email aapne registration mein diya tha
+            </p>
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
-              <span>Password *</span>
-              <span className="text-[10px] text-slate-400">Default: Cyber#1234 or pass123</span>
+            <label className="block font-bold text-slate-700 mb-1">
+              Password *
             </label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
+                required
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   setErrorMsg('');
                 }}
-                placeholder="Enter password"
-                className="w-full px-3.5 py-2.5 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-900"
+                disabled={loading}
+                placeholder="Enter your password"
+                className="w-full px-3.5 py-2.5 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-900 disabled:bg-slate-50 disabled:opacity-60"
+                autoComplete="current-password"
               />
               <button
                 type="button"
@@ -115,6 +132,9 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Password aapko Owner ne WhatsApp/Email pe bheja tha
+            </p>
           </div>
 
           {errorMsg && (
@@ -126,14 +146,23 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
 
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5"
+            disabled={loading}
+            className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 disabled:cursor-not-allowed"
           >
-            <span>Login to VLE Portal</span>
-            <ArrowRight className="w-4 h-4" />
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Verifying...</span>
+              </>
+            ) : (
+              <>
+                <span>Login to VLE Portal</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 
-        {/* Register CTA */}
         <div className="mt-6 pt-4 border-t border-slate-100 text-center">
           <p className="text-xs text-slate-500">
             Don't have a VLE ID yet?
@@ -151,31 +180,14 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
           </button>
         </div>
 
-        {/* Quick Demo Switcher */}
-        {vles.length > 0 && (
-          <div className="mt-5 pt-4 border-t border-slate-100 bg-slate-50 -mx-6 -mb-6 p-4 rounded-b-3xl">
-            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-2">
-              Quick Test Operators:
-            </span>
-            <div className="space-y-1.5">
-              {vles.slice(0, 2).map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => handleDemoLogin(v.vleId, v.password || 'pass123')}
-                  className="w-full text-left px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-400 text-[11px] flex items-center justify-between group transition"
-                >
-                  <span className="font-semibold text-slate-800 truncate max-w-[200px]">
-                    {v.centerName}
-                  </span>
-                  <span className="font-mono text-blue-600 font-bold group-hover:underline">
-                    {v.vleId}
-                  </span>
-                </button>
-              ))}
-            </div>
+        <div className="mt-5 pt-4 border-t border-slate-100 bg-slate-50 -mx-6 -mb-6 p-4 rounded-b-3xl">
+          <div className="flex items-start gap-2 text-[11px] text-slate-500">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              <strong className="text-slate-700">Firebase Protected Login.</strong> Aapka password Google Firebase ke servers pe encrypted save hai. Koi bhi hack ya bypass nahi kar sakta.
+            </p>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
