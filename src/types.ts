@@ -1,5 +1,139 @@
 export type UserRole = 'user' | 'vle' | 'owner';
 
+export type UserPlan = 'free' | 'premium' | 'vle';
+export type SubscriptionStatus = 'active' | 'expired' | 'pending' | 'cancelled';
+export type BillingCycle = 'monthly' | 'yearly';
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  name: string;
+  mobile?: string;
+  plan: UserPlan;
+  subscriptionStart?: string;
+  subscriptionEnd?: string;
+  subscriptionStatus: SubscriptionStatus;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
+export interface ToolUsage {
+  id: string;
+  userId: string;
+  toolId: string;
+  date: string;
+  count: number;
+  lastUsedAt: string;
+}
+
+export interface PaymentRequest {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userMobile?: string;
+  plan: 'premium' | 'vle';
+  billingCycle: BillingCycle;
+  amount: number;
+  utr: string;
+  screenshotUrl?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  rejectionReason?: string;
+  validUntil?: string;
+}
+
+export interface PricingPlan {
+  id: 'free' | 'premium' | 'vle';
+  name: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  features: string[];
+  premiumToolLimit: number;
+  showAds: boolean;
+}
+
+export interface SubscriptionStats {
+  totalFreeUsers: number;
+  totalPremiumUsers: number;
+  totalVleUsers: number;
+  monthlyRevenue: number;
+  yearlyRevenue: number;
+  pendingPayments: number;
+}
+
+export type LedgerEntryType = 
+  | 'credit'
+  | 'debit'
+  | 'sale'
+  | 'expense'
+  | 'payment_in'
+  | 'payment_out'
+  | 'adjustment';
+
+export interface LedgerEntry {
+  id: string;
+  vleId: string;
+  vleCenterName: string;
+  customerName: string;
+  customerMobile: string;
+  customerAddress?: string;
+  type: LedgerEntryType;
+  amount: number;
+  description: string;
+  category?: string;
+  paidAmount?: number;
+  pendingAmount?: number;
+  date: string;
+  timestamp: string;
+  attachmentUrl?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CustomerLedgerSummary {
+  customerMobile: string;
+  customerName: string;
+  customerAddress?: string;
+  totalDebit: number;
+  totalCredit: number;
+  balance: number;
+  balanceType: 'receivable' | 'payable' | 'settled';
+  totalTransactions: number;
+  lastTransactionDate: string;
+  lastTransactionAmount: number;
+  lastTransactionType: LedgerEntryType;
+  firstTransactionDate: string;
+}
+
+export interface KhatabookStats {
+  vleId: string;
+  totalCustomers: number;
+  totalReceivable: number;
+  totalPayable: number;
+  netBalance: number;
+  todayTransactions: number;
+  todaySales: number;
+  todayReceived: number;
+  monthTransactions: number;
+  monthSales: number;
+  monthReceived: number;
+  topCustomers: CustomerLedgerSummary[];
+}
+
+export interface LedgerFilterOptions {
+  customerMobile?: string;
+  type?: LedgerEntryType;
+  dateFrom?: string;
+  dateTo?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  searchQuery?: string;
+}
+
 export interface AdsterraConfig {
   enabled: boolean;
   headerBannerActive: boolean;
@@ -36,6 +170,11 @@ export interface SiteConfig {
   vleOneTimeFee: number;
   ownerSecurityPin: string;
   ownerPassword?: string;
+  premiumMonthlyPrice: number;
+  premiumYearlyPrice: number;
+  vleMonthlyPrice: number;
+  vleYearlyPrice: number;
+  freeUserDailyLimit: number;
 }
 
 export interface ImportantLink {
@@ -87,6 +226,7 @@ export interface ToolDefinition {
   tags: string[];
   popular?: boolean;
   vleEssential?: boolean;
+  isPremium?: boolean;
   iconName: string;
   componentKey: string;
   externalUrl?: string;
@@ -152,6 +292,9 @@ export interface VleOperator {
   shopWatermarkPurpose?: string;
   shopWatermarkStampEnabled?: boolean;
   shopStampColor?: string;
+  subscriptionStart?: string;
+  subscriptionEnd?: string;
+  subscriptionStatus?: SubscriptionStatus;
 }
 
 export interface CustomerOrder {
