@@ -30,7 +30,8 @@ import {
   UserCheck,
   Link2,
   Wrench,
-  ShieldCheck
+  ShieldCheck,
+  CreditCard
 } from 'lucide-react';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
@@ -38,6 +39,7 @@ import { OwnerSecurityGate } from './OwnerSecurityGate';
 import { VleApprovalsManager } from './VleApprovalsManager';
 import { ImportantLinksManager } from './ImportantLinksManager';
 import { ToolsManager } from './ToolsManager';
+import { PaymentApprovalsManager } from './PaymentApprovalsManager';
 
 export const OwnerPortal: React.FC = () => {
   const { 
@@ -61,14 +63,15 @@ export const OwnerPortal: React.FC = () => {
     lockOwnerSession,
     vleApplications,
     importantLinks,
-    allTools
+    allTools,
+    paymentRequests
   } = useApp();
 
   if (!ownerAuthenticated) {
     return <OwnerSecurityGate />;
   }
 
-  const [activeTab, setActiveTab] = useState<'analytics' | 'vle_approvals' | 'services' | 'tools_hub' | 'links' | 'vles' | 'orders' | 'settings' | 'monetization'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'vle_approvals' | 'payment_approvals' | 'services' | 'tools_hub' | 'links' | 'vles' | 'orders' | 'settings' | 'monetization'>('analytics');
 
   // Service modal
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -117,6 +120,9 @@ export const OwnerPortal: React.FC = () => {
   const totalVleBalances = vles.reduce((sum, v) => sum + v.walletBalance, 0);
   const pendingOrders = orders.filter((o) => o.status === 'pending').length;
   const activeVleCount = vles.filter((v) => v.status === 'active').length;
+  
+  // 🆕 Payment pending count
+  const paymentPendingCount = paymentRequests.filter((p) => p.status === 'pending').length;
 
   const handleCreateService = (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,6 +216,7 @@ export const OwnerPortal: React.FC = () => {
           {[
             { id: 'analytics', label: 'Overview & Stats', icon: TrendingUp },
             { id: 'vle_approvals', label: `VLE Applications`, icon: UserCheck, badge: pendingVleAppsCount },
+            { id: 'payment_approvals', label: `Payments`, icon: CreditCard, badge: paymentPendingCount },
             { id: 'tools_hub', label: `50+ Tools Registry`, icon: Wrench },
             { id: 'links', label: `Govt Links (${importantLinks.length})`, icon: Link2 },
             { id: 'services', label: `Form Services (${services.length})`, icon: Layers },
@@ -570,7 +577,7 @@ export const OwnerPortal: React.FC = () => {
                             }}
                             className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold rounded-lg text-xs flex items-center gap-1 transition"
                           >
-                            <Wallet className="w-3.5 h-3.5" /> Top-Up Wallet
+                            <Wallet className="w-3.5 h-3.5" /> Top-Up
                           </button>
                           <button
                             onClick={() => toggleVleStatus(vle.id)}
@@ -822,70 +829,92 @@ export const OwnerPortal: React.FC = () => {
                       : 'bg-slate-200 text-slate-700'
                   }`}
                 >
-                  {siteConfig.maintenanceMode ? 'Active (Maintenance ON)' : 'OFF (Normal Operation)'}
+                  {siteConfig.maintenanceMode ? 'Active' : 'OFF'}
                 </button>
               </div>
             </div>
 
-            <div className="space-y-4 bg-amber-50/50 p-5 rounded-xl border border-amber-200">
+            {/* Subscription Pricing Settings */}
+            <div className="space-y-4 bg-blue-50/50 p-5 rounded-xl border border-blue-200 md:col-span-2">
+              <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-blue-600" />
+                Subscription Pricing & Plans
+              </h3>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
+                    Premium Monthly (₹):
+                  </label>
+                  <input
+                    type="number"
+                    value={siteConfig.premiumMonthlyPrice || 49}
+                    onChange={(e) => updateSiteConfig({ premiumMonthlyPrice: parseFloat(e.target.value) || 49 })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
+                    Premium Yearly (₹):
+                  </label>
+                  <input
+                    type="number"
+                    value={siteConfig.premiumYearlyPrice || 399}
+                    onChange={(e) => updateSiteConfig({ premiumYearlyPrice: parseFloat(e.target.value) || 399 })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
+                    VLE Monthly (₹):
+                  </label>
+                  <input
+                    type="number"
+                    value={siteConfig.vleMonthlyPrice || 199}
+                    onChange={(e) => updateSiteConfig({ vleMonthlyPrice: parseFloat(e.target.value) || 199 })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
+                    VLE Yearly (₹):
+                  </label>
+                  <input
+                    type="number"
+                    value={siteConfig.vleYearlyPrice || 1499}
+                    onChange={(e) => updateSiteConfig({ vleYearlyPrice: parseFloat(e.target.value) || 1499 })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] text-slate-600 font-semibold block mb-1">
+                  Free User Daily Limit (uses per premium tool):
+                </label>
+                <input
+                  type="number"
+                  value={siteConfig.freeUserDailyLimit || 3}
+                  onChange={(e) => updateSiteConfig({ freeUserDailyLimit: parseInt(e.target.value) || 3 })}
+                  className="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
+                />
+                <span className="text-[11px] text-slate-500 ml-3">
+                  Free users premium tools ko itni baar use kar sakte hain per day
+                </span>
+              </div>
+            </div>
+
+            {/* Owner Security */}
+            <div className="space-y-4 bg-amber-50/50 p-5 rounded-xl border border-amber-200 md:col-span-2">
               <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-amber-600" />
-                Owner Panel Security & VLE One-Time Registration Fee
+                Owner Panel Security
               </h3>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs">
                 <div className="font-bold text-blue-800 mb-1">🔒 Firebase Auth Active</div>
                 <div className="text-blue-700 text-[11px]">
                   Owner login ab Google Firebase se protected hai. Password Firebase servers pe encrypted hai.
-                  Yahan se PIN change karne ke liye Firebase Console use karo.
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
-                    Owner Panel Password (Old - Deprecated):
-                  </label>
-                  <input
-                    type="text"
-                    value={siteConfig.ownerPassword || 'Admin@999'}
-                    onChange={(e) => updateSiteConfig({ ownerPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono font-bold bg-white opacity-60"
-                    disabled
-                  />
-                  <span className="text-[10px] text-slate-400">Ab Firebase Auth se manage hota hai</span>
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
-                    Quick Access 4-Digit PIN (Old - Deprecated):
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={4}
-                    value={siteConfig.ownerSecurityPin || '9999'}
-                    onChange={(e) => updateSiteConfig({ ownerSecurityPin: e.target.value.replace(/\D/g, '') })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono font-bold bg-white opacity-60"
-                    disabled
-                  />
-                  <span className="text-[10px] text-slate-400">Ab Firebase Auth se manage hota hai</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-amber-200">
-                <label className="text-[11px] text-slate-700 font-semibold block mb-1">
-                  CSC VLE One-Time Lifetime Registration Fee (₹):
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    value={siteConfig.vleOneTimeFee || 299}
-                    onChange={(e) => updateSiteConfig({ vleOneTimeFee: parseFloat(e.target.value) || 299 })}
-                    className="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
-                  />
-                  <span className="text-xs text-slate-500">
-                    Paid once by Cyber Cafe operators for lifetime unlimited tools access.
-                  </span>
                 </div>
               </div>
             </div>
@@ -893,22 +922,27 @@ export const OwnerPortal: React.FC = () => {
         </div>
       )}
 
-      {/* TAB: VLE REGISTRATION APPLICATIONS & APPROVALS */}
+      {/* TAB: VLE REGISTRATION APPLICATIONS */}
       {activeTab === 'vle_approvals' && (
         <VleApprovalsManager />
       )}
 
-      {/* TAB: 50+ TOOLS REGISTRY & DEVELOPER CODE GENERATOR */}
+      {/* 🆕 TAB: PAYMENT APPROVALS */}
+      {activeTab === 'payment_approvals' && (
+        <PaymentApprovalsManager />
+      )}
+
+      {/* TAB: 50+ TOOLS REGISTRY */}
       {activeTab === 'tools_hub' && (
         <ToolsManager />
       )}
 
-      {/* TAB: IMPORTANT GOVT LINKS & SITES MANAGER */}
+      {/* TAB: IMPORTANT GOVT LINKS */}
       {activeTab === 'links' && (
         <ImportantLinksManager />
       )}
 
-      {/* TAB: ADSTERRA MONETIZATION & ADS ENGINE */}
+      {/* TAB: ADSTERRA MONETIZATION */}
       {activeTab === 'monetization' && (
         <AdsterraManager />
       )}
@@ -1096,7 +1130,7 @@ export const OwnerPortal: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: Wallet Recharge for VLE */}
+      {/* MODAL: Wallet Top-Up */}
       {walletModalVle && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
@@ -1112,7 +1146,7 @@ export const OwnerPortal: React.FC = () => {
                 <div className="text-slate-500">Center:</div>
                 <div className="font-bold text-slate-800">{walletModalVle.centerName}</div>
                 <div className="text-blue-600 font-mono text-[11px] font-semibold">{walletModalVle.vleId}</div>
-                <div className="text-slate-500 mt-1">Current Balance: <strong className="text-emerald-700 font-mono">₹{walletModalVle.walletBalance}</strong></div>
+                <div className="text-slate-500 mt-1">Balance: <strong className="text-emerald-700 font-mono">₹{walletModalVle.walletBalance}</strong></div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -1125,7 +1159,7 @@ export const OwnerPortal: React.FC = () => {
                       : 'bg-slate-100 text-slate-700'
                   }`}
                 >
-                  + Credit (Add Money)
+                  + Credit
                 </button>
                 <button
                   type="button"
@@ -1136,7 +1170,7 @@ export const OwnerPortal: React.FC = () => {
                       : 'bg-slate-100 text-slate-700'
                   }`}
                 >
-                  - Debit (Deduct)
+                  - Debit
                 </button>
               </div>
 
@@ -1157,7 +1191,6 @@ export const OwnerPortal: React.FC = () => {
                   type="text"
                   value={walletReason}
                   onChange={(e) => setWalletReason(e.target.value)}
-                  placeholder="e.g. PhonePe UPI Ref #992810"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
@@ -1176,7 +1209,7 @@ export const OwnerPortal: React.FC = () => {
                     walletType === 'credit' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
                   }`}
                 >
-                  Confirm {walletType === 'credit' ? 'Credit' : 'Debit'}
+                  Confirm
                 </button>
               </div>
             </form>
@@ -1203,7 +1236,6 @@ export const OwnerPortal: React.FC = () => {
                   required
                   value={vleForm.centerName}
                   onChange={(e) => setVleForm({ ...vleForm, centerName: e.target.value })}
-                  placeholder="e.g. Om Digital Seva Kendra"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
@@ -1216,7 +1248,6 @@ export const OwnerPortal: React.FC = () => {
                     required
                     value={vleForm.operatorName}
                     onChange={(e) => setVleForm({ ...vleForm, operatorName: e.target.value })}
-                    placeholder="Operator Name"
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                   />
                 </div>
@@ -1227,7 +1258,6 @@ export const OwnerPortal: React.FC = () => {
                     required
                     value={vleForm.mobile}
                     onChange={(e) => setVleForm({ ...vleForm, mobile: e.target.value })}
-                    placeholder="10-digit mobile"
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                   />
                 </div>
@@ -1250,7 +1280,6 @@ export const OwnerPortal: React.FC = () => {
                     required
                     value={vleForm.district}
                     onChange={(e) => setVleForm({ ...vleForm, district: e.target.value })}
-                    placeholder="e.g. Varanasi"
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                   />
                 </div>
