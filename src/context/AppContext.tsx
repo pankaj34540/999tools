@@ -117,7 +117,6 @@ interface AppContextType {
   showNotification: (msg: string) => void;
   firebaseReady: boolean;
 
-  // SUBSCRIPTION
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   userAccountLoading: boolean;
@@ -127,17 +126,14 @@ interface AppContextType {
   isUserPremium: () => boolean;
   showAdsForCurrentUser: () => boolean;
 
-  // PAYMENTS
   paymentRequests: PaymentRequest[];
   submitPaymentRequest: (data: Omit<PaymentRequest, 'id' | 'status' | 'requestedAt'>) => Promise<PaymentRequest | null>;
   approvePaymentRequest: (paymentId: string, validUntil: Date) => Promise<boolean>;
   rejectPaymentRequest: (paymentId: string, reason: string) => Promise<boolean>;
 
-  // PREMIUM TOOLS
   premiumToolIds: string[];
   togglePremiumTool: (toolId: string) => void;
 
-  // KHATABOOK
   ledgerEntries: LedgerEntry[];
   ledgerLoading: boolean;
   addLedgerEntry: (entry: Omit<LedgerEntry, 'id' | 'createdAt' | 'timestamp' | 'date'>) => Promise<LedgerEntry | null>;
@@ -186,9 +182,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.ROLE, newRole);
   };
 
-  // ============================================
   // SITE CONFIG
-  // ============================================
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SITE_CONFIG);
     if (saved) {
@@ -197,9 +191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialSiteConfig;
   });
 
-  // ============================================
   // SERVICES
-  // ============================================
   const [services, setServices] = useState<ServiceItem[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SERVICES);
     if (saved) {
@@ -212,9 +204,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
   }, [services]);
 
-  // ============================================
   // VLEs
-  // ============================================
   const [vles, setVles] = useState<VleOperator[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.VLES);
     if (saved) {
@@ -223,9 +213,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialVles;
   });
 
-  // ============================================
   // ORDERS
-  // ============================================
   const [orders, setOrders] = useState<CustomerOrder[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
     if (saved) {
@@ -234,9 +222,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialOrders;
   });
 
-  // ============================================
   // TRANSACTIONS
-  // ============================================
   const [transactions, setTransactions] = useState<WalletTransaction[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
     if (saved) {
@@ -249,9 +235,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
   }, [transactions]);
 
-  // ============================================
   // IMPORTANT LINKS
-  // ============================================
   const [importantLinks, setImportantLinks] = useState<ImportantLink[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.IMPORTANT_LINKS);
     if (saved) {
@@ -260,9 +244,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialImportantLinks;
   });
 
-  // ============================================
   // VLE APPLICATIONS
-  // ============================================
   const [vleApplications, setVleApplications] = useState<VleApplication[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.VLE_APPLICATIONS);
     if (saved) {
@@ -271,9 +253,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialVleApplications;
   });
 
-  // ============================================
   // CUSTOM TOOLS
-  // ============================================
   const [customTools, setCustomTools] = useState<ToolDefinition[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CUSTOM_TOOLS);
     if (saved) {
@@ -282,9 +262,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   });
 
-  // ============================================
   // PREMIUM TOOLS LIST
-  // ============================================
   const [premiumToolIds, setPremiumToolIds] = useState<string[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.PREMIUM_TOOLS);
     if (saved) {
@@ -306,20 +284,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Premium tool list updated');
   };
 
-  // ============================================
-  // CURRENT USER (Subscription Account)
-  // ============================================
+  // CURRENT USER
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [userAccountLoading, setUserAccountLoading] = useState(false);
 
-  // ============================================
-  // PAYMENT REQUESTS (Owner view)
-  // ============================================
+  // PAYMENT REQUESTS
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
 
-  // ============================================
-  // KHATABOOK LEDGER (VLE)
-  // ============================================
+  // KHATABOOK LEDGER
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
@@ -428,9 +400,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     saveLinksToFirebase(importantLinks);
   }, [importantLinks, firebaseReady]);
 
-  // ============================================
   // UPDATE FUNCTIONS
-  // ============================================
   const updateSiteConfig = async (updates: Partial<SiteConfig>) => {
     const next = { ...siteConfig, ...updates };
     setSiteConfig(next);
@@ -460,9 +430,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Service deleted.');
   };
 
-  // ============================================
   // ACTIVE VLE
-  // ============================================
   const [activeVleId, setActiveVleId] = useState<string>(() => {
     return localStorage.getItem(STORAGE_KEYS.ACTIVE_VLE_ID) || '';
   });
@@ -479,9 +447,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // ============================================
   // IMPORTANT LINKS FUNCTIONS
-  // ============================================
   const addImportantLink = (linkData: Omit<ImportantLink, 'id'>) => {
     const newLink: ImportantLink = { ...linkData, id: 'link_' + Date.now().toString(36) };
     setImportantLinks((prev) => [newLink, ...prev]);
@@ -504,7 +470,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ============================================
-  // VLE APPLICATIONS FUNCTIONS
+  // 🆕 VLE APPLICATIONS — Direct Firebase save
   // ============================================
   const submitVleApplication = (appData: Omit<VleApplication, 'id' | 'status' | 'appliedDate'>): string => {
     const appId = 'app_vle_' + Date.now().toString(36);
@@ -514,8 +480,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'pending',
       appliedDate: new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
     };
-    setVleApplications((prev) => [newApp, ...prev]);
-    showNotification('Application submitted!');
+    
+    const updatedList = [newApp, ...vleApplications];
+    setVleApplications(updatedList);
+    
+    // 🆕 Direct Firebase save with logging
+    (async () => {
+      try {
+        console.log('📤 Submitting VLE application to Firebase...');
+        const success = await saveApplicationsToFirebase(updatedList);
+        if (success) {
+          console.log('✅ VLE Application saved to Firestore');
+          showNotification('✅ Application submitted successfully!');
+        } else {
+          console.error('❌ VLE Application save failed');
+          showNotification('⚠️ Application saved locally, sync pending');
+        }
+      } catch (error: any) {
+        console.error('❌ Firebase error:', error);
+        showNotification('⚠️ Sync issue — Owner will verify soon');
+      }
+    })();
+    
     return appId;
   };
 
@@ -580,9 +566,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Application rejected.');
   };
 
-  // ============================================
   // VLE AUTH
-  // ============================================
   const [vleLoggedIn, setVleLoggedIn] = useState<boolean>(false);
 
   const vleLogin = async (emailOrVleId: string, password?: string): Promise<boolean> => {
@@ -639,9 +623,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, [vles]);
 
-  // ============================================
   // OWNER AUTH
-  // ============================================
   const [ownerAuthenticated, setOwnerAuthenticated] = useState<boolean>(false);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerLockedUntil, setOwnerLockedUntil] = useState<number | null>(null);
@@ -671,9 +653,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Credentials updated!');
   };
 
-  // ============================================
   // TOOLS
-  // ============================================
   const allTools: ToolDefinition[] = [...TOOLS_REGISTRY, ...customTools];
 
   const addCustomTool = (toolData: Omit<ToolDefinition, 'id' | 'isCustom'>) => {
@@ -695,9 +675,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Tool removed.');
   };
 
-  // ============================================
   // WALLET
-  // ============================================
   const updateVleWallet = (vleId: string, amount: number, type: 'credit' | 'debit', reason: string): boolean => {
     const targetVle = vles.find((v) => v.id === vleId);
     if (!targetVle) return false;
@@ -749,9 +727,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('New VLE registered!');
   };
 
-  // ============================================
   // ORDERS
-  // ============================================
   const addCustomerOrder = (orderData: Omit<CustomerOrder, 'id' | 'tokenNumber' | 'date'>): CustomerOrder => {
     const randomToken = '999-2026-' + Math.floor(1000 + Math.random() * 9000);
     const newOrder: CustomerOrder = {
@@ -799,9 +775,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // ============================================
   // SUBSCRIPTION FUNCTIONS
-  // ============================================
   const createOrUpdateUserAccount = async (userData: Partial<UserAccount> & { id: string; email: string; name: string }): Promise<boolean> => {
     setUserAccountLoading(true);
     try {
@@ -862,10 +836,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  // ============================================
-  // 🆕 REAL-TIME CURRENT USER LISTENER
-  // (Plan changes ka automatic update)
-  // ============================================
+  // REAL-TIME CURRENT USER LISTENER
   useEffect(() => {
     if (!currentUser?.id) return;
     
@@ -875,7 +846,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { subscribeToUserAccount } = await import('../services/subscriptionService');
       unsubscribe = subscribeToUserAccount(currentUser.id, (updatedUser) => {
         if (updatedUser) {
-          // Only update if something actually changed
           if (
             updatedUser.plan !== currentUser.plan ||
             updatedUser.subscriptionStatus !== currentUser.subscriptionStatus ||
@@ -896,9 +866,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
 
-  // ============================================
   // PAYMENT FUNCTIONS
-  // ============================================
   const submitPaymentRequest = async (data: Omit<PaymentRequest, 'id' | 'status' | 'requestedAt'>): Promise<PaymentRequest | null> => {
     const { createPaymentRequest } = await import('../services/paymentService');
     const result = await createPaymentRequest(data);
@@ -933,9 +901,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return success;
   };
 
-  // ============================================
   // KHATABOOK FUNCTIONS
-  // ============================================
   const addLedgerEntry = async (entryData: Omit<LedgerEntry, 'id' | 'createdAt' | 'timestamp' | 'date'>) => {
     const { createLedgerEntry } = await import('../services/khatabookService');
     const result = await createLedgerEntry(entryData);
@@ -967,26 +933,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const getKhatabookStats = (): KhatabookStats => {
-    // Simple sync calculation using current entries
     const totalCustomers = new Set(ledgerEntries.map(e => e.customerMobile)).size;
-    
     let totalReceivable = 0;
     let totalPayable = 0;
     
-    const customerBalance: Record<string, { name: string; mobile: string; debit: number; credit: number; lastDate: string; lastType: any; lastAmount: number; count: number; firstDate: string }> = {};
-    
+    const customerBalance: Record<string, any> = {};
     ledgerEntries.forEach(e => {
       if (!customerBalance[e.customerMobile]) {
         customerBalance[e.customerMobile] = {
-          name: e.customerName,
-          mobile: e.customerMobile,
-          debit: 0,
-          credit: 0,
-          lastDate: e.date,
-          lastType: e.type,
-          lastAmount: e.amount,
-          count: 0,
-          firstDate: e.date,
+          name: e.customerName, mobile: e.customerMobile,
+          debit: 0, credit: 0, lastDate: e.date, lastType: e.type,
+          lastAmount: e.amount, count: 0, firstDate: e.date, lastTimestamp: e.timestamp,
         };
       }
       const cb = customerBalance[e.customerMobile];
@@ -996,27 +953,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       else if (e.type === 'sale') { cb.debit += e.amount; cb.credit += e.amount; }
       else if (e.type === 'payment_out') cb.debit += e.amount;
       
-      // Latest
-      if (new Date(e.timestamp).getTime() > new Date(cb.lastDate).getTime()) {
-        cb.lastDate = e.date;
-        cb.lastType = e.type;
-        cb.lastAmount = e.amount;
+      if (new Date(e.timestamp).getTime() > new Date(cb.lastTimestamp).getTime()) {
+        cb.lastDate = e.date; cb.lastType = e.type; cb.lastAmount = e.amount;
+        cb.lastTimestamp = e.timestamp; cb.name = e.customerName;
       }
     });
     
-    const summaries: CustomerLedgerSummary[] = Object.values(customerBalance).map(cb => {
+    const summaries: CustomerLedgerSummary[] = Object.values(customerBalance).map((cb: any) => {
       const balance = cb.debit - cb.credit;
       return {
-        customerMobile: cb.mobile,
-        customerName: cb.name,
-        totalDebit: cb.debit,
-        totalCredit: cb.credit,
-        balance: Math.abs(balance),
+        customerMobile: cb.mobile, customerName: cb.name,
+        totalDebit: cb.debit, totalCredit: cb.credit, balance: Math.abs(balance),
         balanceType: balance > 0 ? 'receivable' : balance < 0 ? 'payable' : 'settled',
-        totalTransactions: cb.count,
-        lastTransactionDate: cb.lastDate,
-        lastTransactionAmount: cb.lastAmount,
-        lastTransactionType: cb.lastType,
+        totalTransactions: cb.count, lastTransactionDate: cb.lastDate,
+        lastTransactionAmount: cb.lastAmount, lastTransactionType: cb.lastType,
         firstTransactionDate: cb.firstDate,
       };
     });
@@ -1028,15 +978,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
     const month = today.substring(0, 7);
-    
     const todayEntries = ledgerEntries.filter(e => e.date === today);
     const monthEntries = ledgerEntries.filter(e => e.date.startsWith(month));
     
     return {
       vleId: activeVle?.vleId || '',
-      totalCustomers,
-      totalReceivable,
-      totalPayable,
+      totalCustomers, totalReceivable, totalPayable,
       netBalance: totalReceivable - totalPayable,
       todayTransactions: todayEntries.length,
       todaySales: todayEntries.filter(e => e.type === 'sale' || e.type === 'debit').reduce((s, e) => s + e.amount, 0),
@@ -1050,21 +997,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const getCustomerSummaries = (): CustomerLedgerSummary[] => {
     const customerBalance: Record<string, any> = {};
-    
     ledgerEntries.forEach(e => {
       if (!customerBalance[e.customerMobile]) {
         customerBalance[e.customerMobile] = {
-          name: e.customerName,
-          mobile: e.customerMobile,
-          address: e.customerAddress,
-          debit: 0,
-          credit: 0,
-          lastDate: e.date,
-          lastType: e.type,
-          lastAmount: e.amount,
-          count: 0,
-          firstDate: e.date,
-          lastTimestamp: e.timestamp,
+          name: e.customerName, mobile: e.customerMobile, address: e.customerAddress,
+          debit: 0, credit: 0, lastDate: e.date, lastType: e.type,
+          lastAmount: e.amount, count: 0, firstDate: e.date, lastTimestamp: e.timestamp,
         };
       }
       const cb = customerBalance[e.customerMobile];
@@ -1075,29 +1013,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       else if (e.type === 'payment_out') cb.debit += e.amount;
       
       if (new Date(e.timestamp).getTime() > new Date(cb.lastTimestamp).getTime()) {
-        cb.lastDate = e.date;
-        cb.lastType = e.type;
-        cb.lastAmount = e.amount;
-        cb.lastTimestamp = e.timestamp;
-        cb.name = e.customerName;
-        cb.address = e.customerAddress;
+        cb.lastDate = e.date; cb.lastType = e.type; cb.lastAmount = e.amount;
+        cb.lastTimestamp = e.timestamp; cb.name = e.customerName; cb.address = e.customerAddress;
       }
     });
     
-    const summaries: CustomerLedgerSummary[] = Object.values(customerBalance).map(cb => {
+    const summaries: CustomerLedgerSummary[] = Object.values(customerBalance).map((cb: any) => {
       const balance = cb.debit - cb.credit;
       return {
-        customerMobile: cb.mobile,
-        customerName: cb.name,
-        customerAddress: cb.address,
-        totalDebit: cb.debit,
-        totalCredit: cb.credit,
-        balance: Math.abs(balance),
+        customerMobile: cb.mobile, customerName: cb.name, customerAddress: cb.address,
+        totalDebit: cb.debit, totalCredit: cb.credit, balance: Math.abs(balance),
         balanceType: balance > 0 ? 'receivable' : balance < 0 ? 'payable' : 'settled',
-        totalTransactions: cb.count,
-        lastTransactionDate: cb.lastDate,
-        lastTransactionAmount: cb.lastAmount,
-        lastTransactionType: cb.lastType,
+        totalTransactions: cb.count, lastTransactionDate: cb.lastDate,
+        lastTransactionAmount: cb.lastAmount, lastTransactionType: cb.lastType,
         firstTransactionDate: cb.firstDate,
       };
     });
@@ -1109,12 +1037,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // ============================================
-  // SUBSCRIBE TO PAYMENTS (Owner)
-  // ============================================
+  // SUBSCRIBE TO PAYMENTS
   useEffect(() => {
     if (!ownerAuthenticated) return;
-    
     const loadPayments = async () => {
       const { subscribeToAllPayments } = await import('../services/paymentService');
       const unsub = subscribeToAllPayments((payments) => {
@@ -1122,19 +1047,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       return unsub;
     };
-    
     const unsubPromise = loadPayments();
-    return () => {
-      unsubPromise.then(unsub => unsub && unsub());
-    };
+    return () => { unsubPromise.then(unsub => unsub && unsub()); };
   }, [ownerAuthenticated]);
 
-  // ============================================
-  // SUBSCRIBE TO LEDGER (VLE)
-  // ============================================
+  // SUBSCRIBE TO LEDGER
   useEffect(() => {
     if (!activeVle) return;
-    
     const loadLedger = async () => {
       setLedgerLoading(true);
       const { subscribeToVleLedger } = await import('../services/khatabookService');
@@ -1144,16 +1063,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       return unsub;
     };
-    
     const unsubPromise = loadLedger();
-    return () => {
-      unsubPromise.then(unsub => unsub && unsub());
-    };
+    return () => { unsubPromise.then(unsub => unsub && unsub()); };
   }, [activeVle]);
 
-  // ============================================
-  // CONTEXT VALUE
-  // ============================================
   return (
     <AppContext.Provider
       value={{
@@ -1170,14 +1083,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTool, setActiveTool, resetToDefaultData,
         notificationMessage, notification: notificationMessage, showNotification,
         firebaseReady,
-        
         currentUser, setCurrentUser, userAccountLoading,
         createOrUpdateUserAccount, checkToolAccess, recordUsage, isUserPremium, showAdsForCurrentUser,
-        
         paymentRequests, submitPaymentRequest, approvePaymentRequest, rejectPaymentRequest,
-        
         premiumToolIds, togglePremiumTool,
-        
         ledgerEntries, ledgerLoading,
         addLedgerEntry, updateLedgerEntryById, removeLedgerEntry,
         getKhatabookStats, getCustomerSummaries,
