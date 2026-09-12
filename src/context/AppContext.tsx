@@ -36,7 +36,15 @@ import {
   saveLinksToFirebase,
   loadLinksFromFirebase,
 } from '../services/firebaseSync';
-import { subscribeToAuth, logoutOwner, OWNER_EMAIL_CONST } from '../services/firebaseAuth';
+import { 
+  subscribeToAuth, 
+  logoutOwner, 
+  loginVle, 
+  logoutVle, 
+  subscribeToVleAuth,
+  createVleAuthAccount,
+  generateVlePassword
+} from '../services/firebaseAuth';
 
 interface AppContextType {
   role: UserRole;
@@ -59,12 +67,12 @@ interface AppContextType {
   
   vleApplications: VleApplication[];
   submitVleApplication: (app: Omit<VleApplication, 'id' | 'status' | 'appliedDate'>) => string;
-  approveVleApplication: (appId: string, customVleId?: string, customPassword?: string) => { vleId: string; password: string } | null;
+  approveVleApplication: (appId: string, customVleId?: string, customPassword?: string) => Promise<{ vleId: string; password: string } | null>;
   rejectVleApplication: (appId: string, reason: string) => void;
   
   vleLoggedIn: boolean;
-  vleLogin: (vleId: string, password?: string) => boolean;
-  vleLogout: () => void;
+  vleLogin: (vleId: string, password?: string) => Promise<boolean>;
+  vleLogout: () => Promise<void>;
 
   ownerAuthenticated: boolean;
   ownerEmail: string | null;
@@ -419,17 +427,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return appId;
   };
 
-  const approveVleApplication = (appId: string, customVleId?: string, customPassword?: string) => {
+  const approveVleApplication = async (appId: string, customVleId?: string, customPassword?: string): Promise<{ vleId: string; password: string } | null> => {
     const targetApp = vleApplications.find((a) => a.id === appId);
     if (!targetApp) return null;
 
     const generatedVleId = customVleId || `VLE-999-${Math.floor(1000 + Math.random() * 9000)}`;
-    const generatedPassword = customPassword || 'Cyber#' + Math.floor(1000 + Math.random() * 9000);
+    const generatedPassword = customPassword || generateVlePassword();
+
+    // Create Firebase Auth account for VLE
+    console.log('Creating Firebase Auth account for:', targetApp.email);
+    const authResult = await createVleAuthAccount(targetApp.email, generatedPassword);
+    
+    if (!authResult.success) {
+      showNotification(`❌ VLE Auth fail: ${authResult.error}`);
+      return null;
+    }
 
     const newVle: VleOperator = {
       id: 'vle_' + Date.now().toString(36),
       vleId: generatedVleId,
-      password: generatedPassword,
+      password: '***firebase***',
       centerName: targetApp.centerName,
       operatorName: targetApp.operatorName,
       mobile: targetApp.mobile,
@@ -462,7 +479,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
-    showNotification(`Approved! ID: ${generatedVleId}`);
+    showNotification(`✅ VLE Approved! Firebase account created for ${targetApp.email}`);
     return { vleId: generatedVleId, password: generatedPassword };
   };
 
@@ -474,44 +491,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ============================================
-  // VLE AUTH
+  // VLE AUTH (Firebase based)
   // ============================================
-  const [vleLoggedIn, setVleLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem(STORAGE_KEYS.VLE_LOGGED_IN) === 'true';
-  });
+  const [vleLoggedIn, setVleLoggedIn] = useState<boolean>(false);
 
-  const vleLogin = (vleIdOrEmail: string, password?: string): boolean => {
-    const found = vles.find(
-      (v) =>
-        (v.vleId.toLowerCase() === vleIdOrEmail.trim().toLowerCase() ||
-          v.email.toLowerCase() === vleIdOrEmail.trim().toLowerCase() ||
-          v.mobile === vleIdOrEmail.trim()) &&
-        (password ? v.password === password : true)
-    );
-
-    if (found) {
-      if (found.status === 'suspended') {
-        showNotification('Account suspended by Admin.');
-        return false;
-      }
-      setActiveVleId(found.id);
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_VLE_ID, found.id);
-      setVleLoggedIn(true);
-      localStorage.setItem(STORAGE_KEYS.VLE_LOGGED_IN, 'true');
-      showNotification(`Welcome, ${found.operatorName}!`);
-      return true;
+  const vleLogin = async (emailOrVleId: string, password?: string): Promise<boolean> => {
+    if (!password) {
+      showNotification('Password required');
+      return false;
     }
 
-    showNotification('Invalid ID or Password.');
-    return false;
+    // Find VLE by email or VLE ID
+    const found = vles.find(
+      (v) =>
+        v.email.toLowerCase() === emailOrVleId.trim().toLowerCase() ||
+        v.vleId.toLowerCase() === emailOrVleId.trim().toLowerCase()
+    );
+
+    if (!found) {
+      showNotification('VLE account nahi mila. Pehle register karein.');
+      return false;
+    }
+
+    if (found.status === 'suspended') {
+      showNotification('Aapka account suspended hai. Admin se contact karein.');
+      return false;
+    }
+
+    // Firebase Auth login
+    const result = await loginVle(found.email, password);
+    if (!result.success) {
+      showNotification(result.error || 'Login failed');
+      return false;
+    }
+
+    setActiveVleId(found.id);
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_VLE_ID, found.id);
+    setVleLoggedIn(true);
+    localStorage.setItem(STORAGE_KEYS.VLE_LOGGED_IN, 'true');
+    showNotification(`Welcome, ${found.operatorName}!`);
+    return true;
   };
 
-  const vleLogout = () => {
+  const vleLogout = async () => {
+    await logoutVle();
     setVleLoggedIn(false);
     setActiveVleId('');
     localStorage.removeItem(STORAGE_KEYS.VLE_LOGGED_IN);
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_VLE_ID);
-    showNotification('Logged out successfully.');
+    showNotification('Logout successful.');
   };
 
   const updateVleProfile = (vleId: string, updates: Partial<VleOperator>) => {
@@ -520,13 +548,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ============================================
+  // VLE FIREBASE AUTH LISTENER
+  // ============================================
+  useEffect(() => {
+    const unsubscribe = subscribeToVleAuth((user) => {
+      if (user) {
+        // Find VLE by email and set active
+        const foundVle = vles.find(v => v.email.toLowerCase() === user.email?.toLowerCase());
+        if (foundVle) {
+          setActiveVleId(foundVle.id);
+          setVleLoggedIn(true);
+          localStorage.setItem(STORAGE_KEYS.VLE_LOGGED_IN, 'true');
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_VLE_ID, foundVle.id);
+        }
+      } else {
+        setVleLoggedIn(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [vles]);
+
+  // ============================================
   // OWNER AUTH (Firebase based)
   // ============================================
   const [ownerAuthenticated, setOwnerAuthenticated] = useState<boolean>(false);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerLockedUntil, setOwnerLockedUntil] = useState<number | null>(null);
 
-  // Firebase Auth listener
   useEffect(() => {
     const unsubscribe = subscribeToAuth((isOwner, user) => {
       setOwnerAuthenticated(isOwner);
@@ -535,7 +583,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Placeholder — Firebase handles actual verification
   const verifyOwnerAuth = (input: string): boolean => {
     return false;
   };
