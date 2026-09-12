@@ -59,18 +59,15 @@ interface AppContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
   
-  // Site Config
   siteConfig: SiteConfig;
   updateSiteConfig: (updates: Partial<SiteConfig>) => void;
   
-  // Services
   services: ServiceItem[];
   toggleService: (id: string) => void;
   updateService: (service: ServiceItem) => void;
   addService: (service: Omit<ServiceItem, 'id'>) => void;
   deleteService: (id: string) => void;
   
-  // VLEs
   vles: VleOperator[];
   activeVle: VleOperator | null;
   setActiveVle: (vle: VleOperator | null) => void;
@@ -79,18 +76,15 @@ interface AppContextType {
   addVle: (vle: Omit<VleOperator, 'id' | 'vleId' | 'totalOrdersCompleted' | 'joinedDate'>) => void;
   updateVleProfile: (vleId: string, updates: Partial<VleOperator>) => void;
   
-  // VLE Applications
   vleApplications: VleApplication[];
   submitVleApplication: (app: Omit<VleApplication, 'id' | 'status' | 'appliedDate'>) => string;
   approveVleApplication: (appId: string, customVleId?: string, customPassword?: string) => Promise<{ vleId: string; password: string } | null>;
   rejectVleApplication: (appId: string, reason: string) => void;
   
-  // VLE Auth
   vleLoggedIn: boolean;
   vleLogin: (vleId: string, password?: string) => Promise<boolean>;
   vleLogout: () => Promise<void>;
 
-  // Owner Auth
   ownerAuthenticated: boolean;
   ownerEmail: string | null;
   ownerLockedUntil: number | null;
@@ -98,27 +92,23 @@ interface AppContextType {
   lockOwnerSession: () => void;
   changeOwnerCredentials: (newPin: string, newPassword?: string) => void;
 
-  // Important Links
   importantLinks: ImportantLink[];
   addImportantLink: (link: Omit<ImportantLink, 'id'>) => void;
   updateImportantLink: (link: ImportantLink) => void;
   deleteImportantLink: (id: string) => void;
   resetImportantLinks: () => void;
 
-  // Tools
   allTools: ToolDefinition[];
   customTools: ToolDefinition[];
   addCustomTool: (tool: Omit<ToolDefinition, 'id' | 'isCustom'>) => void;
   updateTool: (tool: ToolDefinition) => void;
   deleteCustomTool: (id: string) => void;
 
-  // Orders
   orders: CustomerOrder[];
   addCustomerOrder: (order: Omit<CustomerOrder, 'id' | 'tokenNumber' | 'date'>) => CustomerOrder;
   updateOrderStatus: (orderId: string, status: CustomerOrder['status'], notes?: string, rejectionReason?: string) => void;
   transactions: WalletTransaction[];
   
-  // Active Tool
   activeTool: string | null;
   setActiveTool: (toolId: string | null) => void;
   resetToDefaultData: () => void;
@@ -127,7 +117,7 @@ interface AppContextType {
   showNotification: (msg: string) => void;
   firebaseReady: boolean;
 
-  // 🆕 SUBSCRIPTION & USER ACCOUNTS
+  // SUBSCRIPTION
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   userAccountLoading: boolean;
@@ -137,17 +127,17 @@ interface AppContextType {
   isUserPremium: () => boolean;
   showAdsForCurrentUser: () => boolean;
 
-  // 🆕 PAYMENT REQUESTS
+  // PAYMENTS
   paymentRequests: PaymentRequest[];
   submitPaymentRequest: (data: Omit<PaymentRequest, 'id' | 'status' | 'requestedAt'>) => Promise<PaymentRequest | null>;
   approvePaymentRequest: (paymentId: string, validUntil: Date) => Promise<boolean>;
   rejectPaymentRequest: (paymentId: string, reason: string) => Promise<boolean>;
 
-  // 🆕 PREMIUM TOOLS MANAGEMENT
+  // PREMIUM TOOLS
   premiumToolIds: string[];
   togglePremiumTool: (toolId: string) => void;
 
-  // 🆕 KHATABOOK (VLE Ledger)
+  // KHATABOOK
   ledgerEntries: LedgerEntry[];
   ledgerLoading: boolean;
   addLedgerEntry: (entry: Omit<LedgerEntry, 'id' | 'createdAt' | 'timestamp' | 'date'>) => Promise<LedgerEntry | null>;
@@ -810,7 +800,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ============================================
-  // 🆕 SUBSCRIPTION FUNCTIONS
+  // SUBSCRIPTION FUNCTIONS
   // ============================================
   const createOrUpdateUserAccount = async (userData: Partial<UserAccount> & { id: string; email: string; name: string }): Promise<boolean> => {
     setUserAccountLoading(true);
@@ -830,7 +820,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastLoginAt: new Date().toISOString(),
       };
 
-      // Import service dynamically
       const { saveUserAccount } = await import('../services/subscriptionService');
       await saveUserAccount(newUser);
       setCurrentUser(newUser);
@@ -864,22 +853,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const showAdsForCurrentUser = (): boolean => {
-    // Owner — no ads
     if (ownerAuthenticated) return false;
-    // No user — show ads (public visitor)
     if (!currentUser) return true;
-    // Free user — show ads
     if (currentUser.plan === 'free') return true;
-    // Premium/VLE with valid subscription — no ads
     if ((currentUser.plan === 'premium' || currentUser.plan === 'vle') && isUserPremium()) {
       return false;
     }
-    // Expired subscription — show ads
     return true;
   };
 
   // ============================================
-  // 🆕 PAYMENT FUNCTIONS
+  // 🆕 REAL-TIME CURRENT USER LISTENER
+  // (Plan changes ka automatic update)
+  // ============================================
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    
+    let unsubscribe: (() => void) | undefined;
+    
+    const setupListener = async () => {
+      const { subscribeToUserAccount } = await import('../services/subscriptionService');
+      unsubscribe = subscribeToUserAccount(currentUser.id, (updatedUser) => {
+        if (updatedUser) {
+          // Only update if something actually changed
+          if (
+            updatedUser.plan !== currentUser.plan ||
+            updatedUser.subscriptionStatus !== currentUser.subscriptionStatus ||
+            updatedUser.subscriptionEnd !== currentUser.subscriptionEnd
+          ) {
+            console.log('🔄 User account updated in real-time:', updatedUser.plan);
+            setCurrentUser(updatedUser);
+          }
+        }
+      });
+    };
+    
+    setupListener();
+    
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
+
+  // ============================================
+  // PAYMENT FUNCTIONS
   // ============================================
   const submitPaymentRequest = async (data: Omit<PaymentRequest, 'id' | 'status' | 'requestedAt'>): Promise<PaymentRequest | null> => {
     const { createPaymentRequest } = await import('../services/paymentService');
@@ -893,7 +911,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const approvePaymentRequest = async (paymentId: string, validUntil: Date): Promise<boolean> => {
-    const { approvePayment, calculateValidUntil } = await import('../services/paymentService');
+    const { approvePayment } = await import('../services/paymentService');
     const { activateSubscription } = await import('../services/subscriptionService');
     
     const payment = paymentRequests.find(p => p.id === paymentId);
@@ -916,7 +934,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ============================================
-  // 🆕 KHATABOOK FUNCTIONS
+  // KHATABOOK FUNCTIONS
   // ============================================
   const addLedgerEntry = async (entryData: Omit<LedgerEntry, 'id' | 'createdAt' | 'timestamp' | 'date'>) => {
     const { createLedgerEntry } = await import('../services/khatabookService');
@@ -949,13 +967,146 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const getKhatabookStats = (): KhatabookStats => {
-    const { calculateKhatabookStats } = require('../services/khatabookService');
-    return calculateKhatabookStats(activeVle?.vleId || '', ledgerEntries);
+    // Simple sync calculation using current entries
+    const totalCustomers = new Set(ledgerEntries.map(e => e.customerMobile)).size;
+    
+    let totalReceivable = 0;
+    let totalPayable = 0;
+    
+    const customerBalance: Record<string, { name: string; mobile: string; debit: number; credit: number; lastDate: string; lastType: any; lastAmount: number; count: number; firstDate: string }> = {};
+    
+    ledgerEntries.forEach(e => {
+      if (!customerBalance[e.customerMobile]) {
+        customerBalance[e.customerMobile] = {
+          name: e.customerName,
+          mobile: e.customerMobile,
+          debit: 0,
+          credit: 0,
+          lastDate: e.date,
+          lastType: e.type,
+          lastAmount: e.amount,
+          count: 0,
+          firstDate: e.date,
+        };
+      }
+      const cb = customerBalance[e.customerMobile];
+      cb.count++;
+      if (e.type === 'debit') cb.debit += e.amount;
+      else if (e.type === 'credit' || e.type === 'payment_in') cb.credit += e.amount;
+      else if (e.type === 'sale') { cb.debit += e.amount; cb.credit += e.amount; }
+      else if (e.type === 'payment_out') cb.debit += e.amount;
+      
+      // Latest
+      if (new Date(e.timestamp).getTime() > new Date(cb.lastDate).getTime()) {
+        cb.lastDate = e.date;
+        cb.lastType = e.type;
+        cb.lastAmount = e.amount;
+      }
+    });
+    
+    const summaries: CustomerLedgerSummary[] = Object.values(customerBalance).map(cb => {
+      const balance = cb.debit - cb.credit;
+      return {
+        customerMobile: cb.mobile,
+        customerName: cb.name,
+        totalDebit: cb.debit,
+        totalCredit: cb.credit,
+        balance: Math.abs(balance),
+        balanceType: balance > 0 ? 'receivable' : balance < 0 ? 'payable' : 'settled',
+        totalTransactions: cb.count,
+        lastTransactionDate: cb.lastDate,
+        lastTransactionAmount: cb.lastAmount,
+        lastTransactionType: cb.lastType,
+        firstTransactionDate: cb.firstDate,
+      };
+    });
+    
+    summaries.forEach(s => {
+      if (s.balanceType === 'receivable') totalReceivable += s.balance;
+      if (s.balanceType === 'payable') totalPayable += s.balance;
+    });
+    
+    const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const month = today.substring(0, 7);
+    
+    const todayEntries = ledgerEntries.filter(e => e.date === today);
+    const monthEntries = ledgerEntries.filter(e => e.date.startsWith(month));
+    
+    return {
+      vleId: activeVle?.vleId || '',
+      totalCustomers,
+      totalReceivable,
+      totalPayable,
+      netBalance: totalReceivable - totalPayable,
+      todayTransactions: todayEntries.length,
+      todaySales: todayEntries.filter(e => e.type === 'sale' || e.type === 'debit').reduce((s, e) => s + e.amount, 0),
+      todayReceived: todayEntries.filter(e => e.type === 'credit' || e.type === 'payment_in').reduce((s, e) => s + e.amount, 0),
+      monthTransactions: monthEntries.length,
+      monthSales: monthEntries.filter(e => e.type === 'sale' || e.type === 'debit').reduce((s, e) => s + e.amount, 0),
+      monthReceived: monthEntries.filter(e => e.type === 'credit' || e.type === 'payment_in').reduce((s, e) => s + e.amount, 0),
+      topCustomers: summaries.filter(s => s.balanceType === 'receivable').slice(0, 5),
+    };
   };
 
   const getCustomerSummaries = (): CustomerLedgerSummary[] => {
-    const { getAllCustomerSummaries } = require('../services/khatabookService');
-    return getAllCustomerSummaries(ledgerEntries);
+    const customerBalance: Record<string, any> = {};
+    
+    ledgerEntries.forEach(e => {
+      if (!customerBalance[e.customerMobile]) {
+        customerBalance[e.customerMobile] = {
+          name: e.customerName,
+          mobile: e.customerMobile,
+          address: e.customerAddress,
+          debit: 0,
+          credit: 0,
+          lastDate: e.date,
+          lastType: e.type,
+          lastAmount: e.amount,
+          count: 0,
+          firstDate: e.date,
+          lastTimestamp: e.timestamp,
+        };
+      }
+      const cb = customerBalance[e.customerMobile];
+      cb.count++;
+      if (e.type === 'debit') cb.debit += e.amount;
+      else if (e.type === 'credit' || e.type === 'payment_in') cb.credit += e.amount;
+      else if (e.type === 'sale') { cb.debit += e.amount; cb.credit += e.amount; }
+      else if (e.type === 'payment_out') cb.debit += e.amount;
+      
+      if (new Date(e.timestamp).getTime() > new Date(cb.lastTimestamp).getTime()) {
+        cb.lastDate = e.date;
+        cb.lastType = e.type;
+        cb.lastAmount = e.amount;
+        cb.lastTimestamp = e.timestamp;
+        cb.name = e.customerName;
+        cb.address = e.customerAddress;
+      }
+    });
+    
+    const summaries: CustomerLedgerSummary[] = Object.values(customerBalance).map(cb => {
+      const balance = cb.debit - cb.credit;
+      return {
+        customerMobile: cb.mobile,
+        customerName: cb.name,
+        customerAddress: cb.address,
+        totalDebit: cb.debit,
+        totalCredit: cb.credit,
+        balance: Math.abs(balance),
+        balanceType: balance > 0 ? 'receivable' : balance < 0 ? 'payable' : 'settled',
+        totalTransactions: cb.count,
+        lastTransactionDate: cb.lastDate,
+        lastTransactionAmount: cb.lastAmount,
+        lastTransactionType: cb.lastType,
+        firstTransactionDate: cb.firstDate,
+      };
+    });
+    
+    return summaries.sort((a, b) => {
+      if (a.balanceType === 'receivable' && b.balanceType !== 'receivable') return -1;
+      if (a.balanceType !== 'receivable' && b.balanceType === 'receivable') return 1;
+      return b.balance - a.balance;
+    });
   };
 
   // ============================================
