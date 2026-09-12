@@ -41,7 +41,7 @@ export const Header: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
-  // 🆕 Pricing + Upgrade state
+  // Pricing + Upgrade state
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'premium' | 'vle'>('premium');
@@ -80,7 +80,6 @@ export const Header: React.FC = () => {
     setShowUserMenu(false);
   };
 
-  // 🆕 Open Pricing Modal
   const openPricing = () => {
     if (!currentUser) {
       showNotification('Pehle signup ya login karo');
@@ -91,7 +90,6 @@ export const Header: React.FC = () => {
     setShowUserMenu(false);
   };
 
-  // 🆕 Handle Plan Selection
   const handleSelectPlan = (plan: 'premium' | 'vle', cycle: 'monthly' | 'yearly') => {
     setUpgradePlan(plan);
     setUpgradeCycle(cycle);
@@ -113,7 +111,6 @@ export const Header: React.FC = () => {
   const planBadge = getPlanBadge();
   const userPremium = isUserPremium();
 
-  // Get price for upgrade modal
   const getUpgradeAmount = () => {
     if (upgradePlan === 'premium') {
       return upgradeCycle === 'monthly' 
@@ -175,7 +172,7 @@ export const Header: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Tools Shortcuts (Desktop) */}
+          {/* Quick Tools Shortcuts */}
           <div className="hidden lg:flex items-center gap-1.5">
             <button
               onClick={() => setActiveTool('passport')}
@@ -212,7 +209,7 @@ export const Header: React.FC = () => {
           {/* Right Side */}
           <div className="flex items-center gap-2.5">
             
-            {/* 🆕 UPGRADE BUTTON (for logged-in free users) */}
+            {/* UPGRADE BUTTON (for logged-in free users) */}
             {currentUser && !userPremium && (
               <button
                 onClick={openPricing}
@@ -244,7 +241,6 @@ export const Header: React.FC = () => {
                   <ChevronDown className="w-3.5 h-3.5 opacity-70" />
                 </button>
 
-                {/* User Dropdown */}
                 {showUserMenu && (
                   <div 
                     className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2"
@@ -276,7 +272,6 @@ export const Header: React.FC = () => {
                     </div>
 
                     <div className="p-1 space-y-1">
-                      {/* Upgrade Button */}
                       {!userPremium && (
                         <button
                           onClick={openPricing}
@@ -486,17 +481,21 @@ export const Header: React.FC = () => {
         initialMode={authMode}
       />
 
-      {/* 🆕 Pricing Modal */}
+      {/* Pricing Modal */}
       <PricingModal
         isOpen={showPricingModal}
         onClose={() => setShowPricingModal(false)}
         onSelectPlan={handleSelectPlan}
       />
 
-      {/* 🆕 Upgrade Payment Modal */}
+      {/* Upgrade Payment Modal — with onBack */}
       <UpgradePaymentModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
+        onBack={() => {
+          setShowUpgradeModal(false);
+          setShowPricingModal(true);
+        }}
         plan={upgradePlan}
         billingCycle={upgradeCycle}
         amount={getUpgradeAmount()}
