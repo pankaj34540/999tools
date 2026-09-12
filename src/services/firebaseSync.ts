@@ -6,14 +6,16 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
+// ============================================
 // SITE CONFIG
+// ============================================
 export const saveSiteConfigToFirebase = async (config: any) => {
   try {
     await setDoc(doc(db, 'siteConfig', 'main'), config);
     console.log('✅ Site config saved to Firebase');
     return true;
-  } catch (error) {
-    console.error('❌ Error saving site config:', error);
+  } catch (error: any) {
+    console.error('❌ Error saving site config:', error.code, error.message);
     return false;
   }
 };
@@ -23,8 +25,8 @@ export const loadSiteConfigFromFirebase = async () => {
     const docRef = doc(db, 'siteConfig', 'main');
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? docSnap.data() : null;
-  } catch (error) {
-    console.error('❌ Error loading site config:', error);
+  } catch (error: any) {
+    console.error('❌ Error loading site config:', error.code, error.message);
     return null;
   }
 };
@@ -35,12 +37,15 @@ export const subscribeToSiteConfig = (callback: (config: any) => void) => {
   });
 };
 
+// ============================================
 // VLEs
+// ============================================
 export const saveVlesToFirebase = async (vles: any[]) => {
   try {
     await setDoc(doc(db, 'data', 'vles'), { list: vles });
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error saving VLEs:', error.code, error.message);
     return false;
   }
 };
@@ -49,7 +54,8 @@ export const loadVlesFromFirebase = async () => {
   try {
     const docSnap = await getDoc(doc(db, 'data', 'vles'));
     return docSnap.exists() ? docSnap.data().list || [] : null;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error loading VLEs:', error.code, error.message);
     return null;
   }
 };
@@ -60,12 +66,17 @@ export const subscribeToVles = (callback: (vles: any[]) => void) => {
   });
 };
 
+// ============================================
 // VLE APPLICATIONS
+// ============================================
 export const saveApplicationsToFirebase = async (apps: any[]) => {
   try {
+    console.log('📝 Saving applications to Firebase:', apps.length, 'items');
     await setDoc(doc(db, 'data', 'vleApplications'), { list: apps });
+    console.log('✅ Applications saved to Firebase');
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error saving applications:', error.code, error.message);
     return false;
   }
 };
@@ -74,17 +85,21 @@ export const loadApplicationsFromFirebase = async () => {
   try {
     const docSnap = await getDoc(doc(db, 'data', 'vleApplications'));
     return docSnap.exists() ? docSnap.data().list || [] : null;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error loading applications:', error.code, error.message);
     return null;
   }
 };
 
+// ============================================
 // ORDERS
+// ============================================
 export const saveOrdersToFirebase = async (orders: any[]) => {
   try {
     await setDoc(doc(db, 'data', 'orders'), { list: orders });
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error saving orders:', error.code, error.message);
     return false;
   }
 };
@@ -93,17 +108,21 @@ export const loadOrdersFromFirebase = async () => {
   try {
     const docSnap = await getDoc(doc(db, 'data', 'orders'));
     return docSnap.exists() ? docSnap.data().list || [] : null;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error loading orders:', error.code, error.message);
     return null;
   }
 };
 
+// ============================================
 // CUSTOM TOOLS
+// ============================================
 export const saveCustomToolsToFirebase = async (tools: any[]) => {
   try {
     await setDoc(doc(db, 'data', 'customTools'), { list: tools });
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error saving custom tools:', error.code, error.message);
     return false;
   }
 };
@@ -112,17 +131,21 @@ export const loadCustomToolsFromFirebase = async () => {
   try {
     const docSnap = await getDoc(doc(db, 'data', 'customTools'));
     return docSnap.exists() ? docSnap.data().list || [] : null;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error loading custom tools:', error.code, error.message);
     return null;
   }
 };
 
+// ============================================
 // IMPORTANT LINKS
+// ============================================
 export const saveLinksToFirebase = async (links: any[]) => {
   try {
     await setDoc(doc(db, 'data', 'importantLinks'), { list: links });
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error saving links:', error.code, error.message);
     return false;
   }
 };
@@ -131,7 +154,8 @@ export const loadLinksFromFirebase = async () => {
   try {
     const docSnap = await getDoc(doc(db, 'data', 'importantLinks'));
     return docSnap.exists() ? docSnap.data().list || [] : null;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error loading links:', error.code, error.message);
     return null;
   }
 };
