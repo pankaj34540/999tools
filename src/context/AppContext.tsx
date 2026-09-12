@@ -36,6 +36,7 @@ import {
   saveLinksToFirebase,
   loadLinksFromFirebase,
 } from '../services/firebaseSync';
+import { subscribeToAuth, logoutOwner, OWNER_EMAIL_CONST } from '../services/firebaseAuth';
 
 interface AppContextType {
   role: UserRole;
@@ -66,6 +67,7 @@ interface AppContextType {
   vleLogout: () => void;
 
   ownerAuthenticated: boolean;
+  ownerEmail: string | null;
   ownerLockedUntil: number | null;
   verifyOwnerAuth: (input: string) => boolean;
   lockOwnerSession: () => void;
@@ -219,7 +221,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ============================================
   useEffect(() => {
     const loadFromFirebase = async () => {
-      // Load site config
       const fbConfig = await loadSiteConfigFromFirebase();
       if (fbConfig) {
         setSiteConfig(fbConfig);
@@ -228,35 +229,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await saveSiteConfigToFirebase(siteConfig);
       }
 
-      // Load VLEs
       const fbVles = await loadVlesFromFirebase();
       if (fbVles && fbVles.length > 0) {
         setVles(fbVles);
         localStorage.setItem(STORAGE_KEYS.VLES, JSON.stringify(fbVles));
       }
 
-      // Load applications
       const fbApps = await loadApplicationsFromFirebase();
       if (fbApps && fbApps.length > 0) {
         setVleApplications(fbApps);
         localStorage.setItem(STORAGE_KEYS.VLE_APPLICATIONS, JSON.stringify(fbApps));
       }
 
-      // Load orders
       const fbOrders = await loadOrdersFromFirebase();
       if (fbOrders && fbOrders.length > 0) {
         setOrders(fbOrders);
         localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(fbOrders));
       }
 
-      // Load custom tools
       const fbTools = await loadCustomToolsFromFirebase();
       if (fbTools && fbTools.length > 0) {
         setCustomTools(fbTools);
         localStorage.setItem(STORAGE_KEYS.CUSTOM_TOOLS, JSON.stringify(fbTools));
       }
 
-      // Load links
       const fbLinks = await loadLinksFromFirebase();
       if (fbLinks && fbLinks.length > 0) {
         setImportantLinks(fbLinks);
@@ -524,50 +520,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ============================================
-  // OWNER AUTH
+  // OWNER AUTH (Firebase based)
   // ============================================
-  const [ownerAuthenticated, setOwnerAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem('999tools_owner_auth_v1') === 'true';
-  });
-  const [ownerFailedAttempts, setOwnerFailedAttempts] = useState<number>(0);
+  const [ownerAuthenticated, setOwnerAuthenticated] = useState<boolean>(false);
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerLockedUntil, setOwnerLockedUntil] = useState<number | null>(null);
 
+  // Firebase Auth listener
+  useEffect(() => {
+    const unsubscribe = subscribeToAuth((isOwner, user) => {
+      setOwnerAuthenticated(isOwner);
+      setOwnerEmail(user?.email || null);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Placeholder — Firebase handles actual verification
   const verifyOwnerAuth = (input: string): boolean => {
-    if (ownerLockedUntil && Date.now() < ownerLockedUntil) {
-      const waitSec = Math.ceil((ownerLockedUntil - Date.now()) / 1000);
-      showNotification(`Lockout! Wait ${waitSec}s.`);
-      return false;
-    }
-
-    const validPin = siteConfig.ownerSecurityPin || '9999';
-    const validPassword = siteConfig.ownerPassword || 'admin@999tools';
-
-    if (input.trim() === validPin || input.trim() === validPassword) {
-      setOwnerAuthenticated(true);
-      setOwnerFailedAttempts(0);
-      setOwnerLockedUntil(null);
-      sessionStorage.setItem('999tools_owner_auth_v1', 'true');
-      showNotification('👑 Owner Verified!');
-      return true;
-    }
-
-    const nextAttempts = ownerFailedAttempts + 1;
-    setOwnerFailedAttempts(nextAttempts);
-
-    if (nextAttempts >= 5) {
-      setOwnerLockedUntil(Date.now() + 60 * 1000);
-      showNotification('Too many attempts! Lockout 60s.');
-    } else {
-      showNotification(`Incorrect! (${5 - nextAttempts} left)`);
-    }
-
     return false;
   };
 
-  const lockOwnerSession = () => {
+  const lockOwnerSession = async () => {
+    await logoutOwner();
     setOwnerAuthenticated(false);
-    sessionStorage.removeItem('999tools_owner_auth_v1');
-    showNotification('Session locked.');
+    setOwnerEmail(null);
+    showNotification('Owner session locked.');
   };
 
   const changeOwnerCredentials = (newPin: string, newPassword?: string) => {
@@ -737,7 +714,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         vles, activeVle, setActiveVle, updateVleWallet, toggleVleStatus, addVle, updateVleProfile,
         vleApplications, submitVleApplication, approveVleApplication, rejectVleApplication,
         vleLoggedIn, vleLogin, vleLogout,
-        ownerAuthenticated, ownerLockedUntil, verifyOwnerAuth, lockOwnerSession, changeOwnerCredentials,
+        ownerAuthenticated, ownerEmail, ownerLockedUntil, verifyOwnerAuth, lockOwnerSession, changeOwnerCredentials,
         importantLinks, addImportantLink, updateImportantLink, deleteImportantLink, resetImportantLinks,
         allTools, customTools, addCustomTool, updateTool, deleteCustomTool,
         orders, addCustomerOrder, updateOrderStatus, transactions,
