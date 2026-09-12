@@ -24,6 +24,8 @@ import { ToolDefinition } from '../../types';
 import { TOOLS_REGISTRY, TOOL_CATEGORIES, INITIAL_TOOL_REQUESTS } from '../../data/toolsRegistry';
 import { AdsterraBanner, useAdsterraDirectLink } from '../common/AdsterraBanner';
 import { useApp } from '../../context/AppContext';
+import { PricingModal } from '../user/PricingModal';
+import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 
 // Tool Components Imports
 import { PassportPhotoMaker } from './PassportPhotoMaker';
@@ -110,6 +112,7 @@ interface ToolAccess {
 
 export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onSelectTool }) => {
   const { 
+    siteConfig,
     currentUser, 
     premiumToolIds, 
     checkToolAccess, 
@@ -124,7 +127,13 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [vleOnlyMode, setVleOnlyMode] = useState(false);
 
-  // 🆕 Tool Access Map — Premium status per tool
+  // 🆕 Pricing + Upgrade Modals
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradePlan, setUpgradePlan] = useState<'premium' | 'vle'>('premium');
+  const [upgradeCycle, setUpgradeCycle] = useState<'monthly' | 'yearly'>('monthly');
+
+  // Tool Access Map
   const [toolAccessMap, setToolAccessMap] = useState<Record<string, ToolAccess>>({});
 
   // Tool Request State
@@ -140,7 +149,16 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const userPremium = isUserPremium();
 
   // ============================================
-  // 🆕 LOAD TOOL ACCESS FOR ALL TOOLS
+  // 🆕 LISTEN TO CUSTOM EVENT FROM HEADER
+  // ============================================
+  useEffect(() => {
+    const handler = () => setShowPricingModal(true);
+    window.addEventListener('openPricingModal', handler);
+    return () => window.removeEventListener('openPricingModal', handler);
+  }, []);
+
+  // ============================================
+  // LOAD TOOL ACCESS FOR ALL TOOLS
   // ============================================
   useEffect(() => {
     const loadAccess = async () => {
@@ -174,7 +192,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   }, [activeToolId]);
 
   // ============================================
-  // 🆕 HANDLE OPEN TOOL — with premium check
+  // HANDLE OPEN TOOL — with premium check
   // ============================================
   const handleOpenTool = async (toolId: string) => {
     const tool = TOOLS_REGISTRY.find(t => t.id === toolId);
@@ -183,9 +201,10 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     const access = toolAccessMap[toolId];
     const isPremiumTool = access?.isPremium || premiumToolIds.includes(toolId);
 
-    // Check if premium and not allowed
+    // Premium check
     if (isPremiumTool && access && !access.allowed) {
       showNotification('❌ Aaj ki free limit khatam. Premium upgrade karo!');
+      setShowPricingModal(true);
       return;
     }
 
@@ -193,7 +212,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     if (isPremiumTool && access && access.limit > 0 && currentUser) {
       await recordUsage(toolId);
       
-      // Update local map immediately
       const newRemaining = Math.max(0, access.remaining - 1);
       setToolAccessMap(prev => ({
         ...prev,
@@ -266,13 +284,13 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   };
 
   // ============================================
-  // GET PREMIUM BADGE UI
+  // PREMIUM BADGE UI
   // ============================================
   const renderPremiumBadge = (toolId: string) => {
     const access = toolAccessMap[toolId];
     if (!access || !access.isPremium) return null;
 
-    // Premium user - show crown
+    // Premium user
     if (userPremium) {
       return (
         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -296,6 +314,20 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         <Lock className="w-2.5 h-2.5" /> LOCKED
       </span>
     );
+  };
+
+  // ============================================
+  // GET UPGRADE AMOUNT
+  // ============================================
+  const getUpgradeAmount = () => {
+    if (upgradePlan === 'premium') {
+      return upgradeCycle === 'monthly' 
+        ? (siteConfig.premiumMonthlyPrice || 49) 
+        : (siteConfig.premiumYearlyPrice || 399);
+    }
+    return upgradeCycle === 'monthly' 
+      ? (siteConfig.vleMonthlyPrice || 199) 
+      : (siteConfig.vleYearlyPrice || 1499);
   };
 
   // Render Component Mapping
@@ -429,7 +461,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
               </span>
               <span className="text-xs text-slate-400 font-medium">100% Free & Client-Side Safe</span>
               
-              {/* 🆕 PREMIUM STATUS BADGE */}
               {currentUser && (
                 <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                   userPremium 
@@ -449,12 +480,10 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           </div>
 
           <div className="flex items-center gap-3">
-            {/* 🆕 UPGRADE BUTTON for free users */}
+            {/* UPGRADE BUTTON for free users */}
             {currentUser && !userPremium && (
               <button
-                onClick={() => {
-                  showNotification('⚡ Upgrade page coming soon!');
-                }}
+                onClick={() => setShowPricingModal(true)}
                 className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2"
               >
                 <Zap className="w-4 h-4" />
@@ -610,10 +639,8 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                     </span>
                     
                     <div className="flex items-center gap-1">
-                      {/* 🆕 PREMIUM BADGE */}
                       {renderPremiumBadge(tool.id)}
                       
-                      {/* VLE BADGE */}
                       {tool.vleEssential && (
                         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                           <Store className="w-2.5 h-2.5" /> VLE
@@ -638,7 +665,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                   </div>
                 </div>
 
-                {/* 🆕 LAUNCH BUTTON / LOCK STATE */}
                 <div className={`mt-4 pt-3 border-t flex items-center justify-between text-xs font-bold ${
                   isLocked 
                     ? 'border-rose-100 text-rose-600' 
@@ -746,6 +772,31 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           </div>
         </div>
       )}
+
+      {/* 🆕 PRICING MODAL */}
+      <PricingModal
+        isOpen={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+        onSelectPlan={(plan, cycle) => {
+          setUpgradePlan(plan);
+          setUpgradeCycle(cycle);
+          setShowPricingModal(false);
+          setShowUpgradeModal(true);
+        }}
+      />
+
+      {/* 🆕 UPGRADE PAYMENT MODAL */}
+      <UpgradePaymentModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        plan={upgradePlan}
+        billingCycle={upgradeCycle}
+        amount={getUpgradeAmount()}
+        onSuccess={() => {
+          setShowUpgradeModal(false);
+          showNotification('✅ Payment request submitted!');
+        }}
+      />
     </div>
   );
 };
