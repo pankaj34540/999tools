@@ -7,11 +7,47 @@ import {
 import { db } from '../config/firebase';
 
 // ============================================
+// DEEP CLEAN — Remove undefined/null/empty values recursively
+// Firestore does NOT accept undefined values
+// ============================================
+const deepClean = (value: any): any => {
+  // Handle null
+  if (value === null || value === undefined) return undefined;
+  
+  // Handle arrays
+  if (Array.isArray(value)) {
+    const cleanedArray = value
+      .map(item => deepClean(item))
+      .filter(item => item !== undefined);
+    return cleanedArray;
+  }
+  
+  // Handle objects
+  if (typeof value === 'object') {
+    const cleanedObj: Record<string, any> = {};
+    Object.entries(value).forEach(([key, val]) => {
+      const cleanedVal = deepClean(val);
+      if (cleanedVal !== undefined) {
+        cleanedObj[key] = cleanedVal;
+      }
+    });
+    return cleanedObj;
+  }
+  
+  // Handle empty strings (optional — comment out if you want to keep empty strings)
+  if (value === '') return undefined;
+  
+  // Return primitives (string, number, boolean)
+  return value;
+};
+
+// ============================================
 // SITE CONFIG
 // ============================================
 export const saveSiteConfigToFirebase = async (config: any) => {
   try {
-    await setDoc(doc(db, 'siteConfig', 'main'), config);
+    const cleaned = deepClean(config);
+    await setDoc(doc(db, 'siteConfig', 'main'), cleaned);
     console.log('✅ Site config saved to Firebase');
     return true;
   } catch (error: any) {
@@ -42,7 +78,8 @@ export const subscribeToSiteConfig = (callback: (config: any) => void) => {
 // ============================================
 export const saveVlesToFirebase = async (vles: any[]) => {
   try {
-    await setDoc(doc(db, 'data', 'vles'), { list: vles });
+    const cleaned = deepClean(vles) || [];
+    await setDoc(doc(db, 'data', 'vles'), { list: cleaned });
     return true;
   } catch (error: any) {
     console.error('❌ Error saving VLEs:', error.code, error.message);
@@ -67,12 +104,18 @@ export const subscribeToVles = (callback: (vles: any[]) => void) => {
 };
 
 // ============================================
-// VLE APPLICATIONS
+// 🆕 VLE APPLICATIONS — with deep clean
 // ============================================
 export const saveApplicationsToFirebase = async (apps: any[]) => {
   try {
     console.log('📝 Saving applications to Firebase:', apps.length, 'items');
-    await setDoc(doc(db, 'data', 'vleApplications'), { list: apps });
+    
+    // Deep clean to remove all undefined values
+    const cleaned = deepClean(apps) || [];
+    
+    console.log('🧹 Cleaned applications:', cleaned.length, 'items');
+    
+    await setDoc(doc(db, 'data', 'vleApplications'), { list: cleaned });
     console.log('✅ Applications saved to Firebase');
     return true;
   } catch (error: any) {
@@ -96,7 +139,8 @@ export const loadApplicationsFromFirebase = async () => {
 // ============================================
 export const saveOrdersToFirebase = async (orders: any[]) => {
   try {
-    await setDoc(doc(db, 'data', 'orders'), { list: orders });
+    const cleaned = deepClean(orders) || [];
+    await setDoc(doc(db, 'data', 'orders'), { list: cleaned });
     return true;
   } catch (error: any) {
     console.error('❌ Error saving orders:', error.code, error.message);
@@ -119,7 +163,8 @@ export const loadOrdersFromFirebase = async () => {
 // ============================================
 export const saveCustomToolsToFirebase = async (tools: any[]) => {
   try {
-    await setDoc(doc(db, 'data', 'customTools'), { list: tools });
+    const cleaned = deepClean(tools) || [];
+    await setDoc(doc(db, 'data', 'customTools'), { list: cleaned });
     return true;
   } catch (error: any) {
     console.error('❌ Error saving custom tools:', error.code, error.message);
@@ -142,7 +187,8 @@ export const loadCustomToolsFromFirebase = async () => {
 // ============================================
 export const saveLinksToFirebase = async (links: any[]) => {
   try {
-    await setDoc(doc(db, 'data', 'importantLinks'), { list: links });
+    const cleaned = deepClean(links) || [];
+    await setDoc(doc(db, 'data', 'importantLinks'), { list: cleaned });
     return true;
   } catch (error: any) {
     console.error('❌ Error saving links:', error.code, error.message);
