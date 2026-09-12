@@ -6,17 +6,25 @@ export const initialSiteConfig: SiteConfig = {
   supportPhone: '+91 98765 43210',
   supportWhatsApp: '+91 98765 43210',
   supportEmail: 'support@999tools.in',
-  upiId: '999tools@axisbank',
-  upiQrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=999tools@axisbank&pn=999tools%20Services&cu=INR',
+  upiId: '9124231432@mairtel',
+  upiQrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=9124231432@mairtel&pn=999tools%20Services&cu=INR',
   noticeMarquee: '🔥 NEW: SSC GD 2026 Form Fill Up & Photo/Sign Resizer Tool Live! | High Speed Passport Sheet Maker with 4x6 & A4 Print Added | All CSC Kendra e-KYC Active',
   noticeEnabled: true,
   maintenanceMode: false,
   defaultVleCommissionRate: 20,
   allowPublicRegistrations: true,
   targetToolsGoal: 999,
-  vleOneTimeFee: 299,
+  vleOneTimeFee: 0,
   ownerSecurityPin: '9999',
   ownerPassword: 'admin@999tools',
+
+  // 🆕 NEW PRICING FIELDS
+  premiumMonthlyPrice: 49,
+  premiumYearlyPrice: 399,
+  vleMonthlyPrice: 199,
+  vleYearlyPrice: 1499,
+  freeUserDailyLimit: 3,
+
   adsterra: {
     enabled: true,
     headerBannerActive: true,
@@ -25,16 +33,19 @@ export const initialSiteConfig: SiteConfig = {
     toolBannerCode: '',
     sidebarAdActive: false,
     sidebarAdCode: '',
-    directLinkActive: true,
+    nativeBannerActive: true,
+    nativeBannerCode: '',
+    directLinkActive: false,
     directLinkUrl: '',
     directLinkFrequency: 2,
-    socialBarActive: false,
+    socialBarActive: true,
     socialBarCode: '',
     testMode: true,
   },
 };
 
 export const initialServices: ServiceItem[] = [
+  // Cyber Cafe / VLE Core Tools
   {
     id: 'tool_passport_sheet',
     name: 'Passport Photo Sheet Maker',
@@ -117,6 +128,8 @@ export const initialServices: ServiceItem[] = [
     iconName: 'Sparkles',
     enabled: true,
   },
+
+  // Assisted Online Services (VLE / User Orders)
   {
     id: 'srv_pan_new',
     name: 'New PAN Card Application (NSDL/UTI)',
@@ -226,7 +239,6 @@ export const initialServices: ServiceItem[] = [
 ];
 
 // ✅ VLE accounts ab khaali hain - sirf Owner Panel se approved VLEs hi yahan aayenge
-// Yeh chhota sa array jaan-boojh kar khaali rakha gaya hai
 export const initialVles: VleOperator[] = [];
 
 export const initialOrders: CustomerOrder[] = [
