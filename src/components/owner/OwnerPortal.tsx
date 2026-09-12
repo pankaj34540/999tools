@@ -58,7 +58,7 @@ export const OwnerPortal: React.FC = () => {
     resetToDefaultData,
     showNotification,
     ownerAuthenticated,
-    ownerLogout,
+    lockOwnerSession,
     vleApplications,
     importantLinks,
     allTools
@@ -195,7 +195,7 @@ export const OwnerPortal: React.FC = () => {
               Security & Settings
             </button>
             <button
-              onClick={ownerLogout}
+              onClick={lockOwnerSession}
               className="flex items-center gap-2 px-3.5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition"
               title="Securely Lock Owner Panel Session"
             >
@@ -246,7 +246,6 @@ export const OwnerPortal: React.FC = () => {
       {/* TAB 1: OVERVIEW & STATS */}
       {activeTab === 'analytics' && (
         <div className="space-y-6">
-          {/* Key Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
@@ -285,9 +284,7 @@ export const OwnerPortal: React.FC = () => {
             </div>
           </div>
 
-          {/* Recent Orders & Recent Wallet Transactions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Recent Orders */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800">Latest Customer Applications</h3>
@@ -326,7 +323,6 @@ export const OwnerPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Recent Wallet Transactions */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800">Wallet Recharges & Ledger</h3>
@@ -392,7 +388,6 @@ export const OwnerPortal: React.FC = () => {
             </div>
           </div>
 
-          {/* Services Table */}
           <div className="overflow-x-auto border border-slate-200 rounded-xl">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -512,7 +507,6 @@ export const OwnerPortal: React.FC = () => {
             </div>
           </div>
 
-          {/* VLE Table */}
           <div className="overflow-x-auto border border-slate-200 rounded-xl">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -621,7 +615,6 @@ export const OwnerPortal: React.FC = () => {
             </div>
           </div>
 
-          {/* Orders Table */}
           <div className="overflow-x-auto border border-slate-200 rounded-xl">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -716,7 +709,6 @@ export const OwnerPortal: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Branding & Contacts */}
             <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                 Branding & Helpdesk Details
@@ -774,7 +766,6 @@ export const OwnerPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Marquee & Payments */}
             <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                 Breaking News Marquee & Payments
@@ -817,7 +808,6 @@ export const OwnerPortal: React.FC = () => {
                 />
               </div>
 
-              {/* Maintenance Mode toggle */}
               <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                 <div>
                   <div className="text-xs font-bold text-slate-800">System Maintenance Mode</div>
@@ -837,39 +827,48 @@ export const OwnerPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Owner Security Credentials & VLE Fee Settings */}
             <div className="space-y-4 bg-amber-50/50 p-5 rounded-xl border border-amber-200">
               <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-amber-600" />
                 Owner Panel Security & VLE One-Time Registration Fee
               </h3>
 
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs">
+                <div className="font-bold text-blue-800 mb-1">🔒 Firebase Auth Active</div>
+                <div className="text-blue-700 text-[11px]">
+                  Owner login ab Google Firebase se protected hai. Password Firebase servers pe encrypted hai.
+                  Yahan se PIN change karne ke liye Firebase Console use karo.
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] text-slate-600 font-semibold block mb-1">
-                    Owner Panel Password:
+                    Owner Panel Password (Old - Deprecated):
                   </label>
                   <input
                     type="text"
                     value={siteConfig.ownerPassword || 'Admin@999'}
                     onChange={(e) => updateSiteConfig({ ownerPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono font-bold bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono font-bold bg-white opacity-60"
+                    disabled
                   />
-                  <span className="text-[10px] text-slate-400">Used for master authentication</span>
+                  <span className="text-[10px] text-slate-400">Ab Firebase Auth se manage hota hai</span>
                 </div>
 
                 <div>
                   <label className="text-[11px] text-slate-600 font-semibold block mb-1">
-                    Quick Access 4-Digit PIN:
+                    Quick Access 4-Digit PIN (Old - Deprecated):
                   </label>
                   <input
                     type="text"
                     maxLength={4}
-                    value={siteConfig.ownerPin || '9999'}
-                    onChange={(e) => updateSiteConfig({ ownerPin: e.target.value.replace(/\D/g, '') })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono font-bold bg-white"
+                    value={siteConfig.ownerSecurityPin || '9999'}
+                    onChange={(e) => updateSiteConfig({ ownerSecurityPin: e.target.value.replace(/\D/g, '') })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono font-bold bg-white opacity-60"
+                    disabled
                   />
-                  <span className="text-[10px] text-slate-400">Fast 4-digit PIN unlock</span>
+                  <span className="text-[10px] text-slate-400">Ab Firebase Auth se manage hota hai</span>
                 </div>
               </div>
 
@@ -885,7 +884,7 @@ export const OwnerPortal: React.FC = () => {
                     className="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
                   />
                   <span className="text-xs text-slate-500">
-                    Paid once by Cyber Cafe operators for lifetime unlimited tools access (No wallet/credit deduction model).
+                    Paid once by Cyber Cafe operators for lifetime unlimited tools access.
                   </span>
                 </div>
               </div>
