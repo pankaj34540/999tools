@@ -1,36 +1,43 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 import { 
-  ShieldAlert, 
   Crown, 
   Store, 
   User, 
-  Wallet, 
-  Wrench, 
   PhoneCall, 
-  Layers,
   Lock,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  LogIn,
+  LogOut,
+  CreditCard,
+  Settings,
+  UserCircle,
+  Zap
 } from 'lucide-react';
 import { VleRegistrationModal } from '../vle/VleRegistrationModal';
+import { UserAuthModal } from '../user/UserAuthModal';
 
 export const Header: React.FC = () => {
   const { 
     role, 
     setRole, 
     siteConfig, 
-    activeVle, 
-    vles, 
-    setActiveVle,
     setActiveTool,
     showNotification,
-    ownerAuthenticated
+    currentUser,
+    setCurrentUser,
+    isUserPremium
   } = useApp();
 
   const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   const handleRoleSelect = (targetRole: UserRole) => {
     setRole(targetRole);
@@ -41,6 +48,43 @@ export const Header: React.FC = () => {
       showNotification(`Switched to ${targetRole === 'vle' ? 'CSC VLE / Cyber Cafe Portal' : 'Public User Portal'}`);
     }
   };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setCurrentUser(null);
+      setShowUserMenu(false);
+      showNotification('Logged out successfully');
+    } catch (error) {
+      showNotification('Logout failed');
+    }
+  };
+
+  const openLogin = () => {
+    setAuthMode('login');
+    setShowAuthModal(true);
+    setShowUserMenu(false);
+  };
+
+  const openSignup = () => {
+    setAuthMode('signup');
+    setShowAuthModal(true);
+    setShowUserMenu(false);
+  };
+
+  const getPlanBadge = () => {
+    if (!currentUser) return null;
+    if (currentUser.plan === 'vle') {
+      return { label: 'VLE', color: 'bg-blue-500', textColor: 'text-white' };
+    }
+    if (currentUser.plan === 'premium' && isUserPremium()) {
+      return { label: 'PREMIUM', color: 'bg-amber-500', textColor: 'text-slate-950' };
+    }
+    return { label: 'FREE', color: 'bg-slate-600', textColor: 'text-white' };
+  };
+
+  const planBadge = getPlanBadge();
+  const userPremium = isUserPremium();
 
   return (
     <>
@@ -126,27 +170,179 @@ export const Header: React.FC = () => {
             </button>
           </div>
 
-          {/* Role Switcher & Operator Profile */}
+          {/* Right Side: Auth + Role Switcher */}
           <div className="flex items-center gap-2.5">
+            
+            {/* 🆕 USER AUTH SECTION */}
+            {currentUser ? (
+              // Logged In — Show User Menu
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-white text-xs font-semibold transition"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-black text-xs">
+                    {currentUser.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <div className="text-[11px] font-bold truncate max-w-[80px]">{currentUser.name}</div>
+                    <div className="text-[9px] text-slate-400 truncate max-w-[80px]">{currentUser.email}</div>
+                  </div>
+                  {planBadge && (
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${planBadge.color} ${planBadge.textColor}`}>
+                      {planBadge.label}
+                    </span>
+                  )}
+                  <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                </button>
+
+                {/* User Dropdown Menu */}
+                {showUserMenu && (
+                  <div 
+                    className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* User Info Header */}
+                    <div className="px-3 py-3 border-b border-slate-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-black text-base">
+                          {currentUser.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-white truncate">{currentUser.name}</div>
+                          <div className="text-[10px] text-slate-400 truncate">{currentUser.email}</div>
+                        </div>
+                      </div>
+                      
+                      {/* Plan Badge */}
+                      {planBadge && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black ${planBadge.color} ${planBadge.textColor}`}>
+                            {planBadge.label} PLAN
+                          </span>
+                          {currentUser.subscriptionEnd && userPremium && (
+                            <span className="text-[9px] text-slate-400">
+                              Valid till {new Date(currentUser.subscriptionEnd).toLocaleDateString('en-IN')}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Menu Items */}
+                    <div className="p-1 space-y-1">
+                      
+                      {/* Upgrade Button (only for free users) */}
+                      {!userPremium && (
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            showNotification('Upgrade feature coming soon!');
+                          }}
+                          className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-200 font-bold transition"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                            <Zap className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="font-bold">Upgrade to Premium</div>
+                            <div className="text-[10px] opacity-80">
+                              ₹{siteConfig.premiumMonthlyPrice}/mo — Unlimited tools
+                            </div>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* My Subscription */}
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          showNotification('Subscription page coming soon!');
+                        }}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-slate-300 hover:bg-slate-800 transition"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                          <CreditCard className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-semibold">My Subscription</div>
+                          <div className="text-[10px] text-slate-400">Plan & payment history</div>
+                        </div>
+                      </button>
+
+                      {/* Account Settings */}
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          showNotification('Settings page coming soon!');
+                        }}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-slate-300 hover:bg-slate-800 transition"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-slate-700/50 text-slate-300 flex items-center justify-center shrink-0">
+                          <Settings className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-semibold">Account Settings</div>
+                          <div className="text-[10px] text-slate-400">Profile, mobile, password</div>
+                        </div>
+                      </button>
+
+                      {/* Logout */}
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-rose-300 hover:bg-rose-500/10 transition"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                          <LogOut className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-semibold">Logout</div>
+                          <div className="text-[10px] text-rose-400/70">Sign out from account</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Not Logged In — Show Login/Signup Buttons
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={openLogin}
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold transition"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Login</span>
+                </button>
+                <button
+                  onClick={openSignup}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white text-xs font-bold shadow-md transition"
+                >
+                  <UserCircle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Signup Free</span>
+                  <span className="sm:hidden">Signup</span>
+                </button>
+              </div>
+            )}
+
             {/* VLE Registration CTA Button */}
             <button
               onClick={() => setShowRegisterModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md transition"
-              title="Apply for Lifetime CSC VLE / Cyber Cafe VIP Portal Access"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md transition"
+              title="Apply for CSC VLE / Cyber Cafe VIP Portal Access"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">VLE Registration</span>
-              <span className="sm:hidden">Join VLE</span>
+              <span>VLE Registration</span>
               <span className="px-1.5 py-0.5 rounded bg-slate-950 text-amber-400 text-[10px] font-mono font-black">
-                ₹{siteConfig.vleOneTimeFee || 299}
+                ₹{siteConfig.vleMonthlyPrice || 199}/mo
               </span>
             </button>
 
-            {/* Owner Master Badge (if Owner role) */}
+            {/* Owner Master Badge */}
             {role === 'owner' && (
               <div className="hidden md:flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-xl text-xs text-amber-300 font-semibold">
                 <Crown className="w-3.5 h-3.5 text-amber-400" />
-                <span>Owner Master Control</span>
+                <span>Owner Control</span>
               </div>
             )}
 
@@ -160,20 +356,19 @@ export const Header: React.FC = () => {
                     ? 'bg-amber-500 text-slate-950 border-amber-400 hover:bg-amber-400'
                     : role === 'vle'
                     ? 'bg-blue-600 text-white border-blue-500 hover:bg-blue-500'
-                    : 'bg-slate-800 text-white border-slate-700 hover:bg-slate-750'
+                    : 'bg-slate-800 text-white border-slate-700 hover:bg-slate-700'
                 }`}
               >
                 {role === 'owner' && <Crown className="w-4 h-4" />}
                 {role === 'vle' && <Store className="w-4 h-4" />}
                 {role === 'user' && <User className="w-4 h-4" />}
                 
-                <span className="capitalize">
-                  {role === 'owner' ? 'Owner Panel' : role === 'vle' ? 'CSC VLE Portal' : 'User Panel'}
+                <span className="hidden sm:inline capitalize">
+                  {role === 'owner' ? 'Owner' : role === 'vle' ? 'VLE Portal' : 'User Panel'}
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 opacity-70" />
               </button>
 
-              {/* Role Dropdown Menu */}
               {showRoleMenu && (
                 <div 
                   className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2"
@@ -236,21 +431,8 @@ export const Header: React.FC = () => {
                         <div className="font-semibold flex items-center gap-1.5">
                           Owner Command Center <Lock className="w-3 h-3 text-amber-400" />
                         </div>
-                        <div className="text-[10px] text-slate-400">Full website control, tools & security</div>
+                        <div className="text-[10px] text-slate-400">Full website control</div>
                       </div>
-                    </button>
-                  </div>
-
-                  <div className="pt-2 mt-1 border-t border-slate-800">
-                    <button
-                      onClick={() => {
-                        setShowRoleMenu(false);
-                        setShowRegisterModal(true);
-                      }}
-                      className="w-full flex items-center justify-center gap-2 p-2 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold text-xs rounded-xl shadow transition"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Apply for VLE Registration (₹{siteConfig.vleOneTimeFee || 299})
                     </button>
                   </div>
                 </div>
@@ -264,6 +446,13 @@ export const Header: React.FC = () => {
       <VleRegistrationModal
         isOpen={showRegisterModal}
         onClose={() => setShowRegisterModal(false)}
+      />
+
+      {/* 🆕 User Auth Modal */}
+      <UserAuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode={authMode}
       />
     </>
   );
