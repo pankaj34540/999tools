@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { VleRegistrationModal } from '../vle/VleRegistrationModal';
 import { UserAuthModal } from '../user/UserAuthModal';
+import { PricingModal } from '../user/PricingModal';
+import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 
 export const Header: React.FC = () => {
   const { 
@@ -38,6 +40,12 @@ export const Header: React.FC = () => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+
+  // 🆕 Pricing + Upgrade state
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradePlan, setUpgradePlan] = useState<'premium' | 'vle'>('premium');
+  const [upgradeCycle, setUpgradeCycle] = useState<'monthly' | 'yearly'>('monthly');
 
   const handleRoleSelect = (targetRole: UserRole) => {
     setRole(targetRole);
@@ -72,6 +80,25 @@ export const Header: React.FC = () => {
     setShowUserMenu(false);
   };
 
+  // 🆕 Open Pricing Modal
+  const openPricing = () => {
+    if (!currentUser) {
+      showNotification('Pehle signup ya login karo');
+      openSignup();
+      return;
+    }
+    setShowPricingModal(true);
+    setShowUserMenu(false);
+  };
+
+  // 🆕 Handle Plan Selection
+  const handleSelectPlan = (plan: 'premium' | 'vle', cycle: 'monthly' | 'yearly') => {
+    setUpgradePlan(plan);
+    setUpgradeCycle(cycle);
+    setShowPricingModal(false);
+    setShowUpgradeModal(true);
+  };
+
   const getPlanBadge = () => {
     if (!currentUser) return null;
     if (currentUser.plan === 'vle') {
@@ -85,6 +112,18 @@ export const Header: React.FC = () => {
 
   const planBadge = getPlanBadge();
   const userPremium = isUserPremium();
+
+  // Get price for upgrade modal
+  const getUpgradeAmount = () => {
+    if (upgradePlan === 'premium') {
+      return upgradeCycle === 'monthly' 
+        ? (siteConfig.premiumMonthlyPrice || 49) 
+        : (siteConfig.premiumYearlyPrice || 399);
+    }
+    return upgradeCycle === 'monthly' 
+      ? (siteConfig.vleMonthlyPrice || 199) 
+      : (siteConfig.vleYearlyPrice || 1499);
+  };
 
   return (
     <>
@@ -136,7 +175,7 @@ export const Header: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Tools Launch Shortcuts */}
+          {/* Quick Tools Shortcuts (Desktop) */}
           <div className="hidden lg:flex items-center gap-1.5">
             <button
               onClick={() => setActiveTool('passport')}
@@ -170,12 +209,22 @@ export const Header: React.FC = () => {
             </button>
           </div>
 
-          {/* Right Side: Auth + Role Switcher */}
+          {/* Right Side */}
           <div className="flex items-center gap-2.5">
             
-            {/* 🆕 USER AUTH SECTION */}
+            {/* 🆕 UPGRADE BUTTON (for logged-in free users) */}
+            {currentUser && !userPremium && (
+              <button
+                onClick={openPricing}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-black shadow-md transition animate-pulse"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Upgrade</span>
+              </button>
+            )}
+
+            {/* User Auth Section */}
             {currentUser ? (
-              // Logged In — Show User Menu
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
@@ -186,7 +235,6 @@ export const Header: React.FC = () => {
                   </div>
                   <div className="hidden sm:block text-left">
                     <div className="text-[11px] font-bold truncate max-w-[80px]">{currentUser.name}</div>
-                    <div className="text-[9px] text-slate-400 truncate max-w-[80px]">{currentUser.email}</div>
                   </div>
                   {planBadge && (
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${planBadge.color} ${planBadge.textColor}`}>
@@ -196,13 +244,12 @@ export const Header: React.FC = () => {
                   <ChevronDown className="w-3.5 h-3.5 opacity-70" />
                 </button>
 
-                {/* User Dropdown Menu */}
+                {/* User Dropdown */}
                 {showUserMenu && (
                   <div 
                     className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {/* User Info Header */}
                     <div className="px-3 py-3 border-b border-slate-800">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-black text-base">
@@ -214,7 +261,6 @@ export const Header: React.FC = () => {
                         </div>
                       </div>
                       
-                      {/* Plan Badge */}
                       {planBadge && (
                         <div className="mt-2 flex items-center gap-2">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black ${planBadge.color} ${planBadge.textColor}`}>
@@ -229,16 +275,11 @@ export const Header: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Menu Items */}
                     <div className="p-1 space-y-1">
-                      
-                      {/* Upgrade Button (only for free users) */}
+                      {/* Upgrade Button */}
                       {!userPremium && (
                         <button
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            showNotification('Upgrade feature coming soon!');
-                          }}
+                          onClick={openPricing}
                           className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-200 font-bold transition"
                         >
                           <div className="w-8 h-8 rounded-lg bg-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
@@ -247,13 +288,12 @@ export const Header: React.FC = () => {
                           <div>
                             <div className="font-bold">Upgrade to Premium</div>
                             <div className="text-[10px] opacity-80">
-                              ₹{siteConfig.premiumMonthlyPrice}/mo — Unlimited tools
+                              ₹{siteConfig.premiumMonthlyPrice}/mo — Unlimited
                             </div>
                           </div>
                         </button>
                       )}
 
-                      {/* My Subscription */}
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
@@ -270,7 +310,6 @@ export const Header: React.FC = () => {
                         </div>
                       </button>
 
-                      {/* Account Settings */}
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
@@ -287,7 +326,6 @@ export const Header: React.FC = () => {
                         </div>
                       </button>
 
-                      {/* Logout */}
                       <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-rose-300 hover:bg-rose-500/10 transition"
@@ -305,7 +343,6 @@ export const Header: React.FC = () => {
                 )}
               </div>
             ) : (
-              // Not Logged In — Show Login/Signup Buttons
               <div className="flex items-center gap-2">
                 <button
                   onClick={openLogin}
@@ -325,11 +362,10 @@ export const Header: React.FC = () => {
               </div>
             )}
 
-            {/* VLE Registration CTA Button */}
+            {/* VLE Registration */}
             <button
               onClick={() => setShowRegisterModal(true)}
               className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md transition"
-              title="Apply for CSC VLE / Cyber Cafe VIP Portal Access"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>VLE Registration</span>
@@ -338,15 +374,15 @@ export const Header: React.FC = () => {
               </span>
             </button>
 
-            {/* Owner Master Badge */}
+            {/* Owner Badge */}
             {role === 'owner' && (
               <div className="hidden md:flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-xl text-xs text-amber-300 font-semibold">
                 <Crown className="w-3.5 h-3.5 text-amber-400" />
-                <span>Owner Control</span>
+                <span>Owner</span>
               </div>
             )}
 
-            {/* Role Switcher Dropdown */}
+            {/* Role Switcher */}
             <div className="relative">
               <button
                 id="role-switcher-btn"
@@ -362,7 +398,6 @@ export const Header: React.FC = () => {
                 {role === 'owner' && <Crown className="w-4 h-4" />}
                 {role === 'vle' && <Store className="w-4 h-4" />}
                 {role === 'user' && <User className="w-4 h-4" />}
-                
                 <span className="hidden sm:inline capitalize">
                   {role === 'owner' ? 'Owner' : role === 'vle' ? 'VLE Portal' : 'User Panel'}
                 </span>
@@ -371,7 +406,7 @@ export const Header: React.FC = () => {
 
               {showRoleMenu && (
                 <div 
-                  className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2"
+                  className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
@@ -380,7 +415,6 @@ export const Header: React.FC = () => {
 
                   <div className="p-1 space-y-1">
                     <button
-                      id="role-nav-user"
                       onClick={() => handleRoleSelect('user')}
                       className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs transition ${
                         role === 'user'
@@ -398,7 +432,6 @@ export const Header: React.FC = () => {
                     </button>
 
                     <button
-                      id="role-nav-vle"
                       onClick={() => handleRoleSelect('vle')}
                       className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs transition ${
                         role === 'vle'
@@ -411,12 +444,11 @@ export const Header: React.FC = () => {
                       </div>
                       <div>
                         <div className="font-semibold">CSC VLE / Cyber Cafe</div>
-                        <div className="text-[10px] text-slate-400">Lifetime VIP tools & print suite</div>
+                        <div className="text-[10px] text-slate-400">Print suite & khatabook</div>
                       </div>
                     </button>
 
                     <button
-                      id="role-nav-owner"
                       onClick={() => handleRoleSelect('owner')}
                       className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs transition ${
                         role === 'owner'
@@ -442,17 +474,36 @@ export const Header: React.FC = () => {
         </div>
       </header>
 
-      {/* VLE Registration Modal */}
+      {/* Modals */}
       <VleRegistrationModal
         isOpen={showRegisterModal}
         onClose={() => setShowRegisterModal(false)}
       />
 
-      {/* 🆕 User Auth Modal */}
       <UserAuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         initialMode={authMode}
+      />
+
+      {/* 🆕 Pricing Modal */}
+      <PricingModal
+        isOpen={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+        onSelectPlan={handleSelectPlan}
+      />
+
+      {/* 🆕 Upgrade Payment Modal */}
+      <UpgradePaymentModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        plan={upgradePlan}
+        billingCycle={upgradeCycle}
+        amount={getUpgradeAmount()}
+        onSuccess={() => {
+          setShowUpgradeModal(false);
+          showNotification('✅ Payment request submitted!');
+        }}
       />
     </>
   );
