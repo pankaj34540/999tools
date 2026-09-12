@@ -127,7 +127,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [vleOnlyMode, setVleOnlyMode] = useState(false);
 
-  // 🆕 Pricing + Upgrade Modals
+  // Pricing + Upgrade Modals
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'premium' | 'vle'>('premium');
@@ -148,18 +148,14 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
   const userPremium = isUserPremium();
 
-  // ============================================
-  // 🆕 LISTEN TO CUSTOM EVENT FROM HEADER
-  // ============================================
+  // Listen for custom event from Header
   useEffect(() => {
     const handler = () => setShowPricingModal(true);
     window.addEventListener('openPricingModal', handler);
     return () => window.removeEventListener('openPricingModal', handler);
   }, []);
 
-  // ============================================
-  // LOAD TOOL ACCESS FOR ALL TOOLS
-  // ============================================
+  // Load tool access
   useEffect(() => {
     const loadAccess = async () => {
       const map: Record<string, ToolAccess> = {};
@@ -185,15 +181,11 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     loadAccess();
   }, [currentUser, premiumToolIds]);
 
-  // Synchronize when parent updates
   const currentActiveTool = useMemo(() => {
     if (!activeToolId) return null;
     return TOOLS_REGISTRY.find((t) => t.id === activeToolId) || null;
   }, [activeToolId]);
 
-  // ============================================
-  // HANDLE OPEN TOOL — with premium check
-  // ============================================
   const handleOpenTool = async (toolId: string) => {
     const tool = TOOLS_REGISTRY.find(t => t.id === toolId);
     if (!tool) return;
@@ -201,14 +193,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     const access = toolAccessMap[toolId];
     const isPremiumTool = access?.isPremium || premiumToolIds.includes(toolId);
 
-    // Premium check
     if (isPremiumTool && access && !access.allowed) {
       showNotification('❌ Aaj ki free limit khatam. Premium upgrade karo!');
       setShowPricingModal(true);
       return;
     }
 
-    // Record usage for premium tools (free user)
     if (isPremiumTool && access && access.limit > 0 && currentUser) {
       await recordUsage(toolId);
       
@@ -240,7 +230,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     if (onSelectTool) onSelectTool(null);
   };
 
-  // Filter tools
   const filteredTools = useMemo(() => {
     return TOOLS_REGISTRY.filter((tool) => {
       const matchSearch =
@@ -257,7 +246,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     });
   }, [searchQuery, selectedCategory, vleOnlyMode]);
 
-  // Handle User/VLE Request Submission
   const handleRequestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!reqTitle.trim()) return;
@@ -283,14 +271,10 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     }, 2000);
   };
 
-  // ============================================
-  // PREMIUM BADGE UI
-  // ============================================
   const renderPremiumBadge = (toolId: string) => {
     const access = toolAccessMap[toolId];
     if (!access || !access.isPremium) return null;
 
-    // Premium user
     if (userPremium) {
       return (
         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -299,7 +283,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
-    // Free user with remaining uses
     if (access.remaining > 0) {
       return (
         <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -308,7 +291,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
-    // Free user with limit exhausted
     return (
       <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1">
         <Lock className="w-2.5 h-2.5" /> LOCKED
@@ -316,9 +298,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     );
   };
 
-  // ============================================
-  // GET UPGRADE AMOUNT
-  // ============================================
   const getUpgradeAmount = () => {
     if (upgradePlan === 'premium') {
       return upgradeCycle === 'monthly' 
@@ -330,7 +309,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       : (siteConfig.vleYearlyPrice || 1499);
   };
 
-  // Render Component Mapping
   const renderToolWorkspace = () => {
     if (!currentActiveTool) return null;
 
@@ -480,7 +458,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           </div>
 
           <div className="flex items-center gap-3">
-            {/* UPGRADE BUTTON for free users */}
             {currentUser && !userPremium && (
               <button
                 onClick={() => setShowPricingModal(true)}
@@ -501,7 +478,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           </div>
         </div>
 
-        {/* Progress Metric */}
         <div className="mt-6 pt-4 border-t border-slate-800">
           <div className="flex justify-between items-center text-xs mb-2">
             <span className="text-slate-400">Total Live Catalog: <strong className="text-white">50 Tools</strong></span>
@@ -773,7 +749,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         </div>
       )}
 
-      {/* 🆕 PRICING MODAL */}
+      {/* PRICING MODAL */}
       <PricingModal
         isOpen={showPricingModal}
         onClose={() => setShowPricingModal(false)}
@@ -785,10 +761,14 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         }}
       />
 
-      {/* 🆕 UPGRADE PAYMENT MODAL */}
+      {/* UPGRADE PAYMENT MODAL — with onBack */}
       <UpgradePaymentModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
+        onBack={() => {
+          setShowUpgradeModal(false);
+          setShowPricingModal(true);
+        }}
         plan={upgradePlan}
         billingCycle={upgradeCycle}
         amount={getUpgradeAmount()}
