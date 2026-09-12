@@ -20,6 +20,22 @@ import {
   initialVleApplications 
 } from '../data/initialData';
 import { TOOLS_REGISTRY } from '../data/toolsRegistry';
+import {
+  saveSiteConfigToFirebase,
+  loadSiteConfigFromFirebase,
+  subscribeToSiteConfig,
+  saveVlesToFirebase,
+  loadVlesFromFirebase,
+  subscribeToVles,
+  saveApplicationsToFirebase,
+  loadApplicationsFromFirebase,
+  saveOrdersToFirebase,
+  loadOrdersFromFirebase,
+  saveCustomToolsToFirebase,
+  loadCustomToolsFromFirebase,
+  saveLinksToFirebase,
+  loadLinksFromFirebase,
+} from '../services/firebaseSync';
 
 interface AppContextType {
   role: UserRole;
@@ -78,6 +94,7 @@ interface AppContextType {
   notificationMessage: string | null;
   notification: string | null;
   showNotification: (msg: string) => void;
+  firebaseReady: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -97,6 +114,16 @@ const STORAGE_KEYS = {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [firebaseReady, setFirebaseReady] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
+
+  const showNotification = (msg: string) => {
+    setNotificationMessage(msg);
+    setTimeout(() => {
+      setNotificationMessage((current) => (current === msg ? null : current));
+    }, 3800);
+  };
+
   const [role, setRoleState] = useState<UserRole>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ROLE);
     return (saved as UserRole) || 'user';
@@ -107,6 +134,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.ROLE, newRole);
   };
 
+  // SITE CONFIG
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SITE_CONFIG);
     if (saved) {
@@ -115,15 +143,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialSiteConfig;
   });
 
-  const updateSiteConfig = (updates: Partial<SiteConfig>) => {
-    setSiteConfig((prev) => {
-      const next = { ...prev, ...updates };
-      localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, JSON.stringify(next));
-      return next;
-    });
-    showNotification('Site configuration updated successfully.');
-  };
-
+  // SERVICES
   const [services, setServices] = useState<ServiceItem[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SERVICES);
     if (saved) {
@@ -135,6 +155,188 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
   }, [services]);
+
+  // VLEs
+  const [vles, setVles] = useState<VleOperator[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.VLES);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return initialVles;
+  });
+
+  // ORDERS
+  const [orders, setOrders] = useState<CustomerOrder[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return initialOrders;
+  });
+
+  // TRANSACTIONS
+  const [transactions, setTransactions] = useState<WalletTransaction[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return initialTransactions;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+  }, [transactions]);
+
+  // IMPORTANT LINKS
+  const [importantLinks, setImportantLinks] = useState<ImportantLink[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.IMPORTANT_LINKS);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return initialImportantLinks;
+  });
+
+  // VLE APPLICATIONS
+  const [vleApplications, setVleApplications] = useState<VleApplication[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.VLE_APPLICATIONS);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return initialVleApplications;
+  });
+
+  // CUSTOM TOOLS
+  const [customTools, setCustomTools] = useState<ToolDefinition[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.CUSTOM_TOOLS);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return [];
+  });
+
+  // ============================================
+  // FIREBASE — Initial Load
+  // ============================================
+  useEffect(() => {
+    const loadFromFirebase = async () => {
+      // Load site config
+      const fbConfig = await loadSiteConfigFromFirebase();
+      if (fbConfig) {
+        setSiteConfig(fbConfig);
+        localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, JSON.stringify(fbConfig));
+      } else {
+        await saveSiteConfigToFirebase(siteConfig);
+      }
+
+      // Load VLEs
+      const fbVles = await loadVlesFromFirebase();
+      if (fbVles && fbVles.length > 0) {
+        setVles(fbVles);
+        localStorage.setItem(STORAGE_KEYS.VLES, JSON.stringify(fbVles));
+      }
+
+      // Load applications
+      const fbApps = await loadApplicationsFromFirebase();
+      if (fbApps && fbApps.length > 0) {
+        setVleApplications(fbApps);
+        localStorage.setItem(STORAGE_KEYS.VLE_APPLICATIONS, JSON.stringify(fbApps));
+      }
+
+      // Load orders
+      const fbOrders = await loadOrdersFromFirebase();
+      if (fbOrders && fbOrders.length > 0) {
+        setOrders(fbOrders);
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(fbOrders));
+      }
+
+      // Load custom tools
+      const fbTools = await loadCustomToolsFromFirebase();
+      if (fbTools && fbTools.length > 0) {
+        setCustomTools(fbTools);
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_TOOLS, JSON.stringify(fbTools));
+      }
+
+      // Load links
+      const fbLinks = await loadLinksFromFirebase();
+      if (fbLinks && fbLinks.length > 0) {
+        setImportantLinks(fbLinks);
+        localStorage.setItem(STORAGE_KEYS.IMPORTANT_LINKS, JSON.stringify(fbLinks));
+      }
+
+      setFirebaseReady(true);
+      console.log('✅ Firebase sync ready');
+    };
+
+    loadFromFirebase();
+  }, []);
+
+  // ============================================
+  // FIREBASE — Real-time listeners
+  // ============================================
+  useEffect(() => {
+    if (!firebaseReady) return;
+    
+    const unsubConfig = subscribeToSiteConfig((config) => {
+      setSiteConfig(config);
+      localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, JSON.stringify(config));
+    });
+
+    const unsubVles = subscribeToVles((fbVles) => {
+      setVles(fbVles);
+      localStorage.setItem(STORAGE_KEYS.VLES, JSON.stringify(fbVles));
+    });
+
+    return () => {
+      unsubConfig();
+      unsubVles();
+    };
+  }, [firebaseReady]);
+
+  // ============================================
+  // AUTO-SYNC TO FIREBASE
+  // ============================================
+  useEffect(() => {
+    if (!firebaseReady) return;
+    localStorage.setItem(STORAGE_KEYS.VLES, JSON.stringify(vles));
+    saveVlesToFirebase(vles);
+  }, [vles, firebaseReady]);
+
+  useEffect(() => {
+    if (!firebaseReady) return;
+    localStorage.setItem(STORAGE_KEYS.VLE_APPLICATIONS, JSON.stringify(vleApplications));
+    saveApplicationsToFirebase(vleApplications);
+  }, [vleApplications, firebaseReady]);
+
+  useEffect(() => {
+    if (!firebaseReady) return;
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+    saveOrdersToFirebase(orders);
+  }, [orders, firebaseReady]);
+
+  useEffect(() => {
+    if (!firebaseReady) return;
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_TOOLS, JSON.stringify(customTools));
+    saveCustomToolsToFirebase(customTools);
+  }, [customTools, firebaseReady]);
+
+  useEffect(() => {
+    if (!firebaseReady) return;
+    localStorage.setItem(STORAGE_KEYS.IMPORTANT_LINKS, JSON.stringify(importantLinks));
+    saveLinksToFirebase(importantLinks);
+  }, [importantLinks, firebaseReady]);
+
+  // ============================================
+  // UPDATE FUNCTIONS
+  // ============================================
+  const updateSiteConfig = async (updates: Partial<SiteConfig>) => {
+    const next = { ...siteConfig, ...updates };
+    setSiteConfig(next);
+    localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, JSON.stringify(next));
+    
+    await saveSiteConfigToFirebase(next);
+    
+    showNotification('✅ Settings saved to cloud!');
+  };
 
   const toggleService = (id: string) => {
     setServices((prev) =>
@@ -159,27 +361,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Service deleted.');
   };
 
-  const [vles, setVles] = useState<VleOperator[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.VLES);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return initialVles;
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.VLES, JSON.stringify(vles));
-  }, [vles]);
-
   // ============================================
-  // ✅ FIX #1: Active VLE — Bina login koi active nahi hoga
+  // ACTIVE VLE
   // ============================================
   const [activeVleId, setActiveVleId] = useState<string>(() => {
-    // Sirf wahi VLE pick hoga jo localStorage mein saved hai
     return localStorage.getItem(STORAGE_KEYS.ACTIVE_VLE_ID) || '';
   });
 
-  // Fallback hata diya — bina login ke koi VLE active nahi
   const activeVle = vles.find((v) => v.id === activeVleId) || null;
 
   const setActiveVle = (vle: VleOperator | null) => {
@@ -187,85 +375,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveVleId(vle.id);
       localStorage.setItem(STORAGE_KEYS.ACTIVE_VLE_ID, vle.id);
     } else {
-      // Logout pe localStorage bhi clear karo
       setActiveVleId('');
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_VLE_ID);
     }
   };
 
-  const [orders, setOrders] = useState<CustomerOrder[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return initialOrders;
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-  }, [orders]);
-
-  const [transactions, setTransactions] = useState<WalletTransaction[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return initialTransactions;
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
-  }, [transactions]);
-
-  const [importantLinks, setImportantLinks] = useState<ImportantLink[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.IMPORTANT_LINKS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return initialImportantLinks;
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.IMPORTANT_LINKS, JSON.stringify(importantLinks));
-  }, [importantLinks]);
-
+  // ============================================
+  // IMPORTANT LINKS FUNCTIONS
+  // ============================================
   const addImportantLink = (linkData: Omit<ImportantLink, 'id'>) => {
     const newLink: ImportantLink = {
       ...linkData,
       id: 'link_' + Date.now().toString(36),
     };
     setImportantLinks((prev) => [newLink, ...prev]);
-    showNotification(`Added "${newLink.title}" to Important Portals.`);
+    showNotification(`Added "${newLink.title}"`);
   };
 
   const updateImportantLink = (link: ImportantLink) => {
     setImportantLinks((prev) => prev.map((l) => (l.id === link.id ? link : l)));
-    showNotification(`Updated link "${link.title}".`);
+    showNotification(`Updated "${link.title}"`);
   };
 
   const deleteImportantLink = (id: string) => {
     setImportantLinks((prev) => prev.filter((l) => l.id !== id));
-    showNotification('Portal link removed.');
+    showNotification('Link removed.');
   };
 
   const resetImportantLinks = () => {
     setImportantLinks(initialImportantLinks);
-    localStorage.setItem(STORAGE_KEYS.IMPORTANT_LINKS, JSON.stringify(initialImportantLinks));
-    showNotification('Default Government portals restored.');
+    showNotification('Default links restored.');
   };
 
-  const [vleApplications, setVleApplications] = useState<VleApplication[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.VLE_APPLICATIONS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return initialVleApplications;
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.VLE_APPLICATIONS, JSON.stringify(vleApplications));
-  }, [vleApplications]);
-
+  // ============================================
+  // VLE APPLICATIONS FUNCTIONS
+  // ============================================
   const submitVleApplication = (appData: Omit<VleApplication, 'id' | 'status' | 'appliedDate'>): string => {
     const appId = 'app_vle_' + Date.now().toString(36);
     const newApp: VleApplication = {
@@ -275,7 +419,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       appliedDate: new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
     };
     setVleApplications((prev) => [newApp, ...prev]);
-    showNotification('VLE Application submitted! Verification in progress.');
+    showNotification('Application submitted!');
     return appId;
   };
 
@@ -322,7 +466,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
-    showNotification(`Approved ${targetApp.centerName}! Credentials generated: ${generatedVleId}`);
+    showNotification(`Approved! ID: ${generatedVleId}`);
     return { vleId: generatedVleId, password: generatedPassword };
   };
 
@@ -330,11 +474,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setVleApplications((prev) =>
       prev.map((a) => (a.id === appId ? { ...a, status: 'rejected', rejectionReason: reason } : a))
     );
-    showNotification('VLE Application rejected.');
+    showNotification('Application rejected.');
   };
 
   // ============================================
-  // VLE OPERATOR AUTHENTICATION
+  // VLE AUTH
   // ============================================
   const [vleLoggedIn, setVleLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEYS.VLE_LOGGED_IN) === 'true';
@@ -351,37 +495,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (found) {
       if (found.status === 'suspended') {
-        showNotification('This VLE account has been suspended by Admin.');
+        showNotification('Account suspended by Admin.');
         return false;
       }
       setActiveVleId(found.id);
       localStorage.setItem(STORAGE_KEYS.ACTIVE_VLE_ID, found.id);
       setVleLoggedIn(true);
       localStorage.setItem(STORAGE_KEYS.VLE_LOGGED_IN, 'true');
-      showNotification(`Welcome, ${found.operatorName} (${found.centerName})!`);
+      showNotification(`Welcome, ${found.operatorName}!`);
       return true;
     }
 
-    showNotification('Invalid Operator ID or Password.');
+    showNotification('Invalid ID or Password.');
     return false;
   };
 
-  // ============================================
-  // ✅ FIX #2: vleLogout — Sab kuch clear karo
-  // ============================================
   const vleLogout = () => {
     setVleLoggedIn(false);
     setActiveVleId('');
     localStorage.removeItem(STORAGE_KEYS.VLE_LOGGED_IN);
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_VLE_ID);
-    showNotification('VLE Operator logged out successfully.');
+    showNotification('Logged out successfully.');
   };
 
   const updateVleProfile = (vleId: string, updates: Partial<VleOperator>) => {
     setVles((prev) => prev.map((v) => (v.id === vleId ? { ...v, ...updates } : v)));
-    showNotification('Center Profile & Shop Branding updated!');
+    showNotification('Profile updated!');
   };
 
+  // ============================================
+  // OWNER AUTH
+  // ============================================
   const [ownerAuthenticated, setOwnerAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('999tools_owner_auth_v1') === 'true';
   });
@@ -391,7 +535,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const verifyOwnerAuth = (input: string): boolean => {
     if (ownerLockedUntil && Date.now() < ownerLockedUntil) {
       const waitSec = Math.ceil((ownerLockedUntil - Date.now()) / 1000);
-      showNotification(`Security lockout active! Please wait ${waitSec}s.`);
+      showNotification(`Lockout! Wait ${waitSec}s.`);
       return false;
     }
 
@@ -403,7 +547,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setOwnerFailedAttempts(0);
       setOwnerLockedUntil(null);
       sessionStorage.setItem('999tools_owner_auth_v1', 'true');
-      showNotification('👑 Owner Master Authentication Verified!');
+      showNotification('👑 Owner Verified!');
       return true;
     }
 
@@ -411,11 +555,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOwnerFailedAttempts(nextAttempts);
 
     if (nextAttempts >= 5) {
-      const lockDuration = 60 * 1000;
-      setOwnerLockedUntil(Date.now() + lockDuration);
-      showNotification('Too many failed attempts! Security Lockout for 60 seconds.');
+      setOwnerLockedUntil(Date.now() + 60 * 1000);
+      showNotification('Too many attempts! Lockout 60s.');
     } else {
-      showNotification(`Incorrect Master PIN/Password! (${5 - nextAttempts} attempts left)`);
+      showNotification(`Incorrect! (${5 - nextAttempts} left)`);
     }
 
     return false;
@@ -424,7 +567,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const lockOwnerSession = () => {
     setOwnerAuthenticated(false);
     sessionStorage.removeItem('999tools_owner_auth_v1');
-    showNotification('Owner Session locked.');
+    showNotification('Session locked.');
   };
 
   const changeOwnerCredentials = (newPin: string, newPassword?: string) => {
@@ -432,21 +575,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ownerSecurityPin: newPin,
       ...(newPassword ? { ownerPassword: newPassword } : {}),
     });
-    showNotification('Master Security Credentials updated successfully!');
+    showNotification('Credentials updated!');
   };
 
-  const [customTools, setCustomTools] = useState<ToolDefinition[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CUSTOM_TOOLS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return [];
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CUSTOM_TOOLS, JSON.stringify(customTools));
-  }, [customTools]);
-
+  // ============================================
+  // TOOLS
+  // ============================================
   const allTools: ToolDefinition[] = [...TOOLS_REGISTRY, ...customTools];
 
   const addCustomTool = (toolData: Omit<ToolDefinition, 'id' | 'isCustom'>) => {
@@ -458,27 +592,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: true,
     };
     setCustomTools((prev) => [newTool, ...prev]);
-    showNotification(`New Tool #${newTool.num} "${newTool.name}" added to registry!`);
+    showNotification(`Tool #${newTool.num} added!`);
   };
 
   const updateTool = (updatedTool: ToolDefinition) => {
     if (updatedTool.isCustom) {
       setCustomTools((prev) => prev.map((t) => (t.id === updatedTool.id ? updatedTool : t)));
     }
-    showNotification(`Tool #${updatedTool.num} details updated.`);
+    showNotification(`Tool #${updatedTool.num} updated.`);
   };
 
   const deleteCustomTool = (id: string) => {
     setCustomTools((prev) => prev.filter((t) => t.id !== id));
-    showNotification('Custom tool removed from registry.');
+    showNotification('Tool removed.');
   };
 
+  // ============================================
+  // WALLET
+  // ============================================
   const updateVleWallet = (vleId: string, amount: number, type: 'credit' | 'debit', reason: string): boolean => {
     const targetVle = vles.find((v) => v.id === vleId);
     if (!targetVle) return false;
 
     if (type === 'debit' && targetVle.walletBalance < amount) {
-      showNotification('Insufficient wallet balance!');
+      showNotification('Insufficient balance!');
       return false;
     }
 
@@ -501,7 +638,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setTransactions((prev) => [newTx, ...prev]);
-    showNotification(`₹${amount} ${type === 'credit' ? 'credited to' : 'debited from'} ${targetVle.centerName}`);
+    showNotification(`₹${amount} ${type === 'credit' ? 'credited' : 'debited'}`);
     return true;
   };
 
@@ -515,7 +652,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return v;
       })
     );
-    showNotification('VLE status updated.');
+    showNotification('Status updated.');
   };
 
   const addVle = (vleData: Omit<VleOperator, 'id' | 'vleId' | 'totalOrdersCompleted' | 'joinedDate'>) => {
@@ -528,9 +665,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       joinedDate: new Date().toISOString().split('T')[0],
     };
     setVles((prev) => [newVle, ...prev]);
-    showNotification(`New VLE ${newVle.centerName} (${newVle.vleId}) registered!`);
+    showNotification('New VLE registered!');
   };
 
+  // ============================================
+  // ORDERS
+  // ============================================
   const addCustomerOrder = (orderData: Omit<CustomerOrder, 'id' | 'tokenNumber' | 'date'>): CustomerOrder => {
     const randomToken = '999-2026-' + Math.floor(1000 + Math.random() * 9000);
     const newOrder: CustomerOrder = {
@@ -552,7 +692,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
-    showNotification(`Application submitted! Token: ${randomToken}`);
+    showNotification(`Token: ${randomToken}`);
     return newOrder;
   };
 
@@ -575,89 +715,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return o;
       })
     );
-    showNotification(`Order status updated to ${status.toUpperCase()}`);
+    showNotification(`Status: ${status.toUpperCase()}`);
   };
 
   const [activeTool, setActiveTool] = useState<string | null>(null);
 
-  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
-  const showNotification = (msg: string) => {
-    setNotificationMessage(msg);
-    setTimeout(() => {
-      setNotificationMessage((current) => (current === msg ? null : current));
-    }, 3800);
-  };
-
   const resetToDefaultData = () => {
-    if (confirm('Reset all 999tools data (services, orders, VLEs, config) to default factory state?')) {
-      localStorage.removeItem(STORAGE_KEYS.SITE_CONFIG);
-      localStorage.removeItem(STORAGE_KEYS.SERVICES);
-      localStorage.removeItem(STORAGE_KEYS.VLES);
-      localStorage.removeItem(STORAGE_KEYS.ORDERS);
-      localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
-      localStorage.removeItem(STORAGE_KEYS.ACTIVE_VLE_ID);
-      localStorage.removeItem(STORAGE_KEYS.VLE_LOGGED_IN);
-      setSiteConfig(initialSiteConfig);
-      setServices(initialServices);
-      setVles(initialVles);
-      setOrders(initialOrders);
-      setTransactions(initialTransactions);
-      setActiveVleId('');
-      showNotification('Factory default data restored successfully.');
+    if (confirm('Reset all data?')) {
+      localStorage.clear();
+      sessionStorage.clear();
+      location.reload();
     }
   };
 
   return (
     <AppContext.Provider
       value={{
-        role,
-        setRole,
-        siteConfig,
-        updateSiteConfig,
-        services,
-        toggleService,
-        updateService,
-        addService,
-        deleteService,
-        vles,
-        activeVle,
-        setActiveVle,
-        updateVleWallet,
-        toggleVleStatus,
-        addVle,
-        updateVleProfile,
-        vleApplications,
-        submitVleApplication,
-        approveVleApplication,
-        rejectVleApplication,
-        vleLoggedIn,
-        vleLogin,
-        vleLogout,
-        ownerAuthenticated,
-        ownerLockedUntil,
-        verifyOwnerAuth,
-        lockOwnerSession,
-        changeOwnerCredentials,
-        importantLinks,
-        addImportantLink,
-        updateImportantLink,
-        deleteImportantLink,
-        resetImportantLinks,
-        allTools,
-        customTools,
-        addCustomTool,
-        updateTool,
-        deleteCustomTool,
-        orders,
-        addCustomerOrder,
-        updateOrderStatus,
-        transactions,
-        activeTool,
-        setActiveTool,
-        resetToDefaultData,
-        notificationMessage,
-        notification: notificationMessage,
-        showNotification,
+        role, setRole,
+        siteConfig, updateSiteConfig,
+        services, toggleService, updateService, addService, deleteService,
+        vles, activeVle, setActiveVle, updateVleWallet, toggleVleStatus, addVle, updateVleProfile,
+        vleApplications, submitVleApplication, approveVleApplication, rejectVleApplication,
+        vleLoggedIn, vleLogin, vleLogout,
+        ownerAuthenticated, ownerLockedUntil, verifyOwnerAuth, lockOwnerSession, changeOwnerCredentials,
+        importantLinks, addImportantLink, updateImportantLink, deleteImportantLink, resetImportantLinks,
+        allTools, customTools, addCustomTool, updateTool, deleteCustomTool,
+        orders, addCustomerOrder, updateOrderStatus, transactions,
+        activeTool, setActiveTool, resetToDefaultData,
+        notificationMessage, notification: notificationMessage, showNotification,
+        firebaseReady,
       }}
     >
       {children}
