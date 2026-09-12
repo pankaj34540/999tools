@@ -3,17 +3,19 @@ export type UserRole = 'user' | 'vle' | 'owner';
 export interface AdsterraConfig {
   enabled: boolean;
   headerBannerActive: boolean;
-  headerBannerCode: string; // e.g. 728x90 banner or iframe
+  headerBannerCode: string;
   toolBannerActive: boolean;
-  toolBannerCode: string; // e.g. 300x250 or 468x60 inside tool
+  toolBannerCode: string;
   sidebarAdActive: boolean;
-  sidebarAdCode: string; // sticky 160x600 or 300x250
+  sidebarAdCode: string;
+  nativeBannerActive: boolean;
+  nativeBannerCode: string;
   directLinkActive: boolean;
-  directLinkUrl: string; // Popunder / Direct link URL
-  directLinkFrequency: number; // e.g. 1 = every click, 2 = every 2nd download click
+  directLinkUrl: string;
+  directLinkFrequency: number;
   socialBarActive: boolean;
-  socialBarCode: string; // Social Bar / In-page Push code
-  testMode: boolean; // Show test placeholders if real code is empty
+  socialBarCode: string;
+  testMode: boolean;
 }
 
 export interface SiteConfig {
@@ -27,13 +29,13 @@ export interface SiteConfig {
   noticeMarquee: string;
   noticeEnabled: boolean;
   maintenanceMode: boolean;
-  defaultVleCommissionRate: number; // percentage or fixed
+  defaultVleCommissionRate: number;
   allowPublicRegistrations: boolean;
-  targetToolsGoal: number; // 999
+  targetToolsGoal: number;
   adsterra: AdsterraConfig;
-  vleOneTimeFee: number; // One-time lifetime registration fee (e.g. ₹299)
-  ownerSecurityPin: string; // Master security PIN for Owner Panel (e.g. "9999")
-  ownerPassword?: string; // Master password for Owner Panel (e.g. "admin@999")
+  vleOneTimeFee: number;
+  ownerSecurityPin: string;
+  ownerPassword?: string;
 }
 
 export interface ImportantLink {
@@ -75,13 +77,13 @@ export type ToolCategory =
   | 'generators_daily';
 
 export interface ToolDefinition {
-  num: number; // e.g. 1, 2, ..., 50 (display as #001, #002)
+  num: number;
   id: string;
   name: string;
   shortName?: string;
   category: ToolCategory;
   description: string;
-  badge?: string; // e.g. 'Hot', '4x6 Lab', 'Govt Form', 'CSC Favorite'
+  badge?: string;
   tags: string[];
   popular?: boolean;
   vleEssential?: boolean;
@@ -97,7 +99,7 @@ export interface ToolRequestItem {
   toolName: string;
   category: string;
   description: string;
-  requestedBy: string; // 'Cyber Cafe VLE' or 'Student'
+  requestedBy: string;
   votes: number;
   status: 'planned' | 'in_review' | 'building' | 'live';
   createdAt: string;
@@ -116,9 +118,9 @@ export interface ServiceItem {
   name: string;
   category: ServiceCategory;
   description: string;
-  userPrice: number; // ₹ (0 for free)
-  vlePrice: number; // cost to VLE
-  vleCommission: number; // ₹ earned by VLE
+  userPrice: number;
+  vlePrice: number;
+  vleCommission: number;
   iconName: string;
   enabled: boolean;
   popular?: boolean;
@@ -129,9 +131,9 @@ export interface ServiceItem {
 
 export interface VleOperator {
   id: string;
-  vleId: string; // e.g. VLE-999-102
-  password?: string; // Operator login password
-  centerName: string; // e.g. Maa Durga Cyber Cafe & CSC
+  vleId: string;
+  password?: string;
+  centerName: string;
   operatorName: string;
   mobile: string;
   email: string;
@@ -154,7 +156,7 @@ export interface VleOperator {
 
 export interface CustomerOrder {
   id: string;
-  tokenNumber: string; // e.g. 999-2026-0042
+  tokenNumber: string;
   customerName: string;
   customerMobile: string;
   serviceId: string;
