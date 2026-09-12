@@ -14,7 +14,8 @@ import {
   Copy,
   Printer,
   Lock,
-  KeyRound
+  KeyRound,
+  BookOpen
 } from 'lucide-react';
 import { PassportPhotoMaker } from '../tools/PassportPhotoMaker';
 import { PhotoSignResizer } from '../tools/PhotoSignResizer';
@@ -27,6 +28,7 @@ import { ToolsExplorer } from '../tools/ToolsExplorer';
 import { ShopBrandingManager } from './ShopBrandingManager';
 import { VleRegistrationModal } from './VleRegistrationModal';
 import { VleLoginModal } from './VleLoginModal';
+import { KhatabookManager } from './KhatabookManager';
 
 export const VlePortal: React.FC = () => {
   const { 
@@ -40,9 +42,10 @@ export const VlePortal: React.FC = () => {
     showNotification,
     vleLoggedIn,
     vleLogout,
+    ledgerEntries,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'tools' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
+  const [activeTab, setActiveTab] = useState<'tools' | 'khatabook' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
   const [toolsViewMode, setToolsViewMode] = useState<'all_50' | 'essentials'>('all_50');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -82,8 +85,8 @@ export const VlePortal: React.FC = () => {
               <strong className="text-amber-300"> Cyber Cafe operators</strong> ke liye hai.
             </p>
             <p className="text-xs text-blue-300/80 mb-8">
-              Pehle apne VLE ID aur Password se login karein. Agar abhi tak register nahi kiya hai, 
-              toh ₹{siteConfig.vleOneTimeFee} ka one-time lifetime registration karein.
+              Pehle apne email aur password se login karein. Agar abhi tak register nahi kiya hai, 
+              toh ₹{siteConfig.vleMonthlyPrice || 199}/month ka VLE plan lein.
             </p>
 
             <div className="space-y-3">
@@ -100,22 +103,22 @@ export const VlePortal: React.FC = () => {
                 className="w-full flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold py-3.5 rounded-xl transition shadow-lg shadow-amber-900/20 active:scale-[0.98]"
               >
                 <Plus className="w-4 h-4" />
-                <span>New VLE Registration (₹{siteConfig.vleOneTimeFee || 299})</span>
+                <span>New VLE Registration (₹{siteConfig.vleMonthlyPrice || 199}/mo)</span>
               </button>
             </div>
 
             <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-3 text-[10px] text-blue-200">
               <div>
                 <div className="text-amber-400 font-black text-lg">50+</div>
-                <div>Lifetime Tools</div>
+                <div>Tools Access</div>
               </div>
               <div>
-                <div className="text-amber-400 font-black text-lg">₹299</div>
-                <div>One-Time Fee</div>
+                <div className="text-amber-400 font-black text-lg">📖</div>
+                <div>Khatabook</div>
               </div>
               <div>
                 <div className="text-amber-400 font-black text-lg">∞</div>
-                <div>No Renewal</div>
+                <div>Unlimited</div>
               </div>
             </div>
           </div>
@@ -140,6 +143,9 @@ export const VlePortal: React.FC = () => {
   const currentCenter = activeVle;
   const vleOrders = orders.filter((o) => o.vleId === currentCenter.vleId);
   const totalCounterEarnings = vleOrders.reduce((sum, o) => sum + o.amount, 0);
+  
+  // Khatabook stats
+  const receivableCount = ledgerEntries.filter((e) => e.type === 'debit').length;
 
   const handleApplySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,13 +206,13 @@ export const VlePortal: React.FC = () => {
             <div>
               <div className="text-[11px] uppercase tracking-wider text-amber-300 font-bold flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-amber-400" />
-                Membership: Lifetime VIP (Active)
+                VLE Premium Active
               </div>
               <div className="text-xl sm:text-2xl font-black text-white font-mono mt-0.5">
                 ₹{totalCounterEarnings.toLocaleString()}
               </div>
               <div className="text-[10px] text-blue-200 mt-0.5">
-                Total Direct Counter Cash Collected ({vleOrders.length} jobs)
+                Total Counter Cash ({vleOrders.length} jobs)
               </div>
             </div>
 
@@ -225,11 +231,12 @@ export const VlePortal: React.FC = () => {
 
         <div className="mt-8 pt-4 border-t border-white/10 flex flex-wrap gap-2">
           {[
-            { id: 'tools', label: 'Cyber Cafe Quick Tools (Unlimited)', icon: Camera },
-            { id: 'apply', label: 'Customer Form Fill Up & Services', icon: Plus },
-            { id: 'orders', label: `Customer Job Ledger (${vleOrders.length})`, icon: FileText },
-            { id: 'branding', label: 'Shop Branding & UPI Standee', icon: Store },
-            { id: 'formats', label: 'Affidavits & Print Formats', icon: FileCheck2 },
+            { id: 'tools', label: 'Cyber Cafe Tools', icon: Camera },
+            { id: 'khatabook', label: '📖 Khatabook', icon: BookOpen, badge: receivableCount },
+            { id: 'apply', label: 'Customer Services', icon: Plus },
+            { id: 'orders', label: `Job Ledger (${vleOrders.length})`, icon: FileText },
+            { id: 'branding', label: 'Shop Branding', icon: Store },
+            { id: 'formats', label: 'Affidavits', icon: FileCheck2 },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -245,6 +252,11 @@ export const VlePortal: React.FC = () => {
               >
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
+                {tab.badge && tab.badge > 0 ? (
+                  <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-black">
+                    {tab.badge}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -293,6 +305,7 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: TOOLS */}
       {activeTab === 'tools' && !activeTool && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200">
@@ -306,7 +319,7 @@ export const VlePortal: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Optimized for fast customer turnaround: print ready sheets, PVC cards, PDF mergers, typing tests & bills.
+                Print sheets, PVC cards, PDF tools, typing tests & bills — sab yahan.
               </p>
             </div>
 
@@ -320,7 +333,7 @@ export const VlePortal: React.FC = () => {
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>All 50 Tools Engine</span>
+                <span>All 50 Tools</span>
               </button>
               <button
                 onClick={() => setToolsViewMode('essentials')}
@@ -452,6 +465,18 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
+      {/* 🆕 TAB: KHATABOOK */}
+      {activeTab === 'khatabook' && (
+        <KhatabookManager vle={{
+          id: currentCenter.id,
+          vleId: currentCenter.vleId,
+          centerName: currentCenter.centerName,
+          operatorName: currentCenter.operatorName,
+          mobile: currentCenter.mobile,
+        }} />
+      )}
+
+      {/* TAB: APPLY */}
       {activeTab === 'apply' && (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -517,6 +542,7 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: ORDERS */}
       {activeTab === 'orders' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -598,10 +624,12 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: BRANDING */}
       {activeTab === 'branding' && (
         <ShopBrandingManager currentCenter={currentCenter} />
       )}
 
+      {/* TAB: FORMATS */}
       {activeTab === 'formats' && (
         <div className="space-y-6">
           <div>
@@ -731,6 +759,7 @@ Verification: Verified at [City] that the contents of this affidavit are true to
         </div>
       )}
 
+      {/* MODAL: Apply for Customer */}
       {showApplyModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
