@@ -35,10 +35,6 @@ const AppContent: React.FC = () => {
         {role === 'owner' && <OwnerPortal />}
       </main>
 
-      {/* 🎯 Sidebar Banner Ad — 160x600 (footer placement for mobile-friendly) */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <AdsterraBanner slot="sidebar" />
-      </div>
 
       {/* Floating Bottom Portal Switcher */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-slate-950/95 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-full shadow-2xl flex items-center gap-1.5 sm:gap-2">
