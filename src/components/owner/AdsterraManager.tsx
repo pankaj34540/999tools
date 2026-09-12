@@ -6,12 +6,10 @@ import {
   ToggleLeft, 
   ToggleRight, 
   ExternalLink, 
-  Code, 
   Layers, 
   Sparkles, 
   Eye, 
   ShieldCheck, 
-  AlertCircle,
   HelpCircle
 } from 'lucide-react';
 import { AdsterraConfig } from '../../types';
@@ -29,6 +27,8 @@ export const AdsterraManager: React.FC = () => {
         toolBannerCode: '',
         sidebarAdActive: false,
         sidebarAdCode: '',
+        nativeBannerActive: true,
+        nativeBannerCode: '',
         directLinkActive: false,
         directLinkUrl: '',
         directLinkFrequency: 2,
@@ -44,7 +44,7 @@ export const AdsterraManager: React.FC = () => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateSiteConfig({ adsterra: form });
-    showNotification('Adsterra Ads Configuration successfully saved!');
+    showNotification('✅ Adsterra Ads Configuration saved!');
   };
 
   const handleToggle = (key: keyof AdsterraConfig) => {
@@ -67,11 +67,10 @@ export const AdsterraManager: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-amber-100 mt-1 max-w-xl">
-            Control all advertising placements, banners, direct-link popunders, and social bars across 999tools. Turn ads ON or OFF with a single click.
+            Control all advertising placements, banners, native ads, and social bars across 999tools.
           </p>
         </div>
 
-        {/* Master Switch */}
         <div className="flex items-center gap-3 bg-black/25 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20">
           <span className="text-xs font-bold text-white">Master Ad Status:</span>
           <button
@@ -102,48 +101,48 @@ export const AdsterraManager: React.FC = () => {
           onClick={() => setActiveTab('banners')}
           className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'banners'
-              ? 'border-amber-600 text-amber-800 bg-white shadow-xs'
+              ? 'border-amber-600 text-amber-800 bg-white'
               : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <Layers className="w-4 h-4" />
-          <span>Display Banners (Header & Tools)</span>
+          <span>Display Banners (Header, Tools, Sidebar, Native)</span>
         </button>
 
         <button
           onClick={() => setActiveTab('direct_link')}
           className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'direct_link'
-              ? 'border-amber-600 text-amber-800 bg-white shadow-xs'
+              ? 'border-amber-600 text-amber-800 bg-white'
               : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <ExternalLink className="w-4 h-4" />
-          <span>Popunder / Direct Link (High RPM)</span>
+          <span>Popunder / Direct Link (Optional)</span>
         </button>
 
         <button
           onClick={() => setActiveTab('social_bar')}
           className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'social_bar'
-              ? 'border-amber-600 text-amber-800 bg-white shadow-xs'
+              ? 'border-amber-600 text-amber-800 bg-white'
               : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <Sparkles className="w-4 h-4" />
-          <span>Social Bar / Push Notification Ad</span>
+          <span>Social Bar</span>
         </button>
 
         <button
           onClick={() => setActiveTab('guide')}
           className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'guide'
-              ? 'border-amber-600 text-amber-800 bg-white shadow-xs'
+              ? 'border-amber-600 text-amber-800 bg-white'
               : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <HelpCircle className="w-4 h-4" />
-          <span>Adsterra Setup Guide</span>
+          <span>Setup Guide</span>
         </button>
       </div>
 
@@ -152,16 +151,16 @@ export const AdsterraManager: React.FC = () => {
         {activeTab === 'banners' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Header Banner */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Header Leaderboard Banner</h3>
-                  <p className="text-[11px] text-slate-500">Recommended size: 728x90 px or Responsive Banner</p>
+                  <p className="text-[11px] text-slate-500">Size: 728x90</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleToggle('headerBannerActive')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${
                     form.headerBannerActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
                   }`}
                 >
@@ -171,43 +170,29 @@ export const AdsterraManager: React.FC = () => {
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Adsterra Script / Iframe / HTML Code:
+                  Adsterra Script (728x90):
                 </label>
                 <textarea
-                  rows={4}
+                  rows={6}
                   value={form.headerBannerCode}
                   onChange={(e) => setForm({ ...form, headerBannerCode: e.target.value })}
-                  placeholder={`<script type="text/javascript">
-  atOptions = {
-    'key' : 'your_adsterra_key',
-    'format' : 'iframe',
-    'height' : 90,
-    'width' : 728,
-    'params' : {}
-  };
-</script>
-<script type="text/javascript" src="//www.topcreativeformat.com/your_adsterra_key/invoke.js"></script>`}
+                  placeholder="Paste 728x90 banner script here..."
                   className="w-full font-mono text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
-              </div>
-
-              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-amber-600" />
-                <span>Appears at the very top of the tools directory on all desktop & mobile screens.</span>
               </div>
             </div>
 
             {/* In-Tool Banner */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Inside Tool Workspace Banner</h3>
-                  <p className="text-[11px] text-slate-500">Recommended size: 468x60 or 300x250 Medium Rectangle</p>
+                  <p className="text-[11px] text-slate-500">Size: 300x250</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleToggle('toolBannerActive')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${
                     form.toolBannerActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
                   }`}
                 >
@@ -217,42 +202,29 @@ export const AdsterraManager: React.FC = () => {
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Adsterra Script / HTML Code:
+                  Adsterra Script (300x250):
                 </label>
                 <textarea
-                  rows={4}
+                  rows={6}
                   value={form.toolBannerCode}
                   onChange={(e) => setForm({ ...form, toolBannerCode: e.target.value })}
-                  placeholder={`<!-- Adsterra 300x250 or Native Banner Code -->
-<script type="text/javascript">
-  atOptions = {
-    'key' : 'tool_banner_key',
-    'format' : 'iframe',
-    'height' : 250,
-    'width' : 300
-  };
-</script>`}
+                  placeholder="Paste 300x250 banner script here..."
                   className="w-full font-mono text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
-              </div>
-
-              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-amber-600" />
-                <span>Displayed right below the main action / download buttons in tool modals.</span>
               </div>
             </div>
 
             {/* Sidebar Banner */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4 md:col-span-2">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4 md:col-span-2">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Sidebar / Sticky Banner Slot</h3>
-                  <p className="text-[11px] text-slate-500">Recommended size: 160x600 or 300x250 Skyscraper</p>
+                  <p className="text-[11px] text-slate-500">Size: 160x600</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleToggle('sidebarAdActive')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${
                     form.sidebarAdActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
                   }`}
                 >
@@ -262,34 +234,72 @@ export const AdsterraManager: React.FC = () => {
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Adsterra Script / HTML Code:
+                  Adsterra Script (160x600):
                 </label>
                 <textarea
-                  rows={3}
+                  rows={4}
                   value={form.sidebarAdCode}
                   onChange={(e) => setForm({ ...form, sidebarAdCode: e.target.value })}
-                  placeholder="Paste sidebar Adsterra script here..."
+                  placeholder="Paste 160x600 sidebar script here..."
                   className="w-full font-mono text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
+              </div>
+            </div>
+
+            {/* ✅ Native Banner — NEW */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Native Banner (Script + Container)</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Native banner ads — high CTR, content ke saath blend hote hain
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggle('nativeBannerActive')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    form.nativeBannerActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {form.nativeBannerActive ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Adsterra Native Banner Code (Script + div container):
+                </label>
+                <textarea
+                  rows={5}
+                  value={form.nativeBannerCode}
+                  onChange={(e) => setForm({ ...form, nativeBannerCode: e.target.value })}
+                  placeholder={`<script async="async" data-cfasync="false" src="https://pl31302822.profitableratecpmnetwork.com/.../invoke.js"></script>
+<div id="container-97be12d2ea54be8b2c0bb6125b44f0d3"></div>`}
+                  className="w-full font-mono text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  ⚠️ Adsterra se <strong>poora code</strong> paste karein — script tag + div container dono.
+                </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 2: Direct Link / Popunder */}
+        {/* TAB 2: Direct Link (Optional) */}
         {activeTab === 'direct_link' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Adsterra Direct Link (Smartlink) / Popunder</h3>
+                <h3 className="text-sm font-bold text-slate-900">Adsterra Direct Link / Popunder (Optional)</h3>
                 <p className="text-xs text-slate-500">
-                  Adsterra Direct Link gives the highest CPM/RPM. It triggers in a new background tab when user downloads a photo sheet or calculates results.
+                  Yeh optional hai. Agar aap aggressive monetization nahi chahte toh skip karein.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => handleToggle('directLinkActive')}
-                className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                className={`px-3 py-1 rounded-full text-xs font-bold ${
                   form.directLinkActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
                 }`}
               >
@@ -300,18 +310,15 @@ export const AdsterraManager: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Your Adsterra Direct Link URL:
+                  Direct Link URL:
                 </label>
                 <input
                   type="url"
                   value={form.directLinkUrl}
                   onChange={(e) => setForm({ ...form, directLinkUrl: e.target.value })}
-                  placeholder="https://www.profitablecpmrate.com/abcdefgh?key=123456"
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                  placeholder="https://www.profitablecpmrate.com/..."
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-mono"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Copy your direct link URL from Adsterra Publisher Dashboard → Direct Links → Get Link.
-                </p>
               </div>
 
               <div>
@@ -323,14 +330,11 @@ export const AdsterraManager: React.FC = () => {
                   onChange={(e) => setForm({ ...form, directLinkFrequency: parseInt(e.target.value) || 1 })}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-bold"
                 >
-                  <option value={1}>Every Action / Download (100% Aggressive)</option>
-                  <option value={2}>Every 2nd Download (Recommended Balanced)</option>
-                  <option value={3}>Every 3rd Download (Friendly)</option>
-                  <option value={5}>Every 5th Download (Ultra Low)</option>
+                  <option value={1}>Every Action</option>
+                  <option value={2}>Every 2nd Action (Recommended)</option>
+                  <option value={3}>Every 3rd Action</option>
+                  <option value={5}>Every 5th Action</option>
                 </select>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Prevents browser pop-up blocking while maximizing earnings.
-                </p>
               </div>
             </div>
           </div>
@@ -338,18 +342,18 @@ export const AdsterraManager: React.FC = () => {
 
         {/* TAB 3: Social Bar */}
         {activeTab === 'social_bar' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Adsterra Social Bar / In-Page Push</h3>
+                <h3 className="text-sm font-bold text-slate-900">Adsterra Social Bar</h3>
                 <p className="text-xs text-slate-500">
-                  Custom interactive notification badge that yields 20x to 30x higher CTR than traditional display banners.
+                  Interactive notification badge — high CTR.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => handleToggle('socialBarActive')}
-                className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                className={`px-3 py-1 rounded-full text-xs font-bold ${
                   form.socialBarActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
                 }`}
               >
@@ -359,13 +363,13 @@ export const AdsterraManager: React.FC = () => {
 
             <div>
               <label className="text-xs font-semibold text-slate-700 block mb-1">
-                Social Bar Integration Script:
+                Social Bar Script:
               </label>
               <textarea
                 rows={5}
                 value={form.socialBarCode}
                 onChange={(e) => setForm({ ...form, socialBarCode: e.target.value })}
-                placeholder={`<script type='text/javascript' src='//pl20000000.profitablecpmrate.com/socialbar.js'></script>`}
+                placeholder="Paste Adsterra Social Bar script here..."
                 className="w-full font-mono text-xs px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white"
               />
             </div>
@@ -374,10 +378,10 @@ export const AdsterraManager: React.FC = () => {
 
         {/* TAB 4: Setup Guide */}
         {activeTab === 'guide' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              <span>How to connect your Adsterra Publisher Account with 999tools</span>
+              <span>Adsterra Setup Guide</span>
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -385,9 +389,9 @@ export const AdsterraManager: React.FC = () => {
                 <span className="w-6 h-6 rounded-full bg-amber-600 text-white font-bold flex items-center justify-center text-xs">
                   1
                 </span>
-                <h4 className="font-bold text-slate-900">Add 999tools domain</h4>
+                <h4 className="font-bold text-slate-900">Add Website on Adsterra</h4>
                 <p className="text-slate-600">
-                  Log into your Adsterra publisher panel at <code>publishers.adsterra.com</code>. Click <strong>"Add Website"</strong> and enter your domain.
+                  Publishers panel → Add Website → 999tools.vercel.app
                 </p>
               </div>
 
@@ -397,7 +401,7 @@ export const AdsterraManager: React.FC = () => {
                 </span>
                 <h4 className="font-bold text-slate-900">Generate Ad Units</h4>
                 <p className="text-slate-600">
-                  Create: <strong>728x90 Banner</strong>, <strong>300x250 Banner</strong>, <strong>Direct Link</strong>, and <strong>Social Bar</strong>.
+                  Create: 728x90, 300x250, 160x600, Native Banner, Social Bar
                 </p>
               </div>
 
@@ -405,9 +409,9 @@ export const AdsterraManager: React.FC = () => {
                 <span className="w-6 h-6 rounded-full bg-amber-600 text-white font-bold flex items-center justify-center text-xs">
                   3
                 </span>
-                <h4 className="font-bold text-slate-900">Paste & Save Here</h4>
+                <h4 className="font-bold text-slate-900">Paste & Save</h4>
                 <p className="text-slate-600">
-                  Paste the generated codes into the respective tabs above and click <strong>"Save All Ad Configurations"</strong>. Ads will go live instantly without redeployment!
+                  Paste codes → Click "Save All Ad Configurations" → Ads live instantly!
                 </p>
               </div>
             </div>
@@ -423,7 +427,7 @@ export const AdsterraManager: React.FC = () => {
               onChange={(e) => setForm({ ...form, testMode: e.target.checked })}
               className="w-4 h-4 text-amber-600 rounded-sm"
             />
-            <span>Show Ad Preview Placeholders when actual Adsterra script is empty</span>
+            <span>Show placeholder if ad code empty</span>
           </label>
 
           <button
