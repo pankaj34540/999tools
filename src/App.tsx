@@ -5,14 +5,12 @@ import { MarqueeNotice } from './components/common/MarqueeNotice';
 import { UserPortal } from './components/user/UserPortal';
 import { VlePortal } from './components/vle/VlePortal';
 import { OwnerPortal } from './components/owner/OwnerPortal';
+import { AdsterraBanner, SocialBarInjector } from './components/common/AdsterraBanner';
 import { 
   User, 
   Store, 
   Crown, 
-  CheckCircle2, 
-  AlertCircle,
-  HelpCircle,
-  Download
+  CheckCircle2
 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -20,18 +18,29 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950">
-      {/* Header & Marquee Ticker */}
+      {/* 🎯 Social Bar — Global injection (once per session) */}
+      <SocialBarInjector />
+
       <Header />
       <MarqueeNotice />
 
-      {/* Main Dynamic Portal Area */}
+      {/* 🎯 Header Banner Ad — 728x90 */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <AdsterraBanner slot="header" />
+      </div>
+
       <main className="flex-1">
         {role === 'user' && <UserPortal />}
         {role === 'vle' && <VlePortal />}
         {role === 'owner' && <OwnerPortal />}
       </main>
 
-      {/* Floating Bottom Quick Portal Switcher (Easy 1-Click Navigation) */}
+      {/* 🎯 Sidebar Banner Ad — 160x600 (footer placement for mobile-friendly) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <AdsterraBanner slot="sidebar" />
+      </div>
+
+      {/* Floating Bottom Portal Switcher */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-slate-950/95 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-full shadow-2xl flex items-center gap-1.5 sm:gap-2">
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 hidden sm:inline">
           Portals:
@@ -73,7 +82,7 @@ const AppContent: React.FC = () => {
           id="dock-btn-owner"
           onClick={() => {
             setRole('owner');
-            showNotification('👑 Switched to Master Owner Panel (Full Control)');
+            showNotification('👑 Switched to Master Owner Panel');
           }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition ${
             role === 'owner'
@@ -86,7 +95,7 @@ const AppContent: React.FC = () => {
         </button>
       </div>
 
-      {/* Global Toast Notification */}
+      {/* Global Toast */}
       {notification && (
         <div className="fixed top-20 right-4 z-50 bg-slate-900 text-white border border-amber-500/40 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 text-xs font-semibold">
           <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
