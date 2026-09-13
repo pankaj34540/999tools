@@ -44,6 +44,8 @@ export const VlePortal: React.FC = () => {
     vleLogout,
     ledgerEntries,
     currentUser,
+    setCurrentUser,
+    setRole,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'tools' | 'khatabook' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
@@ -64,6 +66,33 @@ export const VlePortal: React.FC = () => {
   // ============================================
   const isVleUser = currentUser?.plan === 'vle' && currentUser?.vleData;
   const hasVleAccess = (activeVle && vleLoggedIn) || !!isVleUser;
+
+  // ============================================
+  // ✅ FIXED LOGOUT — Clears all state properly
+  // ============================================
+  const handleLogout = async () => {
+    try {
+      // 1. VLE Portal logout
+      await vleLogout();
+      
+      // 2. Clear current user (unified system)
+      setCurrentUser(null);
+      localStorage.removeItem('999tools_current_user_id_v1');
+      
+      // 3. Set role back to user
+      setRole('user');
+      
+      // 4. Firebase Auth sign out
+      const { signOut } = await import('firebase/auth');
+      const { auth } = await import('../../config/firebase');
+      await signOut(auth);
+      
+      showNotification('✅ Logged out from VLE Portal');
+    } catch (error) {
+      console.error('Logout error:', error);
+      showNotification('Logout failed');
+    }
+  };
 
   // LOGIN GUARD
   if (!hasVleAccess) {
@@ -202,10 +231,6 @@ export const VlePortal: React.FC = () => {
     setCustomerName('');
     setCustomerMobile('');
     setCustomerNote('');
-  };
-
-  const handleLogout = () => {
-    vleLogout();
   };
 
   return (
