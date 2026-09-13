@@ -16,7 +16,8 @@ import {
   CreditCard,
   Settings,
   UserCircle,
-  Zap
+  Zap,
+  BookOpen
 } from 'lucide-react';
 import { VleRegistrationModal } from '../vle/VleRegistrationModal';
 import { UserAuthModal } from '../user/UserAuthModal';
@@ -32,7 +33,10 @@ export const Header: React.FC = () => {
     showNotification,
     currentUser,
     setCurrentUser,
-    isUserPremium
+    isUserPremium,
+    activeVle,
+    vleLoggedIn,
+    vleLogout
   } = useApp();
 
   const [showRoleMenu, setShowRoleMenu] = useState(false);
@@ -41,7 +45,6 @@ export const Header: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
-  // Pricing + Upgrade state
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'premium' | 'vle'>('premium');
@@ -52,8 +55,10 @@ export const Header: React.FC = () => {
     setShowRoleMenu(false);
     if (targetRole === 'owner') {
       showNotification('👑 Accessing Master Owner Command Center');
+    } else if (targetRole === 'vle') {
+      showNotification('🏪 Switched to CSC VLE / Cyber Cafe Portal');
     } else {
-      showNotification(`Switched to ${targetRole === 'vle' ? 'CSC VLE / Cyber Cafe Portal' : 'Public User Portal'}`);
+      showNotification('👤 Switched to Public User Panel');
     }
   };
 
@@ -61,6 +66,9 @@ export const Header: React.FC = () => {
     try {
       await signOut(auth);
       setCurrentUser(null);
+      if (vleLoggedIn) {
+        await vleLogout();
+      }
       setShowUserMenu(false);
       showNotification('Logged out successfully');
     } catch (error) {
@@ -97,19 +105,42 @@ export const Header: React.FC = () => {
     setShowUpgradeModal(true);
   };
 
+  // ============================================
+  // SINGLE UNIFIED BADGE — VLE > PREMIUM > FREE
+  // ============================================
   const getPlanBadge = () => {
-    if (!currentUser) return null;
-    if (currentUser.plan === 'vle') {
-      return { label: 'VLE', color: 'bg-blue-500', textColor: 'text-white' };
+    if (!currentUser && !activeVle) return null;
+    
+    // Priority: VLE > PREMIUM > FREE
+    if (currentUser?.plan === 'vle' || activeVle) {
+      return { 
+        label: 'VLE', 
+        color: 'bg-blue-500', 
+        textColor: 'text-white',
+        icon: Store,
+      };
     }
-    if (currentUser.plan === 'premium' && isUserPremium()) {
-      return { label: 'PREMIUM', color: 'bg-amber-500', textColor: 'text-slate-950' };
+    
+    if (currentUser?.plan === 'premium' && isUserPremium()) {
+      return { 
+        label: 'PREMIUM', 
+        color: 'bg-amber-500', 
+        textColor: 'text-slate-950',
+        icon: Crown,
+      };
     }
-    return { label: 'FREE', color: 'bg-slate-600', textColor: 'text-white' };
+    
+    return { 
+      label: 'FREE', 
+      color: 'bg-slate-600', 
+      textColor: 'text-white',
+      icon: User,
+    };
   };
 
   const planBadge = getPlanBadge();
   const userPremium = isUserPremium();
+  const isVle = currentUser?.plan === 'vle' || !!activeVle;
 
   const getUpgradeAmount = () => {
     if (upgradePlan === 'premium') {
@@ -121,6 +152,10 @@ export const Header: React.FC = () => {
       ? (siteConfig.vleMonthlyPrice || 199) 
       : (siteConfig.vleYearlyPrice || 1499);
   };
+
+  // User display name (from either source)
+  const displayName = currentUser?.name || activeVle?.operatorName || 'User';
+  const displayEmail = currentUser?.email || activeVle?.email || '';
 
   return (
     <>
@@ -147,7 +182,7 @@ export const Header: React.FC = () => {
 
         {/* Main Header Bar */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-          {/* Logo & Brand */}
+          {/* Logo */}
           <div className="flex items-center gap-3">
             <div 
               onClick={() => setRole('user')}
@@ -172,36 +207,21 @@ export const Header: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Tools Shortcuts */}
+          {/* Quick Tools */}
           <div className="hidden lg:flex items-center gap-1.5">
-            <button
-              onClick={() => setActiveTool('passport')}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
-            >
+            <button onClick={() => setActiveTool('passport')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
               📷 Photo Sheet
             </button>
-            <button
-              onClick={() => setActiveTool('resizer')}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
-            >
+            <button onClick={() => setActiveTool('resizer')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
               📐 Exam Resizer
             </button>
-            <button
-              onClick={() => setActiveTool('aadhaar')}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
-            >
+            <button onClick={() => setActiveTool('aadhaar')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
               💳 CR80 Smart Card
             </button>
-            <button
-              onClick={() => setActiveTool('resume')}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
-            >
+            <button onClick={() => setActiveTool('resume')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
               📄 Bio-Data
             </button>
-            <button
-              onClick={() => setActiveTool('age')}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
-            >
+            <button onClick={() => setActiveTool('age')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
               📅 Age Calc
             </button>
           </div>
@@ -209,8 +229,8 @@ export const Header: React.FC = () => {
           {/* Right Side */}
           <div className="flex items-center gap-2.5">
             
-            {/* UPGRADE BUTTON (for logged-in free users) */}
-            {currentUser && !userPremium && (
+            {/* Upgrade button (only for free/premium non-VLE users) */}
+            {currentUser && !isVle && (
               <button
                 onClick={openPricing}
                 className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-black shadow-md transition animate-pulse"
@@ -221,17 +241,21 @@ export const Header: React.FC = () => {
             )}
 
             {/* User Auth Section */}
-            {currentUser ? (
+            {(currentUser || activeVle) ? (
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-white text-xs font-semibold transition"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-black text-xs">
-                    {currentUser.name.charAt(0).toUpperCase()}
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-slate-950 font-black text-xs ${
+                    isVle 
+                      ? 'bg-gradient-to-br from-blue-500 to-indigo-500' 
+                      : 'bg-gradient-to-br from-amber-500 to-orange-500'
+                  }`}>
+                    {displayName.charAt(0).toUpperCase()}
                   </div>
                   <div className="hidden sm:block text-left">
-                    <div className="text-[11px] font-bold truncate max-w-[80px]">{currentUser.name}</div>
+                    <div className="text-[11px] font-bold truncate max-w-[80px]">{displayName}</div>
                   </div>
                   {planBadge && (
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${planBadge.color} ${planBadge.textColor}`}>
@@ -241,19 +265,25 @@ export const Header: React.FC = () => {
                   <ChevronDown className="w-3.5 h-3.5 opacity-70" />
                 </button>
 
+                {/* User Dropdown */}
                 {showUserMenu && (
                   <div 
                     className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {/* User Info Header */}
                     <div className="px-3 py-3 border-b border-slate-800">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-black text-base">
-                          {currentUser.name.charAt(0).toUpperCase()}
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-slate-950 font-black text-base ${
+                          isVle 
+                            ? 'bg-gradient-to-br from-blue-500 to-indigo-500' 
+                            : 'bg-gradient-to-br from-amber-500 to-orange-500'
+                        }`}>
+                          {displayName.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-white truncate">{currentUser.name}</div>
-                          <div className="text-[10px] text-slate-400 truncate">{currentUser.email}</div>
+                          <div className="text-sm font-bold text-white truncate">{displayName}</div>
+                          <div className="text-[10px] text-slate-400 truncate">{displayEmail}</div>
                         </div>
                       </div>
                       
@@ -262,7 +292,7 @@ export const Header: React.FC = () => {
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black ${planBadge.color} ${planBadge.textColor}`}>
                             {planBadge.label} PLAN
                           </span>
-                          {currentUser.subscriptionEnd && userPremium && (
+                          {currentUser?.subscriptionEnd && (userPremium || isVle) && (
                             <span className="text-[9px] text-slate-400">
                               Valid till {new Date(currentUser.subscriptionEnd).toLocaleDateString('en-IN')}
                             </span>
@@ -271,8 +301,33 @@ export const Header: React.FC = () => {
                       )}
                     </div>
 
+                    {/* Menu Items */}
                     <div className="p-1 space-y-1">
-                      {!userPremium && (
+                      
+                      {/* VLE Dashboard Shortcut */}
+                      {isVle && (
+                        <button
+                          onClick={() => {
+                            setRole('vle');
+                            setShowUserMenu(false);
+                            showNotification('🏪 Opening VLE Portal');
+                          }}
+                          className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs bg-gradient-to-r from-blue-500/20 to-indigo-500/20 hover:from-blue-500/30 hover:to-indigo-500/30 border border-blue-500/40 text-blue-200 font-bold transition"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
+                            <Store className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="font-bold">Open VLE Portal</div>
+                            <div className="text-[10px] opacity-80">
+                              Khatabook + Tools + Branding
+                            </div>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Upgrade (only for free/premium) */}
+                      {!userPremium && !isVle && (
                         <button
                           onClick={openPricing}
                           className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-200 font-bold transition"
@@ -281,14 +336,15 @@ export const Header: React.FC = () => {
                             <Zap className="w-4 h-4" />
                           </div>
                           <div>
-                            <div className="font-bold">Upgrade to Premium</div>
+                            <div className="font-bold">Upgrade Plan</div>
                             <div className="text-[10px] opacity-80">
-                              ₹{siteConfig.premiumMonthlyPrice}/mo — Unlimited
+                              From ₹{siteConfig.premiumMonthlyPrice}/mo
                             </div>
                           </div>
                         </button>
                       )}
 
+                      {/* My Subscription */}
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
@@ -305,6 +361,7 @@ export const Header: React.FC = () => {
                         </div>
                       </button>
 
+                      {/* Account Settings */}
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
@@ -321,6 +378,7 @@ export const Header: React.FC = () => {
                         </div>
                       </button>
 
+                      {/* Logout */}
                       <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-rose-300 hover:bg-rose-500/10 transition"
@@ -338,6 +396,7 @@ export const Header: React.FC = () => {
                 )}
               </div>
             ) : (
+              // Not Logged In
               <div className="flex items-center gap-2">
                 <button
                   onClick={openLogin}
@@ -357,17 +416,19 @@ export const Header: React.FC = () => {
               </div>
             )}
 
-            {/* VLE Registration */}
-            <button
-              onClick={() => setShowRegisterModal(true)}
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md transition"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>VLE Registration</span>
-              <span className="px-1.5 py-0.5 rounded bg-slate-950 text-amber-400 text-[10px] font-mono font-black">
-                ₹{siteConfig.vleMonthlyPrice || 199}/mo
-              </span>
-            </button>
+            {/* VLE Registration CTA (hidden for VLE users) */}
+            {!isVle && (
+              <button
+                onClick={() => setShowRegisterModal(true)}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md transition"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>VLE Registration</span>
+                <span className="px-1.5 py-0.5 rounded bg-slate-950 text-amber-400 text-[10px] font-mono font-black">
+                  ₹{siteConfig.vleMonthlyPrice || 199}/mo
+                </span>
+              </button>
+            )}
 
             {/* Owner Badge */}
             {role === 'owner' && (
@@ -380,7 +441,6 @@ export const Header: React.FC = () => {
             {/* Role Switcher */}
             <div className="relative">
               <button
-                id="role-switcher-btn"
                 onClick={() => setShowRoleMenu(!showRoleMenu)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition shadow-sm ${
                   role === 'owner'
@@ -412,9 +472,7 @@ export const Header: React.FC = () => {
                     <button
                       onClick={() => handleRoleSelect('user')}
                       className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs transition ${
-                        role === 'user'
-                          ? 'bg-slate-800 text-white font-bold'
-                          : 'text-slate-300 hover:bg-slate-800/60'
+                        role === 'user' ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:bg-slate-800/60'
                       }`}
                     >
                       <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
@@ -429,9 +487,7 @@ export const Header: React.FC = () => {
                     <button
                       onClick={() => handleRoleSelect('vle')}
                       className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs transition ${
-                        role === 'vle'
-                          ? 'bg-blue-900/60 border border-blue-500/40 text-white font-bold'
-                          : 'text-slate-300 hover:bg-slate-800/60'
+                        role === 'vle' ? 'bg-blue-900/60 border border-blue-500/40 text-white font-bold' : 'text-slate-300 hover:bg-slate-800/60'
                       }`}
                     >
                       <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
@@ -446,9 +502,7 @@ export const Header: React.FC = () => {
                     <button
                       onClick={() => handleRoleSelect('owner')}
                       className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs transition ${
-                        role === 'owner'
-                          ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold'
-                          : 'text-slate-300 hover:bg-slate-800/60'
+                        role === 'owner' ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold' : 'text-slate-300 hover:bg-slate-800/60'
                       }`}
                     >
                       <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
@@ -481,14 +535,12 @@ export const Header: React.FC = () => {
         initialMode={authMode}
       />
 
-      {/* Pricing Modal */}
       <PricingModal
         isOpen={showPricingModal}
         onClose={() => setShowPricingModal(false)}
         onSelectPlan={handleSelectPlan}
       />
 
-      {/* Upgrade Payment Modal — with onBack */}
       <UpgradePaymentModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
