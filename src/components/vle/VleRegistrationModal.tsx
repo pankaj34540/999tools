@@ -349,8 +349,8 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
               <div className="mt-3 pt-3 border-t border-slate-200 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-slate-600 leading-relaxed">
-                  <strong className="text-slate-800">Monthly Subscription:</strong> Aapka plan 30 din ke liye activate hoga. 
-                  Renewal ke liye Owner se contact karein ya reminder mil jayega. 
+                  <strong className="text-slate-800">Monthly Subscription:</strong> Your plan will be activated for 30 days. 
+                  For renewal, contact the Owner or you will receive a reminder. 
                   Cancel anytime — no long-term commitment.
                 </p>
               </div>
