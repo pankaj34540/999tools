@@ -51,6 +51,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     siteConfig,
     currentUser,
     isUserPremium,
+    activeVle,
     showNotification
   } = useApp();
 
@@ -71,15 +72,19 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
   const [formCategory, setFormCategory] = useState('');
   const [formSaving, setFormSaving] = useState(false);
 
-  // Check if VLE has access to Khatabook (Premium or VLE plan)
-  const hasAccess = currentUser && (
-    currentUser.plan === 'vle' || 
-    (currentUser.plan === 'premium' && isUserPremium())
-  );
+  // ============================================
+  // UNIFIED ACCESS CHECK
+  // 1. User plan === 'vle' → Access
+  // 2. User plan === 'premium' with valid sub → Access
+  // 3. VLE Portal mein logged in (activeVle) → Access
+  // 4. Otherwise → Locked
+  // ============================================
+  const hasAccess = 
+    currentUser?.plan === 'vle' ||
+    (currentUser?.plan === 'premium' && isUserPremium()) ||
+    !!activeVle;
 
-  // ============================================
   // STATS
-  // ============================================
   const stats = useMemo(() => {
     return getKhatabookStats();
   }, [ledgerEntries]);
@@ -88,9 +93,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     return getCustomerSummaries();
   }, [ledgerEntries]);
 
-  // ============================================
   // FILTERED CUSTOMERS
-  // ============================================
   const filteredCustomers = useMemo(() => {
     return customerSummaries.filter((c) => {
       const matchSearch = 
@@ -106,9 +109,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     });
   }, [customerSummaries, searchQuery, filterType]);
 
-  // ============================================
   // RESET FORM
-  // ============================================
   const resetForm = () => {
     setFormType('debit');
     setFormCustomerName('');
@@ -119,9 +120,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     setFormCategory('');
   };
 
-  // ============================================
   // SUBMIT ENTRY
-  // ============================================
   const handleSubmitEntry = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -164,17 +163,13 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     }
   };
 
-  // ============================================
   // DELETE ENTRY
-  // ============================================
   const handleDeleteEntry = async (entryId: string) => {
     if (!confirm('Ye entry delete karni hai? Yeh action undo nahi hoga.')) return;
     await removeLedgerEntry(entryId);
   };
 
-  // ============================================
   // WHATSAPP REMINDER
-  // ============================================
   const sendWhatsAppReminder = (customer: CustomerLedgerSummary) => {
     const cleanPhone = customer.customerMobile.replace(/\D/g, '');
     const phoneWithCountry = cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone;
@@ -197,9 +192,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     window.open(`https://wa.me/${phoneWithCountry}?text=${text}`, '_blank');
   };
 
-  // ============================================
   // EXPORT CSV
-  // ============================================
   const exportToCSV = () => {
     if (ledgerEntries.length === 0) {
       showNotification('Koi data nahi hai export ke liye');
@@ -228,9 +221,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     showNotification('✅ CSV download ho gayi!');
   };
 
-  // ============================================
-  // GET ENTRY TYPE LABEL
-  // ============================================
+  // TYPE LABEL & COLOR
   const getTypeLabel = (type: LedgerEntryType) => {
     const labels: Record<LedgerEntryType, string> = {
       credit: '💰 Payment Received',
@@ -257,16 +248,12 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     return colors[type] || 'text-slate-600 bg-slate-100';
   };
 
-  // ============================================
   // GET CUSTOMER'S ENTRIES
-  // ============================================
   const getCustomerEntries = (mobile: string): LedgerEntry[] => {
     return ledgerEntries.filter((e) => e.customerMobile === mobile);
   };
 
-  // ============================================
   // ACCESS LOCK
-  // ============================================
   if (!hasAccess) {
     return (
       <div className="bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-8 sm:p-12 text-center text-white shadow-2xl">
@@ -285,9 +272,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     );
   }
 
-  // ============================================
   // LOADING
-  // ============================================
   if (ledgerLoading) {
     return (
       <div className="bg-white rounded-3xl p-12 text-center border border-slate-200">
@@ -300,9 +285,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
   return (
     <div className="space-y-6">
       
-      {/* ============================================ */}
       {/* HEADER */}
-      {/* ============================================ */}
       <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -338,9 +321,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
         </div>
       </div>
 
-      {/* ============================================ */}
       {/* STATS CARDS */}
-      {/* ============================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
@@ -411,9 +392,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
         </div>
       </div>
 
-      {/* ============================================ */}
       {/* FILTERS + SEARCH */}
-      {/* ============================================ */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -443,9 +422,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
         </div>
       </div>
 
-      {/* ============================================ */}
       {/* CUSTOMERS LIST */}
-      {/* ============================================ */}
       {filteredCustomers.length === 0 ? (
         <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center">
           <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -479,7 +456,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
               }}
             >
               <div className="flex flex-wrap items-center gap-4">
-                {/* Avatar */}
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg shrink-0 ${
                   customer.balanceType === 'receivable'
                     ? 'bg-rose-100 text-rose-700'
@@ -490,7 +466,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                   {customer.customerName.charAt(0).toUpperCase()}
                 </div>
 
-                {/* Customer Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-slate-900 text-sm truncate">
@@ -522,7 +497,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                   </div>
                 </div>
 
-                {/* Balance */}
                 <div className="text-right shrink-0">
                   <div className={`text-xl font-black font-mono ${
                     customer.balanceType === 'receivable'
@@ -539,7 +513,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                   </div>
                 </div>
 
-                {/* WhatsApp Quick Action */}
                 {customer.balanceType === 'receivable' && customer.balance > 0 && (
                   <button
                     onClick={(e) => {
@@ -558,14 +531,11 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
         </div>
       )}
 
-      {/* ============================================ */}
       {/* NEW ENTRY MODAL */}
-      {/* ============================================ */}
       {showEntryModal && (
         <div className="fixed inset-0 z-[90] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 my-8 max-h-[90vh] flex flex-col">
             
-            {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -587,10 +557,8 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
               </button>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmitEntry} className="p-5 overflow-y-auto flex-1 space-y-4">
               
-              {/* Transaction Type */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-2">
                   Transaction Type *
@@ -611,7 +579,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                         Udhar Diya
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500">Customer ne baad mein pay karna hai</p>
+                    <p className="text-[10px] text-slate-500">Customer baad mein pay karega</p>
                   </button>
 
                   <button
@@ -670,7 +638,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                 </div>
               </div>
 
-              {/* Customer Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -701,7 +668,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                 </div>
               </div>
 
-              {/* Address (Optional) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Address (Optional)
@@ -715,7 +681,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                 />
               </div>
 
-              {/* Amount */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Amount (₹) *
@@ -734,7 +699,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                 </div>
               </div>
 
-              {/* Description */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Description *
@@ -749,7 +713,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                 />
               </div>
 
-              {/* Category */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Category (Optional)
@@ -764,7 +727,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
               </div>
             </form>
 
-            {/* Footer */}
             <div className="p-5 border-t border-slate-100 flex gap-2">
               <button
                 type="button"
@@ -799,14 +761,11 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
         </div>
       )}
 
-      {/* ============================================ */}
       {/* CUSTOMER DETAIL MODAL */}
-      {/* ============================================ */}
       {showCustomerModal && selectedCustomer && (
         <div className="fixed inset-0 z-[90] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 my-8 max-h-[90vh] flex flex-col">
             
-            {/* Header */}
             <div className="p-5 border-b border-slate-100">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -840,7 +799,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                 </button>
               </div>
 
-              {/* Balance Strip */}
               <div className={`rounded-2xl p-4 ${
                 selectedCustomer.balanceType === 'receivable'
                   ? 'bg-rose-50 border border-rose-200'
@@ -878,7 +836,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                   </div>
                 </div>
 
-                {/* Summary Row */}
                 <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-200">
                   <div>
                     <div className="text-[10px] text-slate-500 font-bold uppercase">Total Udhar</div>
@@ -902,7 +859,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
               </div>
             </div>
 
-            {/* Transactions List */}
             <div className="p-5 overflow-y-auto flex-1">
               <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
                 Transaction History
