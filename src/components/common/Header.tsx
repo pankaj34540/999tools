@@ -109,7 +109,20 @@ export const Header: React.FC = () => {
     setShowUpgradeModal(true);
   };
 
+  // ============================================
+  // ✅ FIXED: Owner badge priority
+  // ============================================
   const getPlanBadge = () => {
+    // 🆕 Owner check FIRST — sabse upar
+    if (role === 'owner') {
+      return { 
+        label: 'OWNER', 
+        color: 'bg-amber-500', 
+        textColor: 'text-slate-950',
+        icon: Crown,
+      };
+    }
+    
     if (!currentUser && !activeVle) return null;
     
     if (currentUser?.plan === 'vle' || activeVle) {
@@ -141,6 +154,7 @@ export const Header: React.FC = () => {
   const planBadge = getPlanBadge();
   const userPremium = isUserPremium();
   const isVle = currentUser?.plan === 'vle' || !!activeVle;
+  const isOwner = role === 'owner';
 
   const getUpgradeAmount = () => {
     if (upgradePlan === 'premium') {
@@ -153,7 +167,7 @@ export const Header: React.FC = () => {
       : (siteConfig.vleYearlyPrice || 1499);
   };
 
-  const displayName = currentUser?.name || activeVle?.operatorName || 'User';
+  const displayName = currentUser?.name || activeVle?.operatorName || (isOwner ? 'Owner' : 'User');
   const displayEmail = currentUser?.email || activeVle?.email || '';
 
   return (
@@ -206,29 +220,31 @@ export const Header: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Tools */}
-          <div className="hidden lg:flex items-center gap-1.5">
-            <button onClick={() => setActiveTool('passport')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
-              📷 Photo Sheet
-            </button>
-            <button onClick={() => setActiveTool('resizer')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
-              📐 Exam Resizer
-            </button>
-            <button onClick={() => setActiveTool('aadhaar')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
-              💳 CR80 Smart Card
-            </button>
-            <button onClick={() => setActiveTool('resume')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
-              📄 Bio-Data
-            </button>
-            <button onClick={() => setActiveTool('age')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
-              📅 Age Calc
-            </button>
-          </div>
+          {/* Quick Tools (hide in Owner mode) */}
+          {!isOwner && (
+            <div className="hidden lg:flex items-center gap-1.5">
+              <button onClick={() => setActiveTool('passport')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
+                📷 Photo Sheet
+              </button>
+              <button onClick={() => setActiveTool('resizer')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
+                📐 Exam Resizer
+              </button>
+              <button onClick={() => setActiveTool('aadhaar')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
+                💳 CR80 Smart Card
+              </button>
+              <button onClick={() => setActiveTool('resume')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
+                📄 Bio-Data
+              </button>
+              <button onClick={() => setActiveTool('age')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition">
+                📅 Age Calc
+              </button>
+            </div>
+          )}
 
           {/* Right Side */}
           <div className="flex items-center gap-2.5">
             
-            {/* 🆕 Support Button */}
+            {/* Support Button */}
             <button
               onClick={() => setShowSupportModal(true)}
               className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold transition"
@@ -238,8 +254,8 @@ export const Header: React.FC = () => {
               <span className="hidden md:inline">Support</span>
             </button>
 
-            {/* Upgrade Button */}
-            {currentUser && !isVle && (
+            {/* Upgrade Button (hide for owner) */}
+            {!isOwner && currentUser && !isVle && (
               <button
                 onClick={openPricing}
                 className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-black shadow-md transition animate-pulse"
@@ -250,21 +266,29 @@ export const Header: React.FC = () => {
             )}
 
             {/* User Auth Section */}
-            {(currentUser || activeVle) ? (
+            {(currentUser || activeVle || isOwner) ? (
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-white text-xs font-semibold transition"
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-white text-xs font-semibold transition ${
+                    isOwner 
+                      ? 'bg-amber-500/20 border-amber-500/40 hover:bg-amber-500/30' 
+                      : 'bg-slate-800 hover:bg-slate-750 border-slate-700'
+                  }`}
                 >
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-slate-950 font-black text-xs ${
-                    isVle 
+                    isOwner
+                      ? 'bg-gradient-to-br from-amber-400 to-amber-600'
+                      : isVle 
                       ? 'bg-gradient-to-br from-blue-500 to-indigo-500' 
                       : 'bg-gradient-to-br from-amber-500 to-orange-500'
                   }`}>
-                    {displayName.charAt(0).toUpperCase()}
+                    {isOwner ? 'O' : displayName.charAt(0).toUpperCase()}
                   </div>
                   <div className="hidden sm:block text-left">
-                    <div className="text-[11px] font-bold truncate max-w-[80px]">{displayName}</div>
+                    <div className="text-[11px] font-bold truncate max-w-[80px]">
+                      {isOwner ? 'Owner' : displayName}
+                    </div>
                   </div>
                   {planBadge && (
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${planBadge.color} ${planBadge.textColor}`}>
@@ -283,24 +307,30 @@ export const Header: React.FC = () => {
                     <div className="px-3 py-3 border-b border-slate-800">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-slate-950 font-black text-base ${
-                          isVle 
+                          isOwner
+                            ? 'bg-gradient-to-br from-amber-400 to-amber-600'
+                            : isVle 
                             ? 'bg-gradient-to-br from-blue-500 to-indigo-500' 
                             : 'bg-gradient-to-br from-amber-500 to-orange-500'
                         }`}>
-                          {displayName.charAt(0).toUpperCase()}
+                          {isOwner ? 'O' : displayName.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-white truncate">{displayName}</div>
-                          <div className="text-[10px] text-slate-400 truncate">{displayEmail}</div>
+                          <div className="text-sm font-bold text-white truncate">
+                            {isOwner ? 'Owner Account' : displayName}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {isOwner ? 'admin@999tools' : displayEmail}
+                          </div>
                         </div>
                       </div>
                       
                       {planBadge && (
                         <div className="mt-2 flex items-center gap-2">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black ${planBadge.color} ${planBadge.textColor}`}>
-                            {planBadge.label} PLAN
+                            {planBadge.label} {isOwner ? 'ACCESS' : 'PLAN'}
                           </span>
-                          {currentUser?.subscriptionEnd && (userPremium || isVle) && (
+                          {!isOwner && currentUser?.subscriptionEnd && (userPremium || isVle) && (
                             <span className="text-[9px] text-slate-400">
                               Valid till {new Date(currentUser.subscriptionEnd).toLocaleDateString('en-IN')}
                             </span>
@@ -311,8 +341,29 @@ export const Header: React.FC = () => {
 
                     <div className="p-1 space-y-1">
                       
+                      {/* Owner Panel Shortcut */}
+                      {isOwner && (
+                        <button
+                          onClick={() => {
+                            setRole('owner');
+                            setShowUserMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-200 font-bold transition"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                            <Crown className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="font-bold">Owner Command Center</div>
+                            <div className="text-[10px] opacity-80">
+                              Full website control
+                            </div>
+                          </div>
+                        </button>
+                      )}
+
                       {/* VLE Dashboard Shortcut */}
-                      {isVle && (
+                      {isVle && !isOwner && (
                         <button
                           onClick={() => {
                             setRole('vle');
@@ -333,8 +384,8 @@ export const Header: React.FC = () => {
                         </button>
                       )}
 
-                      {/* Upgrade */}
-                      {!userPremium && !isVle && (
+                      {/* Upgrade (hide for owner/vle/premium) */}
+                      {!isOwner && !userPremium && !isVle && (
                         <button
                           onClick={openPricing}
                           className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-200 font-bold transition"
@@ -351,7 +402,7 @@ export const Header: React.FC = () => {
                         </button>
                       )}
 
-                      {/* 🆕 Support */}
+                      {/* Support */}
                       <button
                         onClick={() => {
                           setShowSupportModal(true);
@@ -441,8 +492,8 @@ export const Header: React.FC = () => {
               </div>
             )}
 
-            {/* VLE Registration CTA */}
-            {!isVle && (
+            {/* VLE Registration CTA (hide for owner/vle) */}
+            {!isVle && !isOwner && (
               <button
                 onClick={() => setShowRegisterModal(true)}
                 className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md transition"
@@ -456,7 +507,7 @@ export const Header: React.FC = () => {
             )}
 
             {/* Owner Badge */}
-            {role === 'owner' && (
+            {isOwner && (
               <div className="hidden md:flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-xl text-xs text-amber-300 font-semibold">
                 <Crown className="w-3.5 h-3.5 text-amber-400" />
                 <span>Owner</span>
@@ -582,7 +633,6 @@ export const Header: React.FC = () => {
         }}
       />
 
-      {/* 🆕 Support Center Modal */}
       <SupportCenter
         isOpen={showSupportModal}
         onClose={() => setShowSupportModal(false)}
