@@ -29,6 +29,7 @@ import { ShopBrandingManager } from './ShopBrandingManager';
 import { VleRegistrationModal } from './VleRegistrationModal';
 import { VleLoginModal } from './VleLoginModal';
 import { KhatabookManager } from './KhatabookManager';
+import { BillingManager } from './BillingManager';
 
 export const VlePortal: React.FC = () => {
   const { 
@@ -48,7 +49,7 @@ export const VlePortal: React.FC = () => {
     setRole,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'tools' | 'khatabook' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
+  const [activeTab, setActiveTab] = useState<'tools' | 'khatabook' | 'billing' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
   const [toolsViewMode, setToolsViewMode] = useState<'all_50' | 'essentials'>('all_50');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -131,14 +132,18 @@ export const VlePortal: React.FC = () => {
               </button>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-3 text-[10px] text-blue-200">
+            <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-4 gap-2 text-[10px] text-blue-200">
               <div>
                 <div className="text-amber-400 font-black text-lg">50+</div>
-                <div>Tools Access</div>
+                <div>Tools</div>
               </div>
               <div>
                 <div className="text-amber-400 font-black text-lg">📖</div>
                 <div>Khatabook</div>
+              </div>
+              <div>
+                <div className="text-amber-400 font-black text-lg">🧾</div>
+                <div>Billing</div>
               </div>
               <div>
                 <div className="text-amber-400 font-black text-lg">∞</div>
@@ -276,6 +281,7 @@ export const VlePortal: React.FC = () => {
           {[
             { id: 'tools', label: 'Cyber Cafe Tools', icon: Camera },
             { id: 'khatabook', label: '📖 Khatabook', icon: BookOpen, badge: receivableCount },
+            { id: 'billing', label: '🧾 Billing', icon: Receipt },
             { id: 'apply', label: 'Customer Services', icon: Plus },
             { id: 'orders', label: `Job Ledger (${vleOrders.length})`, icon: FileText },
             { id: 'branding', label: 'Shop Branding', icon: Store },
@@ -516,6 +522,20 @@ export const VlePortal: React.FC = () => {
           centerName: currentCenter.centerName,
           operatorName: currentCenter.operatorName,
           mobile: currentCenter.mobile,
+        }} />
+      )}
+
+      {/* 🆕 TAB: BILLING */}
+      {activeTab === 'billing' && (
+        <BillingManager vle={{
+          id: currentCenter.id,
+          vleId: currentCenter.vleId,
+          centerName: currentCenter.centerName,
+          operatorName: currentCenter.operatorName,
+          mobile: currentCenter.mobile,
+          address: currentCenter.address,
+          state: currentCenter.state,
+          district: currentCenter.district,
         }} />
       )}
 
