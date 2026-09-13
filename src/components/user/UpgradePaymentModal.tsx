@@ -19,7 +19,7 @@ import { validateUTR } from '../../services/paymentService';
 interface UpgradePaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onBack?: () => void; // 🆕 Back to plans
+  onBack?: () => void;
   plan: 'premium' | 'vle';
   billingCycle: 'monthly' | 'yearly';
   amount: number;
@@ -59,7 +59,7 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
     e.preventDefault();
 
     if (!currentUser) {
-      setErrorMsg('Pehle login karo ya signup karo');
+      setErrorMsg('Please login or signup first');
       return;
     }
 
@@ -88,10 +88,10 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
         setSuccess(true);
         if (onSuccess) onSuccess();
       } else {
-        setErrorMsg('Payment request submit nahi hua. Try again.');
+        setErrorMsg('Payment request could not be submitted. Please try again.');
       }
     } catch (error) {
-      setErrorMsg('Kuch galat ho gaya. Try again.');
+      setErrorMsg('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -130,7 +130,7 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
             Payment Submitted! 🎉
           </h2>
           <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-            Aapka payment request submit ho gaya hai. Owner 24 hours mein verify karke aapka <strong>{planName}</strong> plan activate kar dega.
+            Your payment request has been submitted. The Owner will verify and activate your <strong>{planName}</strong> plan within 24 hours.
           </p>
 
           <div className="bg-slate-50 rounded-2xl p-4 mb-6 text-left space-y-2 text-xs">
@@ -156,7 +156,7 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
             <div className="flex items-start gap-2">
               <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-[11px] text-amber-900 leading-relaxed">
-                <strong>Verification Time:</strong> 2-24 hours. Aapko notification milega jab plan activate ho jayega. Support: {siteConfig.supportPhone}
+                <strong>Verification Time:</strong> 2-24 hours. You will receive a notification once your plan is activated. Support: {siteConfig.supportPhone}
               </p>
             </div>
           </div>
@@ -179,9 +179,7 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
     <div className="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 relative my-8 flex flex-col max-h-[90vh]">
         
-        {/* ============================================ */}
-        {/* STICKY HEADER — Always visible with Back + Close */}
-        {/* ============================================ */}
+        {/* STICKY HEADER */}
         <div className="flex items-center justify-between p-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-3xl z-10">
           <button
             onClick={handleBack}
@@ -202,12 +200,9 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
           </button>
         </div>
 
-        {/* ============================================ */}
         {/* SCROLLABLE CONTENT */}
-        {/* ============================================ */}
         <div className="p-6 sm:p-8 overflow-y-auto flex-1">
           
-          {/* Header Info */}
           <div className="mb-6">
             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-3 ${
               plan === 'premium' 
@@ -221,7 +216,7 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
               Complete Payment
             </h2>
             <p className="text-xs text-slate-500">
-              UPI se ₹{amount} pay karo aur UTR submit karke verify karwao.
+              Pay ₹{amount} via UPI and submit UTR for verification.
             </p>
           </div>
 
@@ -281,7 +276,7 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
                   </div>
                 </div>
                 <p className="text-[10px] text-blue-800 leading-relaxed">
-                  Pay using <strong>Google Pay, PhonePe, Paytm, BHIM</strong> ya koi bhi UPI app. Amount: <strong>₹{amount}</strong>
+                  Pay using <strong>Google Pay, PhonePe, Paytm, BHIM</strong> or any UPI app. Amount: <strong>₹{amount}</strong>
                 </p>
               </div>
             </div>
@@ -314,7 +309,7 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
                 className="w-full px-3.5 py-3 border border-slate-300 rounded-xl text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-slate-50"
               />
               <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
-                💡 UPI app ke <strong>transaction details</strong> se UTR/Ref number copy karo. Yeh 12-digit ka number hoga.
+                💡 Copy the UTR/Ref number from your UPI app's <strong>transaction details</strong>. It's usually a 12-digit number.
               </p>
             </div>
 
@@ -329,7 +324,7 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
               <div className="flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-amber-900 leading-relaxed">
-                  <strong>Manual Verification:</strong> Owner 2-24 hours mein aapka UTR verify karega. Uske baad plan automatically activate ho jayega.
+                  <strong>Manual Verification:</strong> The Owner will verify your UTR within 2-24 hours. After that, your plan will be activated automatically.
                 </p>
               </div>
             </div>
@@ -353,14 +348,12 @@ export const UpgradePaymentModal: React.FC<UpgradePaymentModalProps> = ({
             </button>
 
             <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-              Submit karke aap agree karte ho ki UTR sahi hai. Fake UTR se account ban ho sakta hai.
+              By submitting, you confirm the UTR is correct. Fake UTR can lead to account suspension.
             </p>
           </form>
         </div>
 
-        {/* ============================================ */}
-        {/* STICKY FOOTER — Back to Plans */}
-        {/* ============================================ */}
+        {/* STICKY FOOTER */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 rounded-b-3xl">
           <button
             onClick={handleBack}
