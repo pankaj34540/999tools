@@ -16,8 +16,7 @@ import {
   CreditCard,
   Settings,
   UserCircle,
-  Zap,
-  BookOpen
+  Zap
 } from 'lucide-react';
 import { VleRegistrationModal } from '../vle/VleRegistrationModal';
 import { UserAuthModal } from '../user/UserAuthModal';
@@ -62,28 +61,16 @@ export const Header: React.FC = () => {
     }
   };
 
-  // ============================================
-  // ✅ FIXED LOGOUT — Always clears all state
-  // ============================================
+  // FIXED LOGOUT — Always clears all state
   const handleLogout = async () => {
     try {
-      // 1. Firebase Auth sign out
       await signOut(auth);
-      
-      // 2. Clear all user state
       setCurrentUser(null);
       localStorage.removeItem('999tools_current_user_id_v1');
-      
-      // 3. ALWAYS clear VLE state (bina condition ke)
       await vleLogout();
-      
-      // 4. Clear role to default
       setRole('user');
-      
-      // 5. Close menus
       setShowUserMenu(false);
       setShowRoleMenu(false);
-      
       showNotification('✅ Logged out successfully');
     } catch (error) {
       console.error('Logout error:', error);
@@ -105,7 +92,7 @@ export const Header: React.FC = () => {
 
   const openPricing = () => {
     if (!currentUser) {
-      showNotification('Pehle signup ya login karo');
+      showNotification('Please signup or login first');
       openSignup();
       return;
     }
@@ -120,9 +107,6 @@ export const Header: React.FC = () => {
     setShowUpgradeModal(true);
   };
 
-  // ============================================
-  // SINGLE UNIFIED BADGE — VLE > PREMIUM > FREE
-  // ============================================
   const getPlanBadge = () => {
     if (!currentUser && !activeVle) return null;
     
@@ -242,7 +226,7 @@ export const Header: React.FC = () => {
           {/* Right Side */}
           <div className="flex items-center gap-2.5">
             
-            {/* Upgrade button */}
+            {/* Upgrade Button */}
             {currentUser && !isVle && (
               <button
                 onClick={openPricing}
@@ -426,7 +410,7 @@ export const Header: React.FC = () => {
               </div>
             )}
 
-            {/* VLE Registration CTA (hidden for VLE users) */}
+            {/* VLE Registration CTA */}
             {!isVle && (
               <button
                 onClick={() => setShowRegisterModal(true)}
