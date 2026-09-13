@@ -43,6 +43,7 @@ export const VlePortal: React.FC = () => {
     vleLoggedIn,
     vleLogout,
     ledgerEntries,
+    currentUser,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'tools' | 'khatabook' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
@@ -57,9 +58,15 @@ export const VlePortal: React.FC = () => {
   const [customerNote, setCustomerNote] = useState('');
 
   // ============================================
-  // 🔒 LOGIN GUARD — Bina login ke andar nahi aayega
+  // UNIFIED ACCESS CHECK
+  // 1. VLE Portal se login (activeVle + vleLoggedIn)
+  // 2. User account with plan === 'vle' (unified system)
   // ============================================
-  if (!activeVle || !vleLoggedIn) {
+  const isVleUser = currentUser?.plan === 'vle' && currentUser?.vleData;
+  const hasVleAccess = (activeVle && vleLoggedIn) || !!isVleUser;
+
+  // LOGIN GUARD
+  if (!hasVleAccess) {
     return (
       <div id="vle-portal-login" className="min-h-[80vh] flex items-center justify-center px-4 py-12">
         <div className="max-w-lg w-full bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-8 sm:p-10 text-center shadow-2xl border border-blue-700/40 relative overflow-hidden">
@@ -138,13 +145,38 @@ export const VlePortal: React.FC = () => {
   }
 
   // ============================================
-  // ✅ LOGGED IN — Normal dashboard
+  // CURRENT CENTER — From activeVle ya from currentUser.vleData
   // ============================================
-  const currentCenter = activeVle;
+  const currentCenter = activeVle || (isVleUser && currentUser?.vleData ? {
+    id: currentUser.id,
+    vleId: currentUser.vleData.vleId,
+    centerName: currentUser.vleData.centerName,
+    operatorName: currentUser.vleData.operatorName,
+    mobile: currentUser.vleData.mobile,
+    email: currentUser.email,
+    state: currentUser.vleData.state,
+    district: currentUser.vleData.district,
+    address: currentUser.vleData.address || '',
+    walletBalance: 0,
+    status: currentUser.vleData.status,
+    kycVerified: currentUser.vleData.kycVerified,
+    totalOrdersCompleted: currentUser.vleData.totalOrdersCompleted,
+    joinedDate: currentUser.vleData.joinedDate,
+    shopUpiId: currentUser.vleData.shopUpiId,
+  } : null);
+
+  if (!currentCenter) {
+    return (
+      <div className="p-8 text-center text-slate-500">
+        <Store className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+        <h3 className="text-sm font-bold text-slate-800">VLE Center not found</h3>
+        <p className="text-xs mt-1">Kuch issue hai. Page refresh karo.</p>
+      </div>
+    );
+  }
+
   const vleOrders = orders.filter((o) => o.vleId === currentCenter.vleId);
   const totalCounterEarnings = vleOrders.reduce((sum, o) => sum + o.amount, 0);
-  
-  // Khatabook stats
   const receivableCount = ledgerEntries.filter((e) => e.type === 'debit').length;
 
   const handleApplySubmit = (e: React.FormEvent) => {
@@ -378,7 +410,7 @@ export const VlePortal: React.FC = () => {
                   </div>
                   <h3 className="font-bold text-slate-900 text-base">Govt Exam Photo & Sign Resizer</h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Exact KB & pixel presets for SSC, UPSC, Railway, PAN Card, and State Police with live range badge.
+                    Exact KB & pixel presets for SSC, UPSC, Railway, PAN Card, and State Police.
                   </p>
                 </div>
                 <button
@@ -396,7 +428,7 @@ export const VlePortal: React.FC = () => {
                   </div>
                   <h3 className="font-bold text-slate-900 text-base">Aadhaar & Smart Card Formatter</h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Align front and back scans into standard 85.6mm x 54mm CR80 PVC dimensions with cut guide markers.
+                    Align front and back scans into standard 85.6mm x 54mm CR80 PVC dimensions.
                   </p>
                 </div>
                 <button
@@ -414,7 +446,7 @@ export const VlePortal: React.FC = () => {
                   </div>
                   <h3 className="font-bold text-slate-900 text-base">Cyber Cafe Bio-Data & Resume</h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Fill candidate profile and generate a clean 1-page professional resume/bio-data ready for printing.
+                    Fill candidate profile and generate a clean 1-page professional resume/bio-data.
                   </p>
                 </div>
                 <button
@@ -432,7 +464,7 @@ export const VlePortal: React.FC = () => {
                   </div>
                   <h3 className="font-bold text-slate-900 text-base">Customer Job Slip & Receipt</h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Print thermal 80mm or slip bill with QR code, token number, advance paid, and delivery time.
+                    Print thermal 80mm or slip bill with QR code, token number, advance paid.
                   </p>
                 </div>
                 <button
@@ -450,7 +482,7 @@ export const VlePortal: React.FC = () => {
                   </div>
                   <h3 className="font-bold text-slate-900 text-base">Scanned Document Cleaner</h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Turn dark mobile camera shots of marksheets and certificates into clean photocopy-ready black & white.
+                    Turn dark mobile camera shots of marksheets into clean photocopy-ready B&W.
                   </p>
                 </div>
                 <button
@@ -465,7 +497,7 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
-      {/* 🆕 TAB: KHATABOOK */}
+      {/* TAB: KHATABOOK */}
       {activeTab === 'khatabook' && (
         <KhatabookManager vle={{
           id: currentCenter.id,
@@ -485,7 +517,7 @@ export const VlePortal: React.FC = () => {
                 Online Services & Assisted Form Applications
               </h2>
               <p className="text-xs text-slate-500">
-                Earn commissions on PAN card, Caste/Income/Domicile certificates, PM Kisan, and Voter ID forms.
+                Earn commissions on PAN card, Caste/Income/Domicile certificates, PM Kisan, and Voter ID.
               </p>
             </div>
 
@@ -523,7 +555,6 @@ export const VlePortal: React.FC = () => {
                     <div>
                       <span className="text-[10px] text-slate-400 block">Customer Price:</span>
                       <span className="text-sm font-bold text-slate-900 font-mono">₹{srv.userPrice}</span>
-                      <span className="text-[10px] text-slate-500 block">VLE Fee: ₹{srv.vlePrice}</span>
                     </div>
 
                     <button
@@ -568,17 +599,17 @@ export const VlePortal: React.FC = () => {
                   <th className="p-3">Token No</th>
                   <th className="p-3">Customer Name</th>
                   <th className="p-3">Service</th>
-                  <th className="p-3">Customer Charged</th>
+                  <th className="p-3">Amount</th>
                   <th className="p-3">Status</th>
                   <th className="p-3">Date</th>
-                  <th className="p-3 text-right">Receipt Slip</th>
+                  <th className="p-3 text-right">Receipt</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {vleOrders.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-6 text-center text-slate-400">
-                      No customer orders recorded yet for this center.
+                      No customer orders recorded yet.
                     </td>
                   </tr>
                 ) : (
@@ -592,27 +623,21 @@ export const VlePortal: React.FC = () => {
                       <td className="p-3 font-semibold text-slate-800">{order.serviceName}</td>
                       <td className="p-3 font-mono font-bold text-slate-900">₹{order.amount}</td>
                       <td className="p-3">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                            order.status === 'completed'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : order.status === 'processing'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          order.status === 'completed' ? 'bg-emerald-100 text-emerald-800'
+                          : order.status === 'processing' ? 'bg-blue-100 text-blue-800'
+                          : 'bg-amber-100 text-amber-800'
+                        }`}>
                           {order.status}
                         </span>
                       </td>
                       <td className="p-3 text-slate-500">{order.date}</td>
                       <td className="p-3 text-right">
                         <button
-                          onClick={() => {
-                            setActiveTool('receipt');
-                          }}
+                          onClick={() => setActiveTool('receipt')}
                           className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 ml-auto"
                         >
-                          <Printer className="w-3 h-3" /> Print Token
+                          <Printer className="w-3 h-3" /> Print
                         </button>
                       </td>
                     </tr>
@@ -626,7 +651,7 @@ export const VlePortal: React.FC = () => {
 
       {/* TAB: BRANDING */}
       {activeTab === 'branding' && (
-        <ShopBrandingManager currentCenter={currentCenter} />
+        <ShopBrandingManager currentCenter={currentCenter as any} />
       )}
 
       {/* TAB: FORMATS */}
@@ -637,7 +662,7 @@ export const VlePortal: React.FC = () => {
               Ready Cyber Cafe Affidavits & Verification Drafts
             </h2>
             <p className="text-xs text-slate-500">
-              One-click copy or print standard Indian legal drafts, police complaints, and rent agreements.
+              One-click copy or print standard Indian legal drafts.
             </p>
           </div>
 
@@ -648,65 +673,64 @@ export const VlePortal: React.FC = () => {
                 category: 'Aadhaar / Marks Sheet / PAN Loss',
                 content: `To,
 The Station House Officer (SHO),
-Police Station: [Local Area], Lucknow, UP.
+Police Station: [Local Area]
 
-Subject: Intimation regarding loss of original [High School Marksheet / Aadhaar Card].
+Subject: Intimation regarding loss of original [Document].
 
 Respected Sir,
-I, [Applicant Name], S/O [Father Name], resident of [Complete Address], state that on dated [Date of Loss], I have accidentally lost my original [Document Name] bearing Number [Document Number] while travelling from [Source] to [Destination].
+I, [Applicant Name], S/O [Father Name], resident of [Address], state that on dated [Date], I lost my original [Document Name] bearing Number [Number].
 
-Despite my best search efforts, the document could not be traced. You are requested to kindly lodge a Non-Cognizable Report (NCR) and issue an acknowledgment so that I may apply for a duplicate certificate from the respective issuing authority.
+You are requested to kindly lodge an NCR and issue an acknowledgment.
 
 Thanking You,
-Yours faithfully,
 [Applicant Name]
 Mobile: [Mobile Number]`,
               },
               {
-                title: 'Rent Agreement Draft (Standard 11 Months)',
-                category: 'Rental & Residence Proof',
+                title: 'Rent Agreement Draft (11 Months)',
+                category: 'Rental & Residence',
                 content: `RENT AGREEMENT (11 MONTHS)
 
-This agreement made on this [Date] day of [Month, Year] between:
-FIRST PARTY (LANDLORD): [Owner Name], S/O [Father Name], R/O [Landlord Address].
+Between:
+FIRST PARTY (LANDLORD): [Owner Name]
 AND
-SECOND PARTY (TENANT): [Tenant Name], S/O [Father Name], R/O [Permanent Address].
+SECOND PARTY (TENANT): [Tenant Name]
 
-WHEREAS the Landlord is the absolute owner of residential premises at [Property Address].
-The monthly rent has been mutually agreed at Rs. [Rent Amount]/- per month, excluding electricity and water charges.
-The Tenant has paid a refundable security deposit of Rs. [Security Deposit]/-.
+Property: [Address]
+Monthly Rent: Rs. [Amount]
+Security Deposit: Rs. [Amount]
 
-IN WITNESS WHEREOF both parties have set their hands on the day and date mentioned above.
+Both parties have set their hands on the day mentioned above.
 First Party (Landlord)                Second Party (Tenant)`,
               },
               {
-                title: 'Character & Conduct Self-Declaration',
-                category: 'Govt Employment & Admission',
+                title: 'Character Self-Declaration',
+                category: 'Govt Employment',
                 content: `SELF DECLARATION / CHARACTER CERTIFICATE
 
-I, [Candidate Name], son/daughter of Shri [Father Name], resident of [Full Village/City Address], do hereby solemnly affirm and state as follows:
+I, [Candidate Name], S/O Shri [Father Name], resident of [Address], do hereby solemnly affirm:
 
-1. That I am a law-abiding citizen of India and have never been convicted in any criminal offence by any Court of Law.
-2. That no FIR, criminal investigation, or disciplinary proceedings are pending against me in any police station or institution.
-3. That all educational certificates and identity cards submitted by me are genuine and verified.
+1. I am a law-abiding citizen of India with no criminal convictions.
+2. No FIR or investigation is pending against me.
+3. All submitted certificates are genuine.
 
 Date: [Date]
 Place: [City]
-Signature of Candidate: _________________`,
+Signature: _________________`,
               },
               {
-                title: 'Name Discrepancy Affidavit Draft',
-                category: 'Mark Sheet vs Aadhaar Mismatch',
-                content: `AFFIDAVIT FOR NAME DISCREPANCY / CORRECTION
+                title: 'Name Discrepancy Affidavit',
+                category: 'Document Name Mismatch',
+                content: `AFFIDAVIT FOR NAME DISCREPANCY
 
-I, [Candidate Correct Name], S/O [Father Name], aged [Age] years, R/O [Address], do hereby state on oath as under:
+I, [Correct Name], S/O [Father Name], aged [Age] years, R/O [Address], state on oath:
 
-1. That my actual, correct and official name is [Correct Name] as registered in my Matriculation Certificate.
-2. That in my Aadhaar Card / PAN Card, my name was erroneously printed as [Incorrect Name].
-3. That [Correct Name] and [Incorrect Name] both refer to one and the same identical person, which is myself.
+1. My actual name is [Correct Name] as per Matriculation Certificate.
+2. In my Aadhaar/PAN, it was printed as [Incorrect Name].
+3. Both names refer to me, the same person.
 
-Deponent: [Candidate Signature]
-Verification: Verified at [City] that the contents of this affidavit are true to the best of my knowledge.`,
+Deponent: [Signature]
+Verified at [City]`,
               },
             ].map((draft, idx) => (
               <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
@@ -718,11 +742,11 @@ Verification: Verified at [City] that the contents of this affidavit are true to
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(draft.content);
-                        showNotification('Draft copied to clipboard!');
+                        showNotification('Draft copied!');
                       }}
                       className="text-xs text-blue-600 font-semibold flex items-center gap-1 hover:underline"
                     >
-                      <Copy className="w-3.5 h-3.5" /> Copy Text
+                      <Copy className="w-3.5 h-3.5" /> Copy
                     </button>
                   </div>
                   <h3 className="font-bold text-slate-900 text-sm">{draft.title}</h3>
@@ -737,12 +761,10 @@ Verification: Verified at [City] that the contents of this affidavit are true to
                       const printWin = window.open('', '_blank');
                       if (printWin) {
                         printWin.document.write(`
-                          <html>
-                            <head><title>${draft.title} - 999tools</title></head>
-                            <body style="font-family:serif;padding:40px;white-space:pre-wrap;line-height:1.6;font-size:14px;">
-                              ${draft.content}
-                            </body>
-                          </html>
+                          <html><head><title>${draft.title}</title></head>
+                          <body style="font-family:serif;padding:40px;white-space:pre-wrap;line-height:1.6;font-size:14px;">
+                            ${draft.content}
+                          </body></html>
                         `);
                         printWin.document.close();
                         printWin.print();
@@ -750,7 +772,7 @@ Verification: Verified at [City] that the contents of this affidavit are true to
                     }}
                     className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"
                   >
-                    <Printer className="w-3.5 h-3.5" /> Print Draft
+                    <Printer className="w-3.5 h-3.5" /> Print
                   </button>
                 </div>
               </div>
@@ -764,7 +786,7 @@ Verification: Verified at [City] that the contents of this affidavit are true to
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">Walk-in Customer Service Entry</h3>
+              <h3 className="text-sm font-bold text-slate-900">Walk-in Customer Entry</h3>
               <button onClick={() => setShowApplyModal(false)} className="text-slate-400 hover:text-slate-600">
                 &times;
               </button>
@@ -778,18 +800,16 @@ Verification: Verified at [City] that the contents of this affidavit are true to
                   onChange={(e) => setSelectedServiceId(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white font-semibold"
                 >
-                  {services
-                    .filter((s) => s.enabled)
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} (Fee: ₹{s.userPrice} | Comm: +₹{s.vleCommission})
-                      </option>
-                    ))}
+                  {services.filter((s) => s.enabled).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} (Fee: ₹{s.userPrice})
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Customer Full Name:</label>
+                <label className="text-[11px] text-slate-600 font-semibold">Customer Name:</label>
                 <input
                   type="text"
                   required
@@ -813,12 +833,12 @@ Verification: Verified at [City] that the contents of this affidavit are true to
               </div>
 
               <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Applicant Note / Docs Attached:</label>
+                <label className="text-[11px] text-slate-600 font-semibold">Notes (Optional):</label>
                 <textarea
                   rows={2}
                   value={customerNote}
                   onChange={(e) => setCustomerNote(e.target.value)}
-                  placeholder="e.g. Aadhaar copy submitted, Father name Ramesh"
+                  placeholder="e.g. Aadhaar copy submitted"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
@@ -835,7 +855,7 @@ Verification: Verified at [City] that the contents of this affidavit are true to
                   type="submit"
                   className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm"
                 >
-                  Confirm & Create Job Slip
+                  Create Job Slip
                 </button>
               </div>
             </form>
