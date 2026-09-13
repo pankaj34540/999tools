@@ -4,11 +4,6 @@ export type UserPlan = 'free' | 'premium' | 'vle';
 export type SubscriptionStatus = 'active' | 'expired' | 'pending' | 'cancelled';
 export type BillingCycle = 'monthly' | 'yearly';
 
-// ============================================
-// UNIFIED USER ACCOUNT
-// Har user (free/premium/vle) ka ek hi account
-// VLE data alag object mein nested hoga
-// ============================================
 export interface VleData {
   vleId: string;
   centerName: string;
@@ -41,13 +36,89 @@ export interface UserAccount {
   subscriptionStatus: SubscriptionStatus;
   createdAt: string;
   lastLoginAt?: string;
-  // 🆕 VLE Data (agar plan === 'vle' hai)
   vleData?: VleData;
 }
 
 // ============================================
+// BILLING SOFTWARE TYPES
+// ============================================
+
+export interface BillItem {
+  id: string;
+  name: string;
+  hsnCode?: string;
+  quantity: number;
+  rate: number;
+  gstRate: number; // 0, 5, 12, 18, 28
+  discount?: number; // per item discount %
+  amount: number; // quantity * rate
+}
+
+export type PaymentMode = 'cash' | 'upi' | 'card' | 'credit' | 'mixed';
+export type BillStatus = 'paid' | 'unpaid' | 'partial';
+
+export interface Bill {
+  id: string;
+  billNumber: string;
+  vleId: string;
+  vleCenterName: string;
+  vleMobile: string;
+  vleAddress?: string;
+  vleGstin?: string;
+  
+  // Customer
+  customerName: string;
+  customerMobile?: string;
+  customerGstin?: string;
+  customerAddress?: string;
+  
+  // Items
+  items: BillItem[];
+  
+  // Amounts
+  subtotal: number;
+  itemDiscount: number;
+  billDiscount: number;
+  discountAmount: number;
+  gstEnabled: boolean;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  totalGst: number;
+  roundOff: number;
+  grandTotal: number;
+  
+  // Payment
+  paymentMode: PaymentMode;
+  status: BillStatus;
+  paidAmount: number;
+  balanceAmount: number;
+  
+  // Meta
+  notes?: string;
+  date: string;
+  timestamp: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface BillStats {
+  vleId: string;
+  todayBills: number;
+  todayRevenue: number;
+  todayPaid: number;
+  todayUnpaid: number;
+  monthBills: number;
+  monthRevenue: number;
+  monthPaid: number;
+  monthUnpaid: number;
+  totalBills: number;
+  totalRevenue: number;
+  averageBillValue: number;
+}
+
+// ============================================
 // LEGACY VLE OPERATOR
-// (backward compatibility ke liye rakha hai)
 // ============================================
 export interface VleOperator {
   id: string;
@@ -77,9 +148,6 @@ export interface VleOperator {
   subscriptionStatus?: SubscriptionStatus;
 }
 
-// ============================================
-// TOOL USAGE (Daily Limits)
-// ============================================
 export interface ToolUsage {
   id: string;
   userId: string;
@@ -89,9 +157,6 @@ export interface ToolUsage {
   lastUsedAt: string;
 }
 
-// ============================================
-// PAYMENT REQUEST
-// ============================================
 export interface PaymentRequest {
   id: string;
   userId: string;
@@ -111,9 +176,6 @@ export interface PaymentRequest {
   validUntil?: string;
 }
 
-// ============================================
-// PRICING & STATS
-// ============================================
 export interface PricingPlan {
   id: 'free' | 'premium' | 'vle';
   name: string;
@@ -162,6 +224,7 @@ export interface LedgerEntry {
   timestamp: string;
   attachmentUrl?: string;
   notes?: string;
+  billId?: string; // 🆕 Link to bill if auto-created
   createdAt: string;
   updatedAt?: string;
 }
@@ -207,7 +270,7 @@ export interface LedgerFilterOptions {
 }
 
 // ============================================
-// SITE CONFIG & ADSTERRA
+// SITE CONFIG
 // ============================================
 export interface AdsterraConfig {
   enabled: boolean;
@@ -252,9 +315,6 @@ export interface SiteConfig {
   freeUserDailyLimit: number;
 }
 
-// ============================================
-// LINKS, APPLICATIONS, SERVICES
-// ============================================
 export interface ImportantLink {
   id: string;
   title: string;
