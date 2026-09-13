@@ -24,6 +24,7 @@ import { UserAuthModal } from '../user/UserAuthModal';
 import { PricingModal } from '../user/PricingModal';
 import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 import { SupportCenter } from './SupportCenter';
+import { UserAccountDashboard } from '../user/UserAccountDashboard';
 
 export const Header: React.FC = () => {
   const { 
@@ -45,6 +46,8 @@ export const Header: React.FC = () => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showAccountDashboard, setShowAccountDashboard] = useState(false);
+  const [accountTab, setAccountTab] = useState<'subscription' | 'settings' | 'payments'>('subscription');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   const [showPricingModal, setShowPricingModal] = useState(false);
@@ -109,11 +112,15 @@ export const Header: React.FC = () => {
     setShowUpgradeModal(true);
   };
 
-  // ============================================
+  // 🆕 Open Account Dashboard
+  const openAccountDashboard = (tab: 'subscription' | 'settings' | 'payments') => {
+    setAccountTab(tab);
+    setShowAccountDashboard(true);
+    setShowUserMenu(false);
+  };
+
   // ✅ FIXED: Owner badge priority
-  // ============================================
   const getPlanBadge = () => {
-    // 🆕 Owner check FIRST — sabse upar
     if (role === 'owner') {
       return { 
         label: 'OWNER', 
@@ -355,9 +362,7 @@ export const Header: React.FC = () => {
                           </div>
                           <div>
                             <div className="font-bold">Owner Command Center</div>
-                            <div className="text-[10px] opacity-80">
-                              Full website control
-                            </div>
+                            <div className="text-[10px] opacity-80">Full website control</div>
                           </div>
                         </button>
                       )}
@@ -377,9 +382,7 @@ export const Header: React.FC = () => {
                           </div>
                           <div>
                             <div className="font-bold">Open VLE Portal</div>
-                            <div className="text-[10px] opacity-80">
-                              Khatabook + Billing + Tools
-                            </div>
+                            <div className="text-[10px] opacity-80">Khatabook + Billing + Tools</div>
                           </div>
                         </button>
                       )}
@@ -395,9 +398,55 @@ export const Header: React.FC = () => {
                           </div>
                           <div>
                             <div className="font-bold">Upgrade Plan</div>
-                            <div className="text-[10px] opacity-80">
-                              From ₹{siteConfig.premiumMonthlyPrice}/mo
-                            </div>
+                            <div className="text-[10px] opacity-80">From ₹{siteConfig.premiumMonthlyPrice}/mo</div>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* 🆕 My Subscription */}
+                      {!isOwner && (
+                        <button
+                          onClick={() => openAccountDashboard('subscription')}
+                          className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-slate-300 hover:bg-slate-800 transition"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                            <Crown className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="font-semibold">My Subscription</div>
+                            <div className="text-[10px] text-slate-400">Plan, validity & features</div>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* 🆕 Payment History */}
+                      {!isOwner && (
+                        <button
+                          onClick={() => openAccountDashboard('payments')}
+                          className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-slate-300 hover:bg-slate-800 transition"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                            <CreditCard className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="font-semibold">Payment History</div>
+                            <div className="text-[10px] text-slate-400">All subscription payments</div>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* 🆕 Account Settings */}
+                      {!isOwner && (
+                        <button
+                          onClick={() => openAccountDashboard('settings')}
+                          className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-slate-300 hover:bg-slate-800 transition"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-slate-700/50 text-slate-300 flex items-center justify-center shrink-0">
+                            <Settings className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="font-semibold">Account Settings</div>
+                            <div className="text-[10px] text-slate-400">Profile & password</div>
                           </div>
                         </button>
                       )}
@@ -415,43 +464,7 @@ export const Header: React.FC = () => {
                         </div>
                         <div>
                           <div className="font-bold">Help & Support</div>
-                          <div className="text-[10px] opacity-80">
-                            FAQ, Tickets, Contact
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* My Subscription */}
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          showNotification('Subscription page coming soon!');
-                        }}
-                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-slate-300 hover:bg-slate-800 transition"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-                          <CreditCard className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-semibold">My Subscription</div>
-                          <div className="text-[10px] text-slate-400">Plan & payment history</div>
-                        </div>
-                      </button>
-
-                      {/* Account Settings */}
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          showNotification('Settings page coming soon!');
-                        }}
-                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs text-slate-300 hover:bg-slate-800 transition"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-slate-700/50 text-slate-300 flex items-center justify-center shrink-0">
-                          <Settings className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-semibold">Account Settings</div>
-                          <div className="text-[10px] text-slate-400">Profile, mobile, password</div>
+                          <div className="text-[10px] opacity-80">FAQ, Tickets, Contact</div>
                         </div>
                       </button>
 
@@ -636,6 +649,14 @@ export const Header: React.FC = () => {
       <SupportCenter
         isOpen={showSupportModal}
         onClose={() => setShowSupportModal(false)}
+      />
+
+      {/* 🆕 Account Dashboard Modal */}
+      <UserAccountDashboard
+        isOpen={showAccountDashboard}
+        onClose={() => setShowAccountDashboard(false)}
+        initialTab={accountTab}
+        onUpgradeClick={openPricing}
       />
     </>
   );
