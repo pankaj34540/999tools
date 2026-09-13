@@ -42,16 +42,15 @@ export interface UserAccount {
 // ============================================
 // BILLING SOFTWARE TYPES
 // ============================================
-
 export interface BillItem {
   id: string;
   name: string;
   hsnCode?: string;
   quantity: number;
   rate: number;
-  gstRate: number; // 0, 5, 12, 18, 28
-  discount?: number; // per item discount %
-  amount: number; // quantity * rate
+  gstRate: number;
+  discount?: number;
+  amount: number;
 }
 
 export type PaymentMode = 'cash' | 'upi' | 'card' | 'credit' | 'mixed';
@@ -66,16 +65,13 @@ export interface Bill {
   vleAddress?: string;
   vleGstin?: string;
   
-  // Customer
   customerName: string;
   customerMobile?: string;
   customerGstin?: string;
   customerAddress?: string;
   
-  // Items
   items: BillItem[];
   
-  // Amounts
   subtotal: number;
   itemDiscount: number;
   billDiscount: number;
@@ -88,13 +84,11 @@ export interface Bill {
   roundOff: number;
   grandTotal: number;
   
-  // Payment
   paymentMode: PaymentMode;
   status: BillStatus;
   paidAmount: number;
   balanceAmount: number;
   
-  // Meta
   notes?: string;
   date: string;
   timestamp: string;
@@ -224,7 +218,7 @@ export interface LedgerEntry {
   timestamp: string;
   attachmentUrl?: string;
   notes?: string;
-  billId?: string; // 🆕 Link to bill if auto-created
+  billId?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -434,6 +428,68 @@ export interface WalletTransaction {
   timestamp: string;
   balanceAfter: number;
   status: 'completed' | 'pending' | 'rejected';
+}
+
+// ============================================
+// SUPPORT SYSTEM TYPES
+// ============================================
+export type SupportTicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type SupportTicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type SupportTicketCategory = 
+  | 'technical'
+  | 'billing'
+  | 'account'
+  | 'tool_request'
+  | 'vle_issue'
+  | 'payment'
+  | 'other';
+
+export interface SupportTicket {
+  id: string;
+  ticketNumber: string;
+  userId?: string;
+  userEmail: string;
+  userName: string;
+  userMobile?: string;
+  userRole: UserRole;
+  subject: string;
+  category: SupportTicketCategory;
+  priority: SupportTicketPriority;
+  message: string;
+  attachments?: string[];
+  status: SupportTicketStatus;
+  createdAt: string;
+  updatedAt?: string;
+  resolvedAt?: string;
+  responses: SupportResponse[];
+}
+
+export interface SupportResponse {
+  id: string;
+  ticketId: string;
+  responderId: string;
+  responderName: string;
+  responderRole: 'owner' | 'user';
+  message: string;
+  createdAt: string;
+}
+
+export interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  order: number;
+  active: boolean;
+}
+
+export interface SupportStats {
+  totalTickets: number;
+  openTickets: number;
+  inProgressTickets: number;
+  resolvedTickets: number;
+  avgResponseTime?: string;
+  todayTickets: number;
 }
 
 export interface GovtExamPreset {
