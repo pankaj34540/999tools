@@ -62,7 +62,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
   const [filterType, setFilterType] = useState<'all' | 'receivable' | 'payable' | 'settled'>('all');
   const [copied, setCopied] = useState(false);
 
-  // Entry form state
   const [formType, setFormType] = useState<LedgerEntryType>('debit');
   const [formCustomerName, setFormCustomerName] = useState('');
   const [formCustomerMobile, setFormCustomerMobile] = useState('');
@@ -72,19 +71,12 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
   const [formCategory, setFormCategory] = useState('');
   const [formSaving, setFormSaving] = useState(false);
 
-  // ============================================
   // UNIFIED ACCESS CHECK
-  // 1. User plan === 'vle' → Access
-  // 2. User plan === 'premium' with valid sub → Access
-  // 3. VLE Portal mein logged in (activeVle) → Access
-  // 4. Otherwise → Locked
-  // ============================================
   const hasAccess = 
     currentUser?.plan === 'vle' ||
     (currentUser?.plan === 'premium' && isUserPremium()) ||
     !!activeVle;
 
-  // STATS
   const stats = useMemo(() => {
     return getKhatabookStats();
   }, [ledgerEntries]);
@@ -93,7 +85,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     return getCustomerSummaries();
   }, [ledgerEntries]);
 
-  // FILTERED CUSTOMERS
   const filteredCustomers = useMemo(() => {
     return customerSummaries.filter((c) => {
       const matchSearch = 
@@ -109,7 +100,6 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     });
   }, [customerSummaries, searchQuery, filterType]);
 
-  // RESET FORM
   const resetForm = () => {
     setFormType('debit');
     setFormCustomerName('');
@@ -120,23 +110,22 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     setFormCategory('');
   };
 
-  // SUBMIT ENTRY
   const handleSubmitEntry = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formCustomerName.trim() || !formCustomerMobile.trim() || !formAmount || !formDescription.trim()) {
-      showNotification('Saari fields bharni zaroori hain');
+      showNotification('Please fill all required fields');
       return;
     }
 
     const amountNum = parseFloat(formAmount);
     if (isNaN(amountNum) || amountNum <= 0) {
-      showNotification('Sahi amount daalo');
+      showNotification('Please enter a valid amount');
       return;
     }
 
     if (formCustomerMobile.length !== 10) {
-      showNotification('10-digit mobile number daalo');
+      showNotification('Please enter a 10-digit mobile number');
       return;
     }
 
@@ -163,39 +152,36 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     }
   };
 
-  // DELETE ENTRY
   const handleDeleteEntry = async (entryId: string) => {
-    if (!confirm('Ye entry delete karni hai? Yeh action undo nahi hoga.')) return;
+    if (!confirm('Are you sure you want to delete this entry? This action cannot be undone.')) return;
     await removeLedgerEntry(entryId);
   };
 
-  // WHATSAPP REMINDER
   const sendWhatsAppReminder = (customer: CustomerLedgerSummary) => {
     const cleanPhone = customer.customerMobile.replace(/\D/g, '');
     const phoneWithCountry = cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone;
 
     const text = encodeURIComponent(
-      `🙏 *Namaste ${customer.customerName} Ji*\n\n` +
-      `Aapka *${vle.centerName}* mein pending balance hai:\n\n` +
+      `🙏 *Hello ${customer.customerName}*\n\n` +
+      `You have a pending balance at *${vle.centerName}*:\n\n` +
       `💰 *Pending Amount:* ₹${customer.balance}\n` +
       `📅 *Last Transaction:* ${customer.lastTransactionDate}\n` +
       `📊 *Total Transactions:* ${customer.totalTransactions}\n\n` +
-      `Kripya jaldi payment karein.\n\n` +
+      `Please clear your balance at your earliest convenience.\n\n` +
       `*Payment Options:*\n` +
       `📱 UPI: ${siteConfig.upiId}\n` +
-      `💵 Cash: ${vle.centerName} pe\n\n` +
-      `Kisi bhi query ke liye contact karein: ${vle.mobile}\n\n` +
-      `Dhanyawad 🙏\n` +
+      `💵 Cash: ${vle.centerName}\n\n` +
+      `For any queries, contact: ${vle.mobile}\n\n` +
+      `Thank you!\n` +
       `*${siteConfig.siteName}*`
     );
 
     window.open(`https://wa.me/${phoneWithCountry}?text=${text}`, '_blank');
   };
 
-  // EXPORT CSV
   const exportToCSV = () => {
     if (ledgerEntries.length === 0) {
-      showNotification('Koi data nahi hai export ke liye');
+      showNotification('No data available to export');
       return;
     }
 
@@ -218,14 +204,13 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     link.download = `khatabook-${vle.vleId}-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    showNotification('✅ CSV download ho gayi!');
+    showNotification('✅ CSV downloaded successfully!');
   };
 
-  // TYPE LABEL & COLOR
   const getTypeLabel = (type: LedgerEntryType) => {
     const labels: Record<LedgerEntryType, string> = {
       credit: '💰 Payment Received',
-      debit: '📝 Udhar (Credit Sale)',
+      debit: '📝 Credit Sale',
       sale: '🛒 Cash Sale',
       expense: '💸 Expense',
       payment_in: '💵 Payment In',
@@ -248,12 +233,10 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     return colors[type] || 'text-slate-600 bg-slate-100';
   };
 
-  // GET CUSTOMER'S ENTRIES
   const getCustomerEntries = (mobile: string): LedgerEntry[] => {
     return ledgerEntries.filter((e) => e.customerMobile === mobile);
   };
 
-  // ACCESS LOCK
   if (!hasAccess) {
     return (
       <div className="bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-8 sm:p-12 text-center text-white shadow-2xl">
@@ -262,7 +245,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
         </div>
         <h2 className="text-2xl font-black mb-3">Khatabook Locked</h2>
         <p className="text-sm text-blue-200 mb-6 max-w-md mx-auto leading-relaxed">
-          Khatabook customer ledger sirf <strong className="text-amber-300">VLE / Cyber Cafe Plan</strong> ya <strong className="text-amber-300">Premium Plan</strong> users ke liye available hai.
+          Khatabook customer ledger is available only for <strong className="text-amber-300">VLE / Cyber Cafe Plan</strong> or <strong className="text-amber-300">Premium Plan</strong> users.
         </p>
         <div className="inline-flex items-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm rounded-xl shadow-lg transition cursor-pointer">
           <Crown className="w-4 h-4" />
@@ -272,12 +255,11 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
     );
   }
 
-  // LOADING
   if (ledgerLoading) {
     return (
       <div className="bg-white rounded-3xl p-12 text-center border border-slate-200">
         <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-3" />
-        <p className="text-sm text-slate-500">Khatabook load ho raha hai...</p>
+        <p className="text-sm text-slate-500">Loading Khatabook...</p>
       </div>
     );
   }
@@ -297,7 +279,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
               📖 Khatabook
             </h2>
             <p className="text-sm text-blue-200 mt-1">
-              {vle.centerName} ka complete customer hisaab
+              Complete customer ledger for {vle.centerName}
             </p>
           </div>
 
@@ -326,7 +308,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">
-              Lena Hai (Receivable)
+              Receivable
             </span>
             <span className="p-2 bg-rose-50 text-rose-600 rounded-lg">
               <ArrowDownLeft className="w-4 h-4" />
@@ -336,14 +318,14 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
             ₹{stats.totalReceivable.toLocaleString('en-IN')}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            {customerSummaries.filter(c => c.balanceType === 'receivable').length} customers se
+            From {customerSummaries.filter(c => c.balanceType === 'receivable').length} customers
           </div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">
-              Dena Hai (Payable)
+              Payable
             </span>
             <span className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
               <ArrowUpRight className="w-4 h-4" />
@@ -353,14 +335,14 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
             ₹{stats.totalPayable.toLocaleString('en-IN')}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            {customerSummaries.filter(c => c.balanceType === 'payable').length} customers ko
+            To {customerSummaries.filter(c => c.balanceType === 'payable').length} customers
           </div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
-              Aaj Ka Sale
+              Today's Sales
             </span>
             <span className="p-2 bg-blue-50 text-blue-600 rounded-lg">
               <TrendingUp className="w-4 h-4" />
@@ -370,14 +352,14 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
             ₹{stats.todaySales.toLocaleString('en-IN')}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            {stats.todayTransactions} transactions aaj
+            {stats.todayTransactions} transactions today
           </div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">
-              Aaj Receive
+              Today's Received
             </span>
             <span className="p-2 bg-amber-50 text-amber-600 rounded-lg">
               <Wallet className="w-4 h-4" />
@@ -387,7 +369,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
             ₹{stats.todayReceived.toLocaleString('en-IN')}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            Is mahine: ₹{stats.monthReceived.toLocaleString('en-IN')}
+            This month: ₹{stats.monthReceived.toLocaleString('en-IN')}
           </div>
         </div>
       </div>
@@ -400,7 +382,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Customer ka naam ya mobile search karo..."
+            placeholder="Search by customer name or mobile..."
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -416,7 +398,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {t === 'receivable' ? 'Lena' : t === 'payable' ? 'Dena' : t === 'settled' ? 'Settled' : 'All'}
+              {t === 'receivable' ? 'Receivable' : t === 'payable' ? 'Payable' : t === 'settled' ? 'Settled' : 'All'}
             </button>
           ))}
         </div>
@@ -427,12 +409,12 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
         <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center">
           <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <h4 className="text-sm font-bold text-slate-800">
-            {searchQuery ? 'Koi customer nahi mila' : 'Abhi Koi Entry Nahi'}
+            {searchQuery ? 'No customers found' : 'No Entries Yet'}
           </h4>
           <p className="text-xs text-slate-500 mt-1 mb-4">
             {searchQuery 
-              ? 'Try different search keyword.' 
-              : 'Pehla customer entry add karo — udhar diya, payment aaya, sale — sab yahan rahega.'}
+              ? 'Try a different search keyword.' 
+              : 'Add your first customer entry — credit sales, payments, sales — all will be tracked here.'}
           </p>
           {!searchQuery && (
             <button
@@ -478,8 +460,8 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-slate-100 text-slate-600'
                     }`}>
-                      {customer.balanceType === 'receivable' ? 'Lena Hai' : 
-                       customer.balanceType === 'payable' ? 'Dena Hai' : 'Settled'}
+                      {customer.balanceType === 'receivable' ? 'Receivable' : 
+                       customer.balanceType === 'payable' ? 'Payable' : 'Settled'}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1">
@@ -543,7 +525,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900">New Khatabook Entry</h3>
-                  <p className="text-[11px] text-slate-500">Customer ka hisaab record karo</p>
+                  <p className="text-[11px] text-slate-500">Record customer transaction</p>
                 </div>
               </div>
               <button
@@ -576,10 +558,10 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                     <div className="flex items-center gap-2 mb-1">
                       <ArrowDownLeft className={`w-4 h-4 ${formType === 'debit' ? 'text-rose-600' : 'text-slate-400'}`} />
                       <span className={`text-xs font-black ${formType === 'debit' ? 'text-rose-700' : 'text-slate-600'}`}>
-                        Udhar Diya
+                        Credit Sale
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500">Customer baad mein pay karega</p>
+                    <p className="text-[10px] text-slate-500">Customer will pay later</p>
                   </button>
 
                   <button
@@ -594,10 +576,10 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                     <div className="flex items-center gap-2 mb-1">
                       <ArrowUpRight className={`w-4 h-4 ${formType === 'credit' ? 'text-emerald-600' : 'text-slate-400'}`} />
                       <span className={`text-xs font-black ${formType === 'credit' ? 'text-emerald-700' : 'text-slate-600'}`}>
-                        Payment Aaya
+                        Payment Received
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500">Customer ne paisa diya</p>
+                    <p className="text-[10px] text-slate-500">Customer paid money</p>
                   </button>
 
                   <button
@@ -615,7 +597,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                         Cash Sale
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500">Turant cash mila</p>
+                    <p className="text-[10px] text-slate-500">Instant cash received</p>
                   </button>
 
                   <button
@@ -633,7 +615,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                         Expense
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500">Dukan ka kharcha</p>
+                    <p className="text-[10px] text-slate-500">Shop expense</p>
                   </button>
                 </div>
               </div>
@@ -707,7 +689,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                   type="text"
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="e.g. PAN card ka form bhara"
+                  placeholder="e.g. PAN card form filled"
                   required
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -809,8 +791,8 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      {selectedCustomer.balanceType === 'receivable' ? 'Lena Hai' : 
-                       selectedCustomer.balanceType === 'payable' ? 'Dena Hai' : 'Settled'}
+                      {selectedCustomer.balanceType === 'receivable' ? 'Receivable' : 
+                       selectedCustomer.balanceType === 'payable' ? 'Payable' : 'Settled'}
                     </div>
                     <div className={`text-3xl font-black font-mono ${
                       selectedCustomer.balanceType === 'receivable'
@@ -838,7 +820,7 @@ export const KhatabookManager: React.FC<KhatabookManagerProps> = ({ vle }) => {
 
                 <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-200">
                   <div>
-                    <div className="text-[10px] text-slate-500 font-bold uppercase">Total Udhar</div>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">Total Credit</div>
                     <div className="text-sm font-bold text-rose-700 font-mono">
                       ₹{selectedCustomer.totalDebit.toLocaleString('en-IN')}
                     </div>
