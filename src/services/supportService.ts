@@ -13,7 +13,9 @@ import {
 import { db } from '../config/firebase';
 import { SupportTicket, SupportResponse, FAQItem, SupportStats, SupportTicketStatus } from '../types';
 
-// Deep clean
+// ============================================
+// DEEP CLEAN
+// ============================================
 const deepClean = (value: any): any => {
   if (value === null || value === undefined) return undefined;
   if (Array.isArray(value)) {
@@ -35,7 +37,6 @@ const deepClean = (value: any): any => {
 
 // ============================================
 // GENERATE TICKET NUMBER
-// Format: TKT-YYYYMMDD-XXXX
 // ============================================
 export const generateTicketNumber = (existingCount: number): string => {
   const now = new Date();
@@ -104,9 +105,10 @@ export const addTicketResponse = async (
     });
 
     await updateDoc(ticketRef, cleaned);
+    console.log('✅ Response added to ticket:', ticketId);
     return true;
   } catch (error: any) {
-    console.error('❌ Error adding response:', error);
+    console.error('❌ Error adding response:', error.code, error.message);
     return false;
   }
 };
@@ -125,9 +127,10 @@ export const updateTicketStatus = async (
       ...(status === 'resolved' ? { resolvedAt: new Date().toISOString() } : {}),
     });
     await updateDoc(doc(db, 'supportTickets', ticketId), updates);
+    console.log('✅ Ticket status updated:', ticketId, '→', status);
     return true;
-  } catch (error) {
-    console.error('❌ Error updating status:', error);
+  } catch (error: any) {
+    console.error('❌ Error updating status:', error.code, error.message);
     return false;
   }
 };
@@ -138,8 +141,10 @@ export const updateTicketStatus = async (
 export const deleteTicket = async (ticketId: string): Promise<boolean> => {
   try {
     await deleteDoc(doc(db, 'supportTickets', ticketId));
+    console.log('✅ Ticket deleted:', ticketId);
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error deleting ticket:', error.code, error.message);
     return false;
   }
 };
@@ -159,6 +164,7 @@ export const getUserTickets = async (userId: string): Promise<SupportTicket[]> =
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   } catch (error) {
+    console.error('❌ Error getting user tickets:', error);
     return [];
   }
 };
@@ -328,6 +334,23 @@ export const getFAQs = async (): Promise<FAQItem[]> => {
 };
 
 // ============================================
+// SUBSCRIBE TO FAQS
+// ============================================
+export const subscribeToFAQs = (
+  callback: (faqs: FAQItem[]) => void
+) => {
+  const q = query(collection(db, 'faqs'));
+  return onSnapshot(q, (snap) => {
+    if (snap.empty) {
+      callback(DEFAULT_FAQS);
+    } else {
+      const faqs = snap.docs.map((d) => d.data() as FAQItem);
+      callback(faqs.filter(f => f.active).sort((a, b) => a.order - b.order));
+    }
+  });
+};
+
+// ============================================
 // INITIALIZE FAQS IN FIREBASE
 // ============================================
 export const initializeFAQs = async (): Promise<boolean> => {
@@ -335,9 +358,50 @@ export const initializeFAQs = async (): Promise<boolean> => {
     for (const faq of DEFAULT_FAQS) {
       await setDoc(doc(db, 'faqs', faq.id), faq);
     }
+    console.log('✅ FAQs initialized');
     return true;
   } catch (error) {
     console.error('Error initializing FAQs:', error);
+    return false;
+  }
+};
+
+// ============================================
+// CREATE FAQ (Owner)
+// ============================================
+export const createFAQ = async (
+  faqData: Omit<FAQItem, 'id'>
+): Promise<FAQItem | null> => {
+  try {
+    const id = 'faq_' + Date.now().toString(36);
+    const newFaq: FAQItem = { ...faqData, id };
+    await setDoc(doc(db, 'faqs', id), deepClean(newFaq));
+    return newFaq;
+  } catch (error) {
+    return null;
+  }
+};
+
+// ============================================
+// UPDATE FAQ (Owner)
+// ============================================
+export const updateFAQ = async (faq: FAQItem): Promise<boolean> => {
+  try {
+    await updateDoc(doc(db, 'faqs', faq.id), deepClean(faq));
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+// ============================================
+// DELETE FAQ (Owner)
+// ============================================
+export const deleteFAQ = async (faqId: string): Promise<boolean> => {
+  try {
+    await deleteDoc(doc(db, 'faqs', faqId));
+    return true;
+  } catch (error) {
     return false;
   }
 };
