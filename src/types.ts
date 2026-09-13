@@ -4,6 +4,32 @@ export type UserPlan = 'free' | 'premium' | 'vle';
 export type SubscriptionStatus = 'active' | 'expired' | 'pending' | 'cancelled';
 export type BillingCycle = 'monthly' | 'yearly';
 
+// ============================================
+// UNIFIED USER ACCOUNT
+// Har user (free/premium/vle) ka ek hi account
+// VLE data alag object mein nested hoga
+// ============================================
+export interface VleData {
+  vleId: string;
+  centerName: string;
+  operatorName: string;
+  mobile: string;
+  state: string;
+  district: string;
+  address?: string;
+  cscId?: string;
+  status: 'active' | 'suspended' | 'pending';
+  kycVerified: boolean;
+  totalOrdersCompleted: number;
+  joinedDate: string;
+  shopUpiId?: string;
+  shopNoticeBanner?: string;
+  shopWatermarkText?: string;
+  shopWatermarkPurpose?: string;
+  shopWatermarkStampEnabled?: boolean;
+  shopStampColor?: string;
+}
+
 export interface UserAccount {
   id: string;
   email: string;
@@ -15,8 +41,45 @@ export interface UserAccount {
   subscriptionStatus: SubscriptionStatus;
   createdAt: string;
   lastLoginAt?: string;
+  // 🆕 VLE Data (agar plan === 'vle' hai)
+  vleData?: VleData;
 }
 
+// ============================================
+// LEGACY VLE OPERATOR
+// (backward compatibility ke liye rakha hai)
+// ============================================
+export interface VleOperator {
+  id: string;
+  vleId: string;
+  password?: string;
+  centerName: string;
+  operatorName: string;
+  mobile: string;
+  email: string;
+  state: string;
+  district: string;
+  address?: string;
+  walletBalance: number;
+  membershipPlan?: 'lifetime_vip' | 'regular';
+  status: 'active' | 'suspended' | 'pending';
+  kycVerified: boolean;
+  totalOrdersCompleted: number;
+  joinedDate: string;
+  shopUpiId?: string;
+  shopNoticeBanner?: string;
+  shopWatermarkText?: string;
+  shopWatermarkPurpose?: string;
+  shopWatermarkStampEnabled?: boolean;
+  shopStampColor?: string;
+  subscriptionStart?: string;
+  subscriptionEnd?: string;
+  subscriptionStatus?: SubscriptionStatus;
+}
+
+// ============================================
+// TOOL USAGE (Daily Limits)
+// ============================================
 export interface ToolUsage {
   id: string;
   userId: string;
@@ -26,6 +89,9 @@ export interface ToolUsage {
   lastUsedAt: string;
 }
 
+// ============================================
+// PAYMENT REQUEST
+// ============================================
 export interface PaymentRequest {
   id: string;
   userId: string;
@@ -45,6 +111,9 @@ export interface PaymentRequest {
   validUntil?: string;
 }
 
+// ============================================
+// PRICING & STATS
+// ============================================
 export interface PricingPlan {
   id: 'free' | 'premium' | 'vle';
   name: string;
@@ -64,6 +133,9 @@ export interface SubscriptionStats {
   pendingPayments: number;
 }
 
+// ============================================
+// KHATABOOK / LEDGER
+// ============================================
 export type LedgerEntryType = 
   | 'credit'
   | 'debit'
@@ -134,6 +206,9 @@ export interface LedgerFilterOptions {
   searchQuery?: string;
 }
 
+// ============================================
+// SITE CONFIG & ADSTERRA
+// ============================================
 export interface AdsterraConfig {
   enabled: boolean;
   headerBannerActive: boolean;
@@ -177,6 +252,9 @@ export interface SiteConfig {
   freeUserDailyLimit: number;
 }
 
+// ============================================
+// LINKS, APPLICATIONS, SERVICES
+// ============================================
 export interface ImportantLink {
   id: string;
   title: string;
@@ -267,34 +345,6 @@ export interface ServiceItem {
   isExternalLink?: boolean;
   externalUrl?: string;
   requiresUpload?: boolean;
-}
-
-export interface VleOperator {
-  id: string;
-  vleId: string;
-  password?: string;
-  centerName: string;
-  operatorName: string;
-  mobile: string;
-  email: string;
-  state: string;
-  district: string;
-  address?: string;
-  walletBalance: number;
-  membershipPlan?: 'lifetime_vip' | 'regular';
-  status: 'active' | 'suspended' | 'pending';
-  kycVerified: boolean;
-  totalOrdersCompleted: number;
-  joinedDate: string;
-  shopUpiId?: string;
-  shopNoticeBanner?: string;
-  shopWatermarkText?: string;
-  shopWatermarkPurpose?: string;
-  shopWatermarkStampEnabled?: boolean;
-  shopStampColor?: string;
-  subscriptionStart?: string;
-  subscriptionEnd?: string;
-  subscriptionStatus?: SubscriptionStatus;
 }
 
 export interface CustomerOrder {
