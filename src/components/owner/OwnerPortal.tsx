@@ -31,7 +31,8 @@ import {
   Link2,
   Wrench,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  LifeBuoy
 } from 'lucide-react';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
@@ -40,6 +41,7 @@ import { VleApprovalsManager } from './VleApprovalsManager';
 import { ImportantLinksManager } from './ImportantLinksManager';
 import { ToolsManager } from './ToolsManager';
 import { PaymentApprovalsManager } from './PaymentApprovalsManager';
+import { OwnerSupportManager } from './OwnerSupportManager';
 
 export const OwnerPortal: React.FC = () => {
   const { 
@@ -71,7 +73,7 @@ export const OwnerPortal: React.FC = () => {
     return <OwnerSecurityGate />;
   }
 
-  const [activeTab, setActiveTab] = useState<'analytics' | 'vle_approvals' | 'payment_approvals' | 'services' | 'tools_hub' | 'links' | 'vles' | 'orders' | 'settings' | 'monetization'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'vle_approvals' | 'payment_approvals' | 'support' | 'services' | 'tools_hub' | 'links' | 'vles' | 'orders' | 'settings' | 'monetization'>('analytics');
 
   // Service modal
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -120,8 +122,6 @@ export const OwnerPortal: React.FC = () => {
   const totalVleBalances = vles.reduce((sum, v) => sum + v.walletBalance, 0);
   const pendingOrders = orders.filter((o) => o.status === 'pending').length;
   const activeVleCount = vles.filter((v) => v.status === 'active').length;
-  
-  // 🆕 Payment pending count
   const paymentPendingCount = paymentRequests.filter((p) => p.status === 'pending').length;
 
   const handleCreateService = (e: React.FormEvent) => {
@@ -181,7 +181,7 @@ export const OwnerPortal: React.FC = () => {
               {siteConfig.siteName} Master Command Center
             </h1>
             <p className="text-sm text-slate-300 max-w-2xl">
-              Manage tools, external links, VLE registrations, operator credentials, customer orders, and site security.
+              Manage tools, links, VLE registrations, payments, support tickets, and site security.
             </p>
           </div>
 
@@ -217,6 +217,7 @@ export const OwnerPortal: React.FC = () => {
             { id: 'analytics', label: 'Overview & Stats', icon: TrendingUp },
             { id: 'vle_approvals', label: `VLE Applications`, icon: UserCheck, badge: pendingVleAppsCount },
             { id: 'payment_approvals', label: `Payments`, icon: CreditCard, badge: paymentPendingCount },
+            { id: 'support', label: `🎧 Support`, icon: LifeBuoy },
             { id: 'tools_hub', label: `50+ Tools Registry`, icon: Wrench },
             { id: 'links', label: `Govt Links (${importantLinks.length})`, icon: Link2 },
             { id: 'services', label: `Form Services (${services.length})`, icon: Layers },
@@ -386,7 +387,6 @@ export const OwnerPortal: React.FC = () => {
                 />
               </div>
               <button
-                id="btn-add-new-service"
                 onClick={() => setShowAddServiceModal(true)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs shadow-sm transition"
               >
@@ -425,12 +425,8 @@ export const OwnerPortal: React.FC = () => {
                       <td className="p-3 font-mono font-bold text-slate-900">
                         {srv.userPrice === 0 ? <span className="text-emerald-600 font-sans font-semibold">FREE</span> : `₹${srv.userPrice}`}
                       </td>
-                      <td className="p-3 font-mono text-slate-700">
-                        ₹{srv.vlePrice}
-                      </td>
-                      <td className="p-3 font-mono font-bold text-emerald-600">
-                        +₹{srv.vleCommission}
-                      </td>
+                      <td className="p-3 font-mono text-slate-700">₹{srv.vlePrice}</td>
+                      <td className="p-3 font-mono font-bold text-emerald-600">+₹{srv.vleCommission}</td>
                       <td className="p-3">
                         <button
                           onClick={() => toggleService(srv.id)}
@@ -545,25 +541,15 @@ export const OwnerPortal: React.FC = () => {
                         <div className="font-semibold text-slate-800">{vle.operatorName}</div>
                         <div className="text-[11px] text-slate-500">{vle.mobile}</div>
                       </td>
-                      <td className="p-3 text-slate-600">
-                        {vle.district}, {vle.state}
-                      </td>
+                      <td className="p-3 text-slate-600">{vle.district}, {vle.state}</td>
                       <td className="p-3">
-                        <div className="font-bold font-mono text-emerald-700 text-sm">
-                          ₹{vle.walletBalance.toLocaleString()}
-                        </div>
+                        <div className="font-bold font-mono text-emerald-700 text-sm">₹{vle.walletBalance.toLocaleString()}</div>
                       </td>
-                      <td className="p-3 font-semibold text-slate-700">
-                        {vle.totalOrdersCompleted} jobs
-                      </td>
+                      <td className="p-3 font-semibold text-slate-700">{vle.totalOrdersCompleted} jobs</td>
                       <td className="p-3">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                            vle.status === 'active'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-rose-100 text-rose-800'
-                          }`}
-                        >
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          vle.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}>
                           {vle.status}
                         </span>
                       </td>
@@ -662,32 +648,22 @@ export const OwnerPortal: React.FC = () => {
                       <td className="p-3 text-slate-600">
                         {order.vleCenterName || <span className="text-slate-400">Direct Online</span>}
                       </td>
-                      <td className="p-3 font-mono font-bold text-slate-900">
-                        ₹{order.amount}
-                      </td>
+                      <td className="p-3 font-mono font-bold text-slate-900">₹{order.amount}</td>
                       <td className="p-3">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                            order.status === 'completed'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : order.status === 'processing'
-                              ? 'bg-blue-100 text-blue-800'
-                              : order.status === 'approved'
-                              ? 'bg-purple-100 text-purple-800'
-                              : order.status === 'rejected'
-                              ? 'bg-rose-100 text-rose-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          order.status === 'completed' ? 'bg-emerald-100 text-emerald-800'
+                          : order.status === 'processing' ? 'bg-blue-100 text-blue-800'
+                          : order.status === 'approved' ? 'bg-purple-100 text-purple-800'
+                          : order.status === 'rejected' ? 'bg-rose-100 text-rose-800'
+                          : 'bg-amber-100 text-amber-800'
+                        }`}>
                           {order.status}
                         </span>
                       </td>
                       <td className="p-3 text-right">
                         <select
                           value={order.status}
-                          onChange={(e) =>
-                            updateOrderStatus(order.id, e.target.value as any)
-                          }
+                          onChange={(e) => updateOrderStatus(order.id, e.target.value as any)}
                           className="px-2 py-1 border border-slate-200 rounded-lg text-xs bg-white font-semibold text-slate-700"
                         >
                           <option value="pending">Pending</option>
@@ -717,9 +693,7 @@ export const OwnerPortal: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Branding & Helpdesk Details
-              </h3>
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Branding & Helpdesk Details</h3>
 
               <div>
                 <label className="text-[11px] text-slate-500 font-semibold">Website Title / Brand Name:</label>
@@ -774,9 +748,7 @@ export const OwnerPortal: React.FC = () => {
             </div>
 
             <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Breaking News Marquee & Payments
-              </h3>
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Breaking News Marquee & Payments</h3>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -824,9 +796,7 @@ export const OwnerPortal: React.FC = () => {
                   type="button"
                   onClick={() => updateSiteConfig({ maintenanceMode: !siteConfig.maintenanceMode })}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    siteConfig.maintenanceMode
-                      ? 'bg-rose-600 text-white'
-                      : 'bg-slate-200 text-slate-700'
+                    siteConfig.maintenanceMode ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-700'
                   }`}
                 >
                   {siteConfig.maintenanceMode ? 'Active' : 'OFF'}
@@ -834,7 +804,6 @@ export const OwnerPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Subscription Pricing Settings */}
             <div className="space-y-4 bg-blue-50/50 p-5 rounded-xl border border-blue-200 md:col-span-2">
               <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
                 <CreditCard className="w-4 h-4 text-blue-600" />
@@ -843,9 +812,7 @@ export const OwnerPortal: React.FC = () => {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
-                    Premium Monthly (₹):
-                  </label>
+                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">Premium Monthly (₹):</label>
                   <input
                     type="number"
                     value={siteConfig.premiumMonthlyPrice || 49}
@@ -854,9 +821,7 @@ export const OwnerPortal: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
-                    Premium Yearly (₹):
-                  </label>
+                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">Premium Yearly (₹):</label>
                   <input
                     type="number"
                     value={siteConfig.premiumYearlyPrice || 399}
@@ -865,9 +830,7 @@ export const OwnerPortal: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
-                    VLE Monthly (₹):
-                  </label>
+                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">VLE Monthly (₹):</label>
                   <input
                     type="number"
                     value={siteConfig.vleMonthlyPrice || 199}
@@ -876,9 +839,7 @@ export const OwnerPortal: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">
-                    VLE Yearly (₹):
-                  </label>
+                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">VLE Yearly (₹):</label>
                   <input
                     type="number"
                     value={siteConfig.vleYearlyPrice || 1499}
@@ -889,22 +850,17 @@ export const OwnerPortal: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[11px] text-slate-600 font-semibold block mb-1">
-                  Free User Daily Limit (uses per premium tool):
-                </label>
+                <label className="text-[11px] text-slate-600 font-semibold block mb-1">Free User Daily Limit (uses per premium tool):</label>
                 <input
                   type="number"
                   value={siteConfig.freeUserDailyLimit || 3}
                   onChange={(e) => updateSiteConfig({ freeUserDailyLimit: parseInt(e.target.value) || 3 })}
                   className="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
                 />
-                <span className="text-[11px] text-slate-500 ml-3">
-                  Free users premium tools ko itni baar use kar sakte hain per day
-                </span>
+                <span className="text-[11px] text-slate-500 ml-3">Free users can use premium tools this many times per day</span>
               </div>
             </div>
 
-            {/* Owner Security */}
             <div className="space-y-4 bg-amber-50/50 p-5 rounded-xl border border-amber-200 md:col-span-2">
               <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-amber-600" />
@@ -914,7 +870,7 @@ export const OwnerPortal: React.FC = () => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs">
                 <div className="font-bold text-blue-800 mb-1">🔒 Firebase Auth Active</div>
                 <div className="text-blue-700 text-[11px]">
-                  Owner login ab Google Firebase se protected hai. Password Firebase servers pe encrypted hai.
+                  Owner login is now protected by Google Firebase. Password is encrypted on Firebase servers.
                 </div>
               </div>
             </div>
@@ -927,9 +883,14 @@ export const OwnerPortal: React.FC = () => {
         <VleApprovalsManager />
       )}
 
-      {/* 🆕 TAB: PAYMENT APPROVALS */}
+      {/* TAB: PAYMENT APPROVALS */}
       {activeTab === 'payment_approvals' && (
         <PaymentApprovalsManager />
+      )}
+
+      {/* 🆕 TAB: SUPPORT TICKETS */}
+      {activeTab === 'support' && (
+        <OwnerSupportManager />
       )}
 
       {/* TAB: 50+ TOOLS REGISTRY */}
@@ -966,7 +927,6 @@ export const OwnerPortal: React.FC = () => {
                   required
                   value={serviceForm.name}
                   onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })}
-                  placeholder="e.g. Birth Certificate Online Apply"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
@@ -980,10 +940,10 @@ export const OwnerPortal: React.FC = () => {
                 >
                   <option value="photo_tools">Photo & Signature Tools</option>
                   <option value="pan_aadhaar">PAN & Aadhaar Services</option>
-                  <option value="certificates">Certificates (Income/Caste/Niwas)</option>
-                  <option value="govt_schemes">Government Schemes & PM Kisan</option>
+                  <option value="certificates">Certificates</option>
+                  <option value="govt_schemes">Government Schemes</option>
                   <option value="exam_admit">Exams & Admit Cards</option>
-                  <option value="banking_utility">Banking & Cyber Cafe Utility</option>
+                  <option value="banking_utility">Banking & Utility</option>
                 </select>
               </div>
 
@@ -993,7 +953,6 @@ export const OwnerPortal: React.FC = () => {
                   type="text"
                   value={serviceForm.description}
                   onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
-                  placeholder="Short description of the service"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
@@ -1154,9 +1113,7 @@ export const OwnerPortal: React.FC = () => {
                   type="button"
                   onClick={() => setWalletType('credit')}
                   className={`py-2 text-xs font-bold rounded-lg border ${
-                    walletType === 'credit'
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-slate-100 text-slate-700'
+                    walletType === 'credit' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-100 text-slate-700'
                   }`}
                 >
                   + Credit
@@ -1165,9 +1122,7 @@ export const OwnerPortal: React.FC = () => {
                   type="button"
                   onClick={() => setWalletType('debit')}
                   className={`py-2 text-xs font-bold rounded-lg border ${
-                    walletType === 'debit'
-                      ? 'bg-rose-600 text-white border-rose-600'
-                      : 'bg-slate-100 text-slate-700'
+                    walletType === 'debit' ? 'bg-rose-600 text-white border-rose-600' : 'bg-slate-100 text-slate-700'
                   }`}
                 >
                   - Debit
