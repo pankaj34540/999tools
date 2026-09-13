@@ -8,34 +8,20 @@ interface AdsterraBannerProps {
 }
 
 export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className = '' }) => {
-  const { siteConfig, showAdsForCurrentUser, currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
+  const { siteConfig, currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const adConfig = siteConfig.adsterra;
 
-  // ============================================
-  // 🆕 CHECK IF ADS SHOULD BE SHOWN
-  // ============================================
+  // 🆕 Check if user should see ads
   const shouldShowAds = () => {
-    // 1. Owner — NEVER
     if (ownerAuthenticated) return false;
-    
-    // 2. Premium user with valid subscription — NEVER
     if (currentUser?.plan === 'premium' && isUserPremium()) return false;
-    
-    // 3. VLE user — NEVER
     if (currentUser?.plan === 'vle' || activeVle) return false;
-    
-    // 4. Free user / Public visitor — YES (show ads)
     return true;
   };
 
   const userCanSeeAds = shouldShowAds();
-
-  // Agar user ko ads nahi dikhne chahiye toh kuch render na karo
-  if (!userCanSeeAds) {
-    return null;
-  }
 
   let isActive = false;
   let adCode = '';
@@ -69,8 +55,11 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
     recommendedSize = 'Adsterra Social Bar';
   }
 
+  // ✅ HOOK ALWAYS CALLED — no early return before this
   useEffect(() => {
+    if (!userCanSeeAds) return; // ⚠️ Return INSIDE the hook, not before
     if (!containerRef.current) return;
+
     const container = containerRef.current;
     container.innerHTML = '';
 
@@ -86,7 +75,12 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
         container.innerHTML = adCode;
       }
     }
-  }, [isActive, adCode, slot]);
+  }, [isActive, adCode, slot, userCanSeeAds]);
+
+  // ✅ NOW safe to return null — after all hooks
+  if (!userCanSeeAds) {
+    return null;
+  }
 
   if (!isActive && !adConfig?.testMode) {
     return null;
@@ -120,24 +114,21 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
 };
 
 // ============================================
-// SOCIAL BAR INJECTOR (Global — runs once)
+// SOCIAL BAR INJECTOR
 // ============================================
 export const SocialBarInjector: React.FC = () => {
   const { siteConfig, currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const injected = useRef(false);
 
+  // ✅ Compute values BEFORE hooks
+  const shouldInject = 
+    !ownerAuthenticated &&
+    !(currentUser?.plan === 'premium' && isUserPremium()) &&
+    !(currentUser?.plan === 'vle' || activeVle);
+
   useEffect(() => {
     if (injected.current) return;
-
-    // 🆕 Check if user should see ads
-    const shouldShowAds = () => {
-      if (ownerAuthenticated) return false;
-      if (currentUser?.plan === 'premium' && isUserPremium()) return false;
-      if (currentUser?.plan === 'vle' || activeVle) return false;
-      return true;
-    };
-
-    if (!shouldShowAds()) {
+    if (!shouldInject) {
       console.log('✅ Social Bar skipped — user is paid/owner');
       return;
     }
@@ -171,20 +162,19 @@ export const SocialBarInjector: React.FC = () => {
     } catch (err) {
       console.error('Social Bar injection failed:', err);
     }
-  }, [siteConfig.adsterra, currentUser, activeVle, ownerAuthenticated]);
+  }, [siteConfig.adsterra, shouldInject]);
 
   return null;
 };
 
 // ============================================
-// DIRECT LINK (Optional — for future use)
+// DIRECT LINK (Optional)
 // ============================================
 let clickCounter = 0;
 export const useAdsterraDirectLink = () => {
   const { siteConfig, currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
 
   const triggerDirectLink = () => {
-    // 🆕 Check if user should see ads
     if (ownerAuthenticated) return;
     if (currentUser?.plan === 'premium' && isUserPremium()) return;
     if (currentUser?.plan === 'vle' || activeVle) return;
