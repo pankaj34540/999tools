@@ -7,7 +7,7 @@ export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; 
   {
     id: 'photo_exam',
     label: '📸 Photo & Image',
-    count: 0,
+    count: 10,
     description: 'Passport photo, resize, compress, convert, background remove',
     icon: 'Camera',
   },
@@ -78,16 +78,172 @@ export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; 
 
 // ============================================
 // TOOLS REGISTRY
-// Fresh start — Tools will be added category-wise
 // ============================================
-export const TOOLS_REGISTRY: ToolDefinition[] = [];
+export const TOOLS_REGISTRY: ToolDefinition[] = [
+  // ============================================
+  // 📸 CATEGORY 1: PHOTO & IMAGE — Batch 1 (10 tools)
+  // ============================================
+  {
+    num: 1,
+    id: 'photo_format_converter',
+    name: 'Image Format Converter',
+    shortName: 'Format Convert',
+    category: 'photo_exam',
+    description: 'Convert images between JPG, PNG, and WebP formats with adjustable quality control',
+    badge: 'POPULAR',
+    tags: ['jpg', 'png', 'webp', 'convert', 'format'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Image',
+    componentKey: 'ImageFormatConverterTool',
+    active: true,
+  },
+  {
+    num: 2,
+    id: 'photo_target_kb_compressor',
+    name: 'Target KB Compressor',
+    shortName: 'KB Compress',
+    category: 'photo_exam',
+    description: 'Compress images to exact file size (20KB, 50KB, 100KB) for govt forms with binary search',
+    badge: 'PREMIUM',
+    tags: ['compress', 'kb', 'size', 'ssc', 'upsc', 'railway'],
+    popular: true,
+    vleEssential: true,
+    isPremium: true,
+    iconName: 'Sparkles',
+    componentKey: 'ImageCompressorTool',
+    active: true,
+  },
+  {
+    num: 3,
+    id: 'photo_resizer',
+    name: 'Image Resizer',
+    shortName: 'Resize',
+    category: 'photo_exam',
+    description: 'Resize images to custom dimensions with 6 quick presets (Instagram, Passport, Facebook, etc.)',
+    badge: 'POPULAR',
+    tags: ['resize', 'dimensions', 'instagram', 'facebook', 'passport'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'ZoomIn',
+    componentKey: 'ImageResizeTool',
+    active: true,
+  },
+  {
+    num: 4,
+    id: 'photo_rotator',
+    name: 'Photo Rotator',
+    shortName: 'Rotate',
+    category: 'photo_exam',
+    description: 'Rotate photos 90°, 180°, or any custom angle with automatic canvas resize',
+    tags: ['rotate', 'angle', 'turn', 'sideways', 'orientation'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'RotateCw',
+    componentKey: 'PhotoRotatorTool',
+    active: true,
+  },
+  {
+    num: 5,
+    id: 'photo_flip_mirror',
+    name: 'Photo Mirror & Flip',
+    shortName: 'Flip',
+    category: 'photo_exam',
+    description: 'Mirror photos horizontally or flip vertically with one-click toggle',
+    tags: ['flip', 'mirror', 'reverse', 'horizontal', 'vertical'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'FlipHorizontal',
+    componentKey: 'PhotoFlipTool',
+    active: true,
+  },
+  {
+    num: 6,
+    id: 'photo_brightness_contrast',
+    name: 'Brightness & Contrast',
+    shortName: 'Adjust',
+    category: 'photo_exam',
+    description: 'Adjust brightness, contrast, and saturation with live sliders and instant preview',
+    badge: 'POPULAR',
+    tags: ['brightness', 'contrast', 'saturation', 'adjust', 'enhance'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Sun',
+    componentKey: 'BrightnessContrastTool',
+    active: true,
+  },
+  {
+    num: 7,
+    id: 'photo_bw_converter',
+    name: 'Black & White Converter',
+    shortName: 'B&W',
+    category: 'photo_exam',
+    description: 'Convert color photos to grayscale with adjustable intensity from 0% to 100%',
+    tags: ['black', 'white', 'grayscale', 'bw', 'monochrome'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Circle',
+    componentKey: 'BlackWhiteTool',
+    active: true,
+  },
+  {
+    num: 8,
+    id: 'photo_blur',
+    name: 'Photo Blur Tool',
+    shortName: 'Blur',
+    category: 'photo_exam',
+    description: 'Blur full photo or background with adjustable blur amount (0-50px)',
+    tags: ['blur', 'background blur', 'gaussian', 'focus'],
+    vleEssential: false,
+    isPremium: false,
+    iconName: 'Droplet',
+    componentKey: 'PhotoBlurTool',
+    active: true,
+  },
+  {
+    num: 9,
+    id: 'photo_sharpener',
+    name: 'Photo Sharpener',
+    shortName: 'Sharpen',
+    category: 'photo_exam',
+    description: 'Enhance blurry photos with kernel-based sharpening algorithm for crisp details',
+    badge: 'PREMIUM',
+    tags: ['sharpen', 'enhance', 'clear', 'blurry', 'crisp'],
+    vleEssential: false,
+    isPremium: true,
+    iconName: 'Sparkles',
+    componentKey: 'PhotoSharpenerTool',
+    active: true,
+  },
+  {
+    num: 10,
+    id: 'photo_crop',
+    name: 'Photo Crop Tool',
+    shortName: 'Crop',
+    category: 'photo_exam',
+    description: 'Crop photos to 7 aspect ratios including 1:1, 16:9, 4:3, and Passport 35x45mm',
+    badge: 'POPULAR',
+    tags: ['crop', 'aspect ratio', '1:1', 'passport', 'square'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Crop',
+    componentKey: 'PhotoCropTool',
+    active: true,
+  },
+];
 
 // ============================================
 // PREMIUM TOOLS LIST
-// 299 premium tools — free users get 3 uses/day
+// Free users get 3 uses/day on these tools
+// Premium/VLE users get unlimited access
 // ============================================
 export const PREMIUM_TOOL_IDS: string[] = [
-  // Will be populated as we add tools
+  'photo_target_kb_compressor',
+  'photo_sharpener',
 ];
 
 // ============================================
@@ -95,7 +251,14 @@ export const PREMIUM_TOOL_IDS: string[] = [
 // Tools that Cyber Cafe / CSC operators use daily
 // ============================================
 export const VLE_ESSENTIAL_IDS: string[] = [
-  // Will be populated as we add tools
+  'photo_format_converter',
+  'photo_target_kb_compressor',
+  'photo_resizer',
+  'photo_rotator',
+  'photo_flip_mirror',
+  'photo_brightness_contrast',
+  'photo_bw_converter',
+  'photo_crop',
 ];
 
 // ============================================
