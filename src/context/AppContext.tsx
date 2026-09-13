@@ -16,7 +16,8 @@ import {
   PaymentRequest,
   LedgerEntry,
   KhatabookStats,
-  CustomerLedgerSummary
+  CustomerLedgerSummary,
+  VleData
 } from '../types';
 import { 
   initialSiteConfig, 
@@ -54,6 +55,11 @@ import {
   createVleAuthAccount,
   generateVlePassword
 } from '../services/firebaseAuth';
+import { 
+  createOrUpdateVleUser, 
+  convertUserToVle,
+  getUserByEmail
+} from '../services/subscriptionService';
 
 interface AppContextType {
   role: UserRole;
@@ -295,9 +301,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
-  // ============================================
   // FIREBASE — Initial Load
-  // ============================================
   useEffect(() => {
     const loadFromFirebase = async () => {
       const fbConfig = await loadSiteConfigFromFirebase();
@@ -345,9 +349,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadFromFirebase();
   }, []);
 
-  // ============================================
   // FIREBASE — Real-time listeners
-  // ============================================
   useEffect(() => {
     if (!firebaseReady) return;
     
@@ -367,9 +369,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [firebaseReady]);
 
-  // ============================================
   // AUTO-SYNC TO FIREBASE
-  // ============================================
   useEffect(() => {
     if (!firebaseReady) return;
     localStorage.setItem(STORAGE_KEYS.VLES, JSON.stringify(vles));
@@ -469,9 +469,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Default links restored.');
   };
 
-  // ============================================
-  // 🆕 VLE APPLICATIONS — Direct Firebase save
-  // ============================================
+  // VLE APPLICATIONS — Direct Firebase save
   const submitVleApplication = (appData: Omit<VleApplication, 'id' | 'status' | 'appliedDate'>): string => {
     const appId = 'app_vle_' + Date.now().toString(36);
     const newApp: VleApplication = {
@@ -484,7 +482,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedList = [newApp, ...vleApplications];
     setVleApplications(updatedList);
     
-    // 🆕 Direct Firebase save with logging
     (async () => {
       try {
         console.log('📤 Submitting VLE application to Firebase...');
@@ -505,6 +502,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return appId;
   };
 
+  // ============================================
+  // APPROVE VLE APPLICATION — Unified System
+  // ============================================
   const approveVleApplication = async (appId: string, customVleId?: string, customPassword?: string): Promise<{ vleId: string; password: string } | null> => {
     const targetApp = vleApplications.find((a) => a.id === appId);
     if (!targetApp) return null;
@@ -512,12 +512,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const generatedVleId = customVleId || `VLE-999-${Math.floor(1000 + Math.random() * 9000)}`;
     const generatedPassword = customPassword || generateVlePassword();
 
+    // 1. Firebase Auth account banao
+    console.log('📝 Creating Firebase Auth account for VLE...');
     const authResult = await createVleAuthAccount(targetApp.email, generatedPassword);
     if (!authResult.success) {
       showNotification(`❌ VLE Auth fail: ${authResult.error}`);
       return null;
     }
+    console.log('✅ Firebase Auth account created:', authResult.uid);
 
+    // 2. VLE Data object banao
+    const vleData: VleData = {
+      vleId: generatedVleId,
+      centerName: targetApp.centerName,
+      operatorName: targetApp.operatorName,
+      mobile: targetApp.mobile,
+      state: targetApp.state,
+      district: targetApp.district,
+      address: targetApp.address || '',
+      cscId: targetApp.cscId || '',
+      status: 'active',
+      kycVerified: true,
+      totalOrdersCompleted: 0,
+      joinedDate: new Date().toISOString().split('T')[0],
+      shopUpiId: siteConfig.upiId,
+    };
+
+    // 3. userAccounts collection mein VLE user banao/update karo
+    console.log('📝 Creating unified user account for VLE...');
+    const userResult = await createOrUpdateVleUser(
+      targetApp.email,
+      targetApp.operatorName,
+      targetApp.mobile,
+      vleData,
+      1,
+      authResult.uid
+    );
+
+    if (!userResult.success) {
+      console.error('⚠️ User account creation failed:', userResult.error);
+      showNotification('⚠️ VLE created but user account sync pending');
+    } else {
+      console.log('✅ Unified VLE user account created:', userResult.userId);
+    }
+
+    // 4. Legacy VLE entry (backward compatibility)
     const newVle: VleOperator = {
       id: 'vle_' + Date.now().toString(36),
       vleId: generatedVleId,
@@ -555,7 +594,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
-    showNotification(`✅ Approved! Firebase account created`);
+    showNotification(`✅ VLE Approved! User account ready for ${targetApp.email}`);
     return { vleId: generatedVleId, password: generatedPassword };
   };
 
@@ -566,28 +605,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Application rejected.');
   };
 
-  // VLE AUTH
+  // ============================================
+  // VLE AUTH — Unified Login (User Accounts bhi check karta hai)
+  // ============================================
   const [vleLoggedIn, setVleLoggedIn] = useState<boolean>(false);
 
   const vleLogin = async (emailOrVleId: string, password?: string): Promise<boolean> => {
     if (!password) { showNotification('Password required'); return false; }
 
-    const found = vles.find(
-      (v) =>
-        v.email.toLowerCase() === emailOrVleId.trim().toLowerCase() ||
-        v.vleId.toLowerCase() === emailOrVleId.trim().toLowerCase()
-    );
+    const input = emailOrVleId.trim().toLowerCase();
 
-    if (!found) { showNotification('VLE account nahi mila.'); return false; }
+    // Pehle VLE list mein dhundo (legacy)
+    let found: VleOperator | null = vles.find(
+      (v) =>
+        v.email.toLowerCase() === input ||
+        v.vleId.toLowerCase() === input
+    ) || null;
+
+    // Agar VLE list mein nahi mila, toh userAccounts mein dhundo
+    if (!found) {
+      console.log('🔍 VLE not in legacy list, checking user accounts...');
+      const userAccount = await getUserByEmail(input);
+
+      if (userAccount && userAccount.plan === 'vle' && userAccount.vleData) {
+        console.log('✅ Found VLE user in userAccounts:', userAccount.email);
+        found = {
+          id: userAccount.id,
+          vleId: userAccount.vleData.vleId,
+          email: userAccount.email,
+          centerName: userAccount.vleData.centerName,
+          operatorName: userAccount.vleData.operatorName,
+          mobile: userAccount.vleData.mobile,
+          state: userAccount.vleData.state,
+          district: userAccount.vleData.district,
+          address: userAccount.vleData.address,
+          walletBalance: 0,
+          status: userAccount.vleData.status,
+          kycVerified: userAccount.vleData.kycVerified,
+          totalOrdersCompleted: userAccount.vleData.totalOrdersCompleted,
+          joinedDate: userAccount.vleData.joinedDate,
+          shopUpiId: userAccount.vleData.shopUpiId,
+        };
+      }
+    }
+
+    if (!found) { showNotification('VLE account nahi mila. Pehle register karein.'); return false; }
     if (found.status === 'suspended') { showNotification('Account suspended.'); return false; }
 
+    // Firebase Auth se login karo
     const result = await loginVle(found.email, password);
     if (!result.success) { showNotification(result.error || 'Login failed'); return false; }
 
+    // Active VLE set karo
     setActiveVleId(found.id);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_VLE_ID, found.id);
     setVleLoggedIn(true);
     localStorage.setItem(STORAGE_KEYS.VLE_LOGGED_IN, 'true');
+
+    // Agar userAccount hai, toh currentUser bhi set karo (unified!)
+    const userAcc = await getUserByEmail(found.email);
+    if (userAcc) {
+      setCurrentUser(userAcc);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, userAcc.id);
+      console.log('✅ VLE logged in with unified account:', userAcc.email);
+    }
+
     showNotification(`Welcome, ${found.operatorName}!`);
     return true;
   };
@@ -792,6 +874,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         subscriptionStatus: userData.subscriptionStatus || existing?.subscriptionStatus || 'active',
         createdAt: existing?.createdAt || new Date().toISOString(),
         lastLoginAt: new Date().toISOString(),
+        vleData: userData.vleData || existing?.vleData,
       };
 
       const { saveUserAccount } = await import('../services/subscriptionService');
@@ -849,7 +932,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (
             updatedUser.plan !== currentUser.plan ||
             updatedUser.subscriptionStatus !== currentUser.subscriptionStatus ||
-            updatedUser.subscriptionEnd !== currentUser.subscriptionEnd
+            updatedUser.subscriptionEnd !== currentUser.subscriptionEnd ||
+            !!updatedUser.vleData !== !!currentUser.vleData
           ) {
             console.log('🔄 User account updated in real-time:', updatedUser.plan);
             setCurrentUser(updatedUser);
