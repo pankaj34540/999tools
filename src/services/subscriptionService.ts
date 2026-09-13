@@ -3,6 +3,7 @@ import {
   getDoc, 
   setDoc, 
   updateDoc,
+  deleteDoc,
   collection,
   getDocs,
   query,
@@ -10,20 +11,34 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { UserAccount, UserPlan, SubscriptionStatus, BillingCycle, SubscriptionStats } from '../types';
+import { UserAccount, UserPlan, SubscriptionStatus, BillingCycle, SubscriptionStats, VleData } from '../types';
 
 // ============================================
-// HELPER — Remove undefined/null/empty values
-// Firestore does NOT accept undefined values
+// DEEP CLEAN — Remove undefined/null/empty values
 // ============================================
-const cleanFirestoreData = (data: Record<string, any>): Record<string, any> => {
-  const clean: Record<string, any> = {};
-  Object.entries(data).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      clean[key] = value;
-    }
-  });
-  return clean;
+const deepClean = (value: any): any => {
+  if (value === null || value === undefined) return undefined;
+  
+  if (Array.isArray(value)) {
+    const cleanedArray = value
+      .map(item => deepClean(item))
+      .filter(item => item !== undefined);
+    return cleanedArray;
+  }
+  
+  if (typeof value === 'object') {
+    const cleanedObj: Record<string, any> = {};
+    Object.entries(value).forEach(([key, val]) => {
+      const cleanedVal = deepClean(val);
+      if (cleanedVal !== undefined && cleanedVal !== '') {
+        cleanedObj[key] = cleanedVal;
+      }
+    });
+    return cleanedObj;
+  }
+  
+  if (value === '') return undefined;
+  return value;
 };
 
 // ============================================
@@ -31,12 +46,12 @@ const cleanFirestoreData = (data: Record<string, any>): Record<string, any> => {
 // ============================================
 export const saveUserAccount = async (user: UserAccount): Promise<boolean> => {
   try {
-    const cleanUser = cleanFirestoreData(user);
+    const cleanUser = deepClean(user);
     await setDoc(doc(db, 'userAccounts', user.id), cleanUser, { merge: true });
     console.log('✅ User account saved:', user.email);
     return true;
-  } catch (error) {
-    console.error('❌ Error saving user account:', error);
+  } catch (error: any) {
+    console.error('❌ Error saving user account:', error.code, error.message);
     return false;
   }
 };
@@ -86,6 +101,101 @@ export const subscribeToUserAccount = (
 };
 
 // ============================================
+// 🆕 CONVERT VLE USER — Update existing user to VLE plan
+// (Jab Owner VLE application approve kare)
+// ============================================
+export const convertUserToVle = async (
+  userId: string,
+  vleData: VleData,
+  subscriptionMonths: number = 1
+): Promise<boolean> => {
+  try {
+    const now = new Date();
+    const endDate = new Date(now.getTime() + subscriptionMonths * 30 * 24 * 60 * 60 * 1000);
+
+    const updateData = deepClean({
+      plan: 'vle' as UserPlan,
+      subscriptionStart: now.toISOString(),
+      subscriptionEnd: endDate.toISOString(),
+      subscriptionStatus: 'active' as SubscriptionStatus,
+      vleData: vleData,
+    });
+
+    await updateDoc(doc(db, 'userAccounts', userId), updateData);
+
+    console.log(`✅ User converted to VLE plan: ${userId}`);
+    return true;
+  } catch (error: any) {
+    console.error('❌ Error converting user to VLE:', error.code, error.message);
+    return false;
+  }
+};
+
+// ============================================
+// 🆕 CREATE OR UPDATE VLE USER BY EMAIL
+// (Owner VLE approve kare, user pehle se exists kare ya na kare)
+// ============================================
+export const createOrUpdateVleUser = async (
+  email: string,
+  name: string,
+  mobile: string,
+  vleData: VleData,
+  subscriptionMonths: number = 1,
+  firebaseUid?: string
+): Promise<{ success: boolean; userId?: string; error?: string }> => {
+  try {
+    // Pehle existing user dhundo
+    const existingUser = await getUserByEmail(email);
+    
+    const now = new Date();
+    const endDate = new Date(now.getTime() + subscriptionMonths * 30 * 24 * 60 * 60 * 1000);
+    
+    // Agar user pehle se exists hai
+    if (existingUser) {
+      const updateData = deepClean({
+        plan: 'vle' as UserPlan,
+        subscriptionStart: now.toISOString(),
+        subscriptionEnd: endDate.toISOString(),
+        subscriptionStatus: 'active' as SubscriptionStatus,
+        vleData: vleData,
+        mobile: mobile || existingUser.mobile,
+      });
+      
+      await updateDoc(doc(db, 'userAccounts', existingUser.id), updateData);
+      console.log('✅ Existing user converted to VLE:', email);
+      return { success: true, userId: existingUser.id };
+    }
+    
+    // Agar user nahi hai — naya banao
+    // Note: Firebase Auth account Owner banayega (VLE approve karte waqt)
+    const newUserId = firebaseUid || ('user_' + Date.now().toString(36));
+    
+    const newUser: UserAccount = {
+      id: newUserId,
+      email: email.toLowerCase(),
+      name: name,
+      mobile: mobile,
+      plan: 'vle' as UserPlan,
+      subscriptionStart: now.toISOString(),
+      subscriptionEnd: endDate.toISOString(),
+      subscriptionStatus: 'active' as SubscriptionStatus,
+      createdAt: now.toISOString(),
+      lastLoginAt: now.toISOString(),
+      vleData: vleData,
+    };
+    
+    const cleanUser = deepClean(newUser);
+    await setDoc(doc(db, 'userAccounts', newUserId), cleanUser);
+    
+    console.log('✅ New VLE user created:', email);
+    return { success: true, userId: newUserId };
+  } catch (error: any) {
+    console.error('❌ Error creating/updating VLE user:', error.code, error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+// ============================================
 // ACTIVATE SUBSCRIPTION
 // ============================================
 export const activateSubscription = async (
@@ -100,7 +210,7 @@ export const activateSubscription = async (
       now.getTime() + (billingCycle === 'monthly' ? 30 : 365) * 24 * 60 * 60 * 1000
     );
 
-    const updateData = cleanFirestoreData({
+    const updateData = deepClean({
       plan,
       subscriptionStart: now.toISOString(),
       subscriptionEnd: endDate.toISOString(),
@@ -111,8 +221,8 @@ export const activateSubscription = async (
 
     console.log(`✅ Subscription activated: ${plan} (${billingCycle}) for user ${userId}`);
     return true;
-  } catch (error) {
-    console.error('❌ Error activating subscription:', error);
+  } catch (error: any) {
+    console.error('❌ Error activating subscription:', error.code, error.message);
     return false;
   }
 };
@@ -128,8 +238,8 @@ export const expireSubscription = async (userId: string): Promise<boolean> => {
     });
     console.log(`✅ Subscription expired for user ${userId}`);
     return true;
-  } catch (error) {
-    console.error('❌ Error expiring subscription:', error);
+  } catch (error: any) {
+    console.error('❌ Error expiring subscription:', error.code, error.message);
     return false;
   }
 };
@@ -184,7 +294,7 @@ export const updateUserPlanManually = async (
       ? new Date(now.getTime() + monthsToAdd * 30 * 24 * 60 * 60 * 1000)
       : null;
 
-    const updateData = cleanFirestoreData({
+    const updateData = deepClean({
       plan,
       subscriptionStart: now.toISOString(),
       subscriptionEnd: endDate ? endDate.toISOString() : undefined,
@@ -195,8 +305,8 @@ export const updateUserPlanManually = async (
 
     console.log(`✅ Manual plan update: ${plan} for user ${userId}`);
     return true;
-  } catch (error) {
-    console.error('❌ Error updating plan:', error);
+  } catch (error: any) {
+    console.error('❌ Error updating plan:', error.code, error.message);
     return false;
   }
 };
@@ -220,7 +330,6 @@ export const calculateSubscriptionStats = (users: UserAccount[]): SubscriptionSt
 // ============================================
 export const deleteUserAccount = async (userId: string): Promise<boolean> => {
   try {
-    const { deleteDoc } = await import('firebase/firestore');
     await deleteDoc(doc(db, 'userAccounts', userId));
     console.log('✅ User account deleted:', userId);
     return true;
