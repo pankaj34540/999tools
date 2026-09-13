@@ -129,7 +129,8 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const handleOpenTool = async (toolId: string) => {
     const tool = TOOLS_REGISTRY.find(t => t.id === toolId);
     if (!tool) return;
-
+    console.log('🔍 Clicked:', toolId, '| Name:', tool.name, '| Key:', tool.componentKey);
+    
     const access = toolAccessMap[toolId];
     const isPremiumTool_ = access?.isPremium || isPremiumTool(toolId) || tool.isPremium;
 
@@ -261,6 +262,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     if (!currentActiveTool) return null;
 
     switch (currentActiveTool.componentKey) {
+        console.log('🎨 Rendering:', currentActiveTool.name, '| Key:', currentActiveTool.componentKey);
       // 📸 Photo & Image Tools
       case 'ImageFormatConverterTool':
         return <ImageFormatConverterTool onClose={handleCloseTool} />;
