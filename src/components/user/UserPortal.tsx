@@ -160,7 +160,7 @@ export const UserPortal: React.FC = () => {
         <ToolsExplorer initialToolId={activeTool} onSelectTool={setActiveTool} />
       </section>
 
-      {/* 🎯 NATIVE BANNER AD — Natural content break ke baad */}
+      {/* NATIVE BANNER AD */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <AdsterraBanner slot="native_banner" className="my-8" />
       </section>
@@ -168,6 +168,7 @@ export const UserPortal: React.FC = () => {
       {/* TRACK APPLICATION & ASSISTED REQUEST DUAL PANEL */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* TRACK STATUS */}
           <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 to-slate-850 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-slate-800 flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold">
@@ -242,13 +243,14 @@ export const UserPortal: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 text-center text-xs text-rose-400">
-                    No active record found for "{trackQuery}". Please re-check token or mobile number.
+                    No active record found for "{trackQuery}". Please check the token or mobile number.
                   </div>
                 )}
               </div>
             )}
           </div>
 
+          {/* ONLINE APPLICATION ASSISTANCE */}
           <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl space-y-5">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
@@ -335,7 +337,7 @@ export const UserPortal: React.FC = () => {
         </div>
       </section>
 
-      {/* 🎯 SECOND NATIVE BANNER — Government Portals section ke pehle */}
+      {/* SECOND NATIVE BANNER */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <AdsterraBanner slot="native_banner" />
       </section>
@@ -387,7 +389,7 @@ export const UserPortal: React.FC = () => {
           <span className="font-bold text-slate-800">{siteConfig.siteName}</span> • {siteConfig.tagline}
         </div>
         <div className="flex items-center gap-4">
-          <span>Toll-Free Helpline: {siteConfig.supportPhone}</span>
+          <span>Helpline: {siteConfig.supportPhone}</span>
           <span>•</span>
           <span>WhatsApp: {siteConfig.supportWhatsApp}</span>
         </div>
