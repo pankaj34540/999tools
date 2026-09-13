@@ -62,16 +62,31 @@ export const Header: React.FC = () => {
     }
   };
 
+  // ============================================
+  // ✅ FIXED LOGOUT — Always clears all state
+  // ============================================
   const handleLogout = async () => {
     try {
+      // 1. Firebase Auth sign out
       await signOut(auth);
+      
+      // 2. Clear all user state
       setCurrentUser(null);
-      if (vleLoggedIn) {
-        await vleLogout();
-      }
+      localStorage.removeItem('999tools_current_user_id_v1');
+      
+      // 3. ALWAYS clear VLE state (bina condition ke)
+      await vleLogout();
+      
+      // 4. Clear role to default
+      setRole('user');
+      
+      // 5. Close menus
       setShowUserMenu(false);
-      showNotification('Logged out successfully');
+      setShowRoleMenu(false);
+      
+      showNotification('✅ Logged out successfully');
     } catch (error) {
+      console.error('Logout error:', error);
       showNotification('Logout failed');
     }
   };
@@ -111,7 +126,6 @@ export const Header: React.FC = () => {
   const getPlanBadge = () => {
     if (!currentUser && !activeVle) return null;
     
-    // Priority: VLE > PREMIUM > FREE
     if (currentUser?.plan === 'vle' || activeVle) {
       return { 
         label: 'VLE', 
@@ -153,7 +167,6 @@ export const Header: React.FC = () => {
       : (siteConfig.vleYearlyPrice || 1499);
   };
 
-  // User display name (from either source)
   const displayName = currentUser?.name || activeVle?.operatorName || 'User';
   const displayEmail = currentUser?.email || activeVle?.email || '';
 
@@ -229,7 +242,7 @@ export const Header: React.FC = () => {
           {/* Right Side */}
           <div className="flex items-center gap-2.5">
             
-            {/* Upgrade button (only for free/premium non-VLE users) */}
+            {/* Upgrade button */}
             {currentUser && !isVle && (
               <button
                 onClick={openPricing}
@@ -271,7 +284,6 @@ export const Header: React.FC = () => {
                     className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {/* User Info Header */}
                     <div className="px-3 py-3 border-b border-slate-800">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-slate-950 font-black text-base ${
@@ -301,7 +313,6 @@ export const Header: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Menu Items */}
                     <div className="p-1 space-y-1">
                       
                       {/* VLE Dashboard Shortcut */}
@@ -326,7 +337,7 @@ export const Header: React.FC = () => {
                         </button>
                       )}
 
-                      {/* Upgrade (only for free/premium) */}
+                      {/* Upgrade */}
                       {!userPremium && !isVle && (
                         <button
                           onClick={openPricing}
@@ -396,7 +407,6 @@ export const Header: React.FC = () => {
                 )}
               </div>
             ) : (
-              // Not Logged In
               <div className="flex items-center gap-2">
                 <button
                   onClick={openLogin}
