@@ -18,6 +18,32 @@ import {
   LedgerFilterOptions 
 } from '../types';
 
+// ============================================
+// DEEP CLEAN — Remove undefined/null/empty values
+// Firestore does NOT accept undefined values
+// ============================================
+const deepClean = (value: any): any => {
+  if (value === null || value === undefined) return undefined;
+  
+  if (Array.isArray(value)) {
+    return value.map(item => deepClean(item)).filter(item => item !== undefined);
+  }
+  
+  if (typeof value === 'object') {
+    const cleanedObj: Record<string, any> = {};
+    Object.entries(value).forEach(([key, val]) => {
+      const cleanedVal = deepClean(val);
+      if (cleanedVal !== undefined && cleanedVal !== '') {
+        cleanedObj[key] = cleanedVal;
+      }
+    });
+    return cleanedObj;
+  }
+  
+  if (value === '') return undefined;
+  return value;
+};
+
 const getTodayDate = (): string => {
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
@@ -27,6 +53,9 @@ const getTodayDate = (): string => {
 
 const getCurrentMonth = (): string => getTodayDate().substring(0, 7);
 
+// ============================================
+// CREATE LEDGER ENTRY (with deepClean)
+// ============================================
 export const createLedgerEntry = async (
   entryData: Omit<LedgerEntry, 'id' | 'createdAt' | 'timestamp' | 'date'>
 ): Promise<LedgerEntry | null> => {
@@ -42,37 +71,60 @@ export const createLedgerEntry = async (
       createdAt: now.toISOString(),
     };
 
-    await setDoc(doc(db, 'ledgerEntries', id), newEntry);
+    // ✅ Deep clean to remove undefined values
+    const cleaned = deepClean(newEntry);
+    
+    console.log('💾 Saving ledger entry:', cleaned);
+    
+    await setDoc(doc(db, 'ledgerEntries', id), cleaned);
+    
+    console.log('✅ Ledger entry saved:', id);
     return newEntry;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error creating ledger entry:', error.code, error.message);
     return null;
   }
 };
 
+// ============================================
+// UPDATE LEDGER ENTRY
+// ============================================
 export const updateLedgerEntry = async (
   entryId: string,
   updates: Partial<LedgerEntry>
 ): Promise<boolean> => {
   try {
-    await updateDoc(doc(db, 'ledgerEntries', entryId), {
+    const cleaned = deepClean({
       ...updates,
       updatedAt: new Date().toISOString(),
     });
+    
+    await updateDoc(doc(db, 'ledgerEntries', entryId), cleaned);
+    console.log('✅ Ledger entry updated:', entryId);
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error updating ledger entry:', error.code, error.message);
     return false;
   }
 };
 
+// ============================================
+// DELETE LEDGER ENTRY
+// ============================================
 export const deleteLedgerEntry = async (entryId: string): Promise<boolean> => {
   try {
     await deleteDoc(doc(db, 'ledgerEntries', entryId));
+    console.log('✅ Ledger entry deleted:', entryId);
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error deleting ledger entry:', error.code, error.message);
     return false;
   }
 };
 
+// ============================================
+// GET VLE'S ALL LEDGER ENTRIES
+// ============================================
 export const getVleLedgerEntries = async (vleId: string): Promise<LedgerEntry[]> => {
   try {
     const q = query(collection(db, 'ledgerEntries'), where('vleId', '==', vleId));
@@ -81,25 +133,35 @@ export const getVleLedgerEntries = async (vleId: string): Promise<LedgerEntry[]>
     return entries.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error getting ledger entries:', error.code, error.message);
     return [];
   }
 };
 
+// ============================================
+// SUBSCRIBE TO VLE'S LEDGER (Real-time)
+// ============================================
 export const subscribeToVleLedger = (
   vleId: string,
   callback: (entries: LedgerEntry[]) => void
 ) => {
   const q = query(collection(db, 'ledgerEntries'), where('vleId', '==', vleId));
+  
   return onSnapshot(q, (snap) => {
     const entries = snap.docs.map((d) => d.data() as LedgerEntry);
     const sorted = entries.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
     callback(sorted);
+  }, (error) => {
+    console.error('❌ Ledger listener error:', error);
   });
 };
 
+// ============================================
+// GET CUSTOMER'S LEDGER ENTRIES
+// ============================================
 export const getCustomerLedger = async (
   vleId: string,
   customerMobile: string
@@ -115,11 +177,15 @@ export const getCustomerLedger = async (
     return entries.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error getting customer ledger:', error.code, error.message);
     return [];
   }
 };
 
+// ============================================
+// CALCULATE CUSTOMER SUMMARY
+// ============================================
 export const calculateCustomerSummary = (
   entries: LedgerEntry[]
 ): CustomerLedgerSummary | null => {
@@ -154,6 +220,9 @@ export const calculateCustomerSummary = (
   };
 };
 
+// ============================================
+// GET ALL CUSTOMER SUMMARIES
+// ============================================
 export const getAllCustomerSummaries = (
   entries: LedgerEntry[]
 ): CustomerLedgerSummary[] => {
@@ -178,6 +247,9 @@ export const getAllCustomerSummaries = (
   });
 };
 
+// ============================================
+// CALCULATE KHATABOOK STATS
+// ============================================
 export const calculateKhatabookStats = (
   vleId: string,
   entries: LedgerEntry[]
@@ -213,6 +285,9 @@ export const calculateKhatabookStats = (
   };
 };
 
+// ============================================
+// FILTER ENTRIES
+// ============================================
 export const filterLedgerEntries = (
   entries: LedgerEntry[],
   filters: LedgerFilterOptions
@@ -237,6 +312,9 @@ export const filterLedgerEntries = (
   });
 };
 
+// ============================================
+// WHATSAPP REMINDER
+// ============================================
 export const generateWhatsAppReminder = (
   summary: CustomerLedgerSummary,
   vleCenterName: string,
@@ -247,23 +325,26 @@ export const generateWhatsAppReminder = (
   const phoneWithCountry = cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone;
   
   const text = encodeURIComponent(
-    `🙏 *Namaste ${summary.customerName} Ji*\n\n` +
-    `Aapka *${vleCenterName}* mein pending balance hai:\n\n` +
+    `🙏 *Hello ${summary.customerName}*\n\n` +
+    `You have a pending balance at *${vleCenterName}*:\n\n` +
     `💰 *Pending Amount:* ₹${summary.balance}\n` +
     `📅 *Last Transaction:* ${summary.lastTransactionDate}\n` +
     `📊 *Total Transactions:* ${summary.totalTransactions}\n\n` +
-    `Kripya jaldi payment karein.\n\n` +
+    `Please clear your balance at your earliest convenience.\n\n` +
     `*Payment Options:*\n` +
     `📱 UPI: ${vleMobile}@upi\n` +
-    `💵 Cash: ${vleCenterName} pe\n\n` +
-    `Kisi bhi query ke liye contact karein: ${vleMobile}\n\n` +
-    `Dhanyawad 🙏\n` +
+    `💵 Cash: ${vleCenterName}\n\n` +
+    `For queries: ${vleMobile}\n\n` +
+    `Thank you!\n` +
     `*${siteName}*`
   );
   
   return `https://wa.me/${phoneWithCountry}?text=${text}`;
 };
 
+// ============================================
+// EXPORT TO CSV
+// ============================================
 export const exportLedgerToCSV = (entries: LedgerEntry[]): string => {
   const headers = ['Date', 'Customer Name', 'Mobile', 'Type', 'Amount', 'Description', 'Category'];
   const rows = entries.map((e) => [
@@ -292,7 +373,7 @@ export const downloadCSV = (csv: string, filename: string) => {
 export const getLedgerTypeLabel = (type: LedgerEntryType): string => {
   const labels: Record<LedgerEntryType, string> = {
     'credit': '💰 Payment Received',
-    'debit': '📝 Udhar',
+    'debit': '📝 Credit Sale',
     'sale': '🛒 Cash Sale',
     'expense': '💸 Expense',
     'payment_in': '💵 Payment In',
