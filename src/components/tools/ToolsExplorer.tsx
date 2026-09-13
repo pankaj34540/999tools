@@ -27,7 +27,7 @@ import { PricingModal } from '../user/PricingModal';
 import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 
 // ============================================
-// 🆕 IMPORT ALL 10 PHOTO TOOLS
+// IMPORT 10 PHOTO TOOLS
 // ============================================
 import {
   ImageFormatConverterTool,
@@ -88,14 +88,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
   const userPremium = isUserPremium();
 
-  // Listen for custom event from Header
   useEffect(() => {
     const handler = () => setShowPricingModal(true);
     window.addEventListener('openPricingModal', handler);
     return () => window.removeEventListener('openPricingModal', handler);
   }, []);
 
-  // Load tool access
   useEffect(() => {
     const loadAccess = async () => {
       const map: Record<string, ToolAccess> = {};
@@ -129,8 +127,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const handleOpenTool = async (toolId: string) => {
     const tool = TOOLS_REGISTRY.find(t => t.id === toolId);
     if (!tool) return;
-    console.log('🔍 Clicked:', toolId, '| Name:', tool.name, '| Key:', tool.componentKey);
-    
+
     const access = toolAccessMap[toolId];
     const isPremiumTool_ = access?.isPremium || isPremiumTool(toolId) || tool.isPremium;
 
@@ -212,9 +209,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     }, 2000);
   };
 
-  // ============================================
-  // PREMIUM BADGE
-  // ============================================
   const renderPremiumBadge = (toolId: string) => {
     const isPremium = isPremiumTool(toolId);
     if (!isPremium) return null;
@@ -255,14 +249,10 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       : (siteConfig.vleYearlyPrice || 1499);
   };
 
-  // ============================================
-  // RENDER TOOL WORKSPACE (10 Photo Tools)
-  // ============================================
   const renderToolWorkspace = () => {
     if (!currentActiveTool) return null;
 
     switch (currentActiveTool.componentKey) {
-        console.log('🎨 Rendering:', currentActiveTool.name, '| Key:', currentActiveTool.componentKey);
       // 📸 Photo & Image Tools
       case 'ImageFormatConverterTool':
         return <ImageFormatConverterTool onClose={handleCloseTool} />;
@@ -350,7 +340,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           </div>
         </div>
 
-        {/* Progress Metric */}
         <div className="mt-6 pt-4 border-t border-slate-800">
           <div className="flex justify-between items-center text-xs mb-2">
             <span className="text-slate-400">
@@ -438,7 +427,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           </div>
         </div>
 
-        {/* Category Pills */}
         <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
           <button
             onClick={() => setSelectedCategory('all')}
@@ -466,7 +454,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         </div>
       </div>
 
-      {/* ADSTERRA BANNER */}
       <AdsterraBanner slot="header" />
 
       {/* TOOLS CARDS GRID */}
