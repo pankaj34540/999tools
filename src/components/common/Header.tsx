@@ -16,12 +16,14 @@ import {
   CreditCard,
   Settings,
   UserCircle,
-  Zap
+  Zap,
+  LifeBuoy
 } from 'lucide-react';
 import { VleRegistrationModal } from '../vle/VleRegistrationModal';
 import { UserAuthModal } from '../user/UserAuthModal';
 import { PricingModal } from '../user/PricingModal';
 import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
+import { SupportCenter } from './SupportCenter';
 
 export const Header: React.FC = () => {
   const { 
@@ -42,6 +44,7 @@ export const Header: React.FC = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   const [showPricingModal, setShowPricingModal] = useState(false);
@@ -61,7 +64,6 @@ export const Header: React.FC = () => {
     }
   };
 
-  // FIXED LOGOUT — Always clears all state
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -226,6 +228,16 @@ export const Header: React.FC = () => {
           {/* Right Side */}
           <div className="flex items-center gap-2.5">
             
+            {/* 🆕 Support Button */}
+            <button
+              onClick={() => setShowSupportModal(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold transition"
+              title="Help & Support"
+            >
+              <LifeBuoy className="w-3.5 h-3.5 text-blue-400" />
+              <span className="hidden md:inline">Support</span>
+            </button>
+
             {/* Upgrade Button */}
             {currentUser && !isVle && (
               <button
@@ -315,7 +327,7 @@ export const Header: React.FC = () => {
                           <div>
                             <div className="font-bold">Open VLE Portal</div>
                             <div className="text-[10px] opacity-80">
-                              Khatabook + Tools + Branding
+                              Khatabook + Billing + Tools
                             </div>
                           </div>
                         </button>
@@ -338,6 +350,25 @@ export const Header: React.FC = () => {
                           </div>
                         </button>
                       )}
+
+                      {/* 🆕 Support */}
+                      <button
+                        onClick={() => {
+                          setShowSupportModal(true);
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left text-xs bg-gradient-to-r from-indigo-500/20 to-blue-500/20 hover:from-indigo-500/30 hover:to-blue-500/30 border border-indigo-500/40 text-indigo-200 font-bold transition"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+                          <LifeBuoy className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-bold">Help & Support</div>
+                          <div className="text-[10px] opacity-80">
+                            FAQ, Tickets, Contact
+                          </div>
+                        </div>
+                      </button>
 
                       {/* My Subscription */}
                       <button
@@ -489,7 +520,7 @@ export const Header: React.FC = () => {
                       </div>
                       <div>
                         <div className="font-semibold">CSC VLE / Cyber Cafe</div>
-                        <div className="text-[10px] text-slate-400">Print suite & khatabook</div>
+                        <div className="text-[10px] text-slate-400">Khatabook + Billing</div>
                       </div>
                     </button>
 
@@ -549,6 +580,12 @@ export const Header: React.FC = () => {
           setShowUpgradeModal(false);
           showNotification('✅ Payment request submitted!');
         }}
+      />
+
+      {/* 🆕 Support Center Modal */}
+      <SupportCenter
+        isOpen={showSupportModal}
+        onClose={() => setShowSupportModal(false)}
       />
     </>
   );
