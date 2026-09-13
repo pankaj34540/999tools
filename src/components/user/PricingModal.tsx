@@ -11,7 +11,6 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { PRICING_PLANS } from '../../data/premiumTools';
 
 interface PricingModalProps {
   isOpen: boolean;
@@ -120,7 +119,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
     <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8">
         
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center font-bold z-10"
@@ -128,7 +126,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Header */}
         <div className="text-center mb-8 pt-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold mb-3">
             <Sparkles className="w-3.5 h-3.5" />
@@ -188,7 +185,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                     : `${getColorClasses(plan.color, 'border')} bg-white`
                 }`}
               >
-                {/* Popular Badge */}
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md">
@@ -197,7 +193,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                   </div>
                 )}
 
-                {/* Plan Icon & Name */}
                 <div className="flex items-center gap-3 mb-4">
                   <div className={`w-11 h-11 rounded-xl ${getColorClasses(plan.color, 'bg')} ${getColorClasses(plan.color, 'text')} flex items-center justify-center`}>
                     <Icon className="w-5 h-5" />
@@ -208,7 +203,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                   </div>
                 </div>
 
-                {/* Price */}
                 <div className="mb-5 pb-5 border-b border-slate-100">
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-black text-slate-900">
@@ -230,7 +224,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                   )}
                 </div>
 
-                {/* Features */}
                 <ul className="space-y-2.5 mb-6 flex-1">
                   {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-slate-700">
@@ -240,7 +233,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                   ))}
                 </ul>
 
-                {/* CTA Button */}
                 {plan.disabled ? (
                   <button
                     disabled
@@ -273,7 +265,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           })}
         </div>
 
-        {/* Footer Trust Badges */}
         <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-center gap-6 text-[11px] text-slate-500">
           <div className="flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5 text-emerald-600" />
