@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Megaphone, ExternalLink } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
 
 interface AdsterraBannerProps {
   slot: 'header' | 'tool_in_content' | 'sidebar' | 'native_banner' | 'social_bar';
@@ -8,10 +8,34 @@ interface AdsterraBannerProps {
 }
 
 export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className = '' }) => {
-  const { siteConfig } = useApp();
+  const { siteConfig, showAdsForCurrentUser, currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const adConfig = siteConfig.adsterra;
+
+  // ============================================
+  // 🆕 CHECK IF ADS SHOULD BE SHOWN
+  // ============================================
+  const shouldShowAds = () => {
+    // 1. Owner — NEVER
+    if (ownerAuthenticated) return false;
+    
+    // 2. Premium user with valid subscription — NEVER
+    if (currentUser?.plan === 'premium' && isUserPremium()) return false;
+    
+    // 3. VLE user — NEVER
+    if (currentUser?.plan === 'vle' || activeVle) return false;
+    
+    // 4. Free user / Public visitor — YES (show ads)
+    return true;
+  };
+
+  const userCanSeeAds = shouldShowAds();
+
+  // Agar user ko ads nahi dikhne chahiye toh kuch render na karo
+  if (!userCanSeeAds) {
+    return null;
+  }
 
   let isActive = false;
   let adCode = '';
@@ -21,7 +45,7 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
   if (slot === 'header') {
     isActive = adConfig?.enabled && adConfig?.headerBannerActive;
     adCode = adConfig?.headerBannerCode || '';
-    slotLabel = 'Header Banner (Leaderboard)';
+    slotLabel = 'Header Banner';
     recommendedSize = '728x90';
   } else if (slot === 'tool_in_content') {
     isActive = adConfig?.enabled && adConfig?.toolBannerActive;
@@ -37,7 +61,7 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
     isActive = adConfig?.enabled && adConfig?.nativeBannerActive;
     adCode = adConfig?.nativeBannerCode || '';
     slotLabel = 'Native Banner';
-    recommendedSize = 'Native / Responsive';
+    recommendedSize = 'Native';
   } else if (slot === 'social_bar') {
     isActive = adConfig?.enabled && adConfig?.socialBarActive;
     adCode = adConfig?.socialBarCode || '';
@@ -99,22 +123,33 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
 // SOCIAL BAR INJECTOR (Global — runs once)
 // ============================================
 export const SocialBarInjector: React.FC = () => {
-  const { siteConfig } = useApp();
+  const { siteConfig, currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const injected = useRef(false);
 
   useEffect(() => {
     if (injected.current) return;
+
+    // 🆕 Check if user should see ads
+    const shouldShowAds = () => {
+      if (ownerAuthenticated) return false;
+      if (currentUser?.plan === 'premium' && isUserPremium()) return false;
+      if (currentUser?.plan === 'vle' || activeVle) return false;
+      return true;
+    };
+
+    if (!shouldShowAds()) {
+      console.log('✅ Social Bar skipped — user is paid/owner');
+      return;
+    }
 
     const config = siteConfig.adsterra;
     if (!config?.enabled || !config?.socialBarActive || !config?.socialBarCode) {
       return;
     }
 
-    // Remove any existing social bar scripts
     document.querySelectorAll('script[data-999tools-socialbar]').forEach((el) => el.remove());
 
     try {
-      // Extract script src from the code
       const temp = document.createElement('div');
       temp.innerHTML = config.socialBarCode;
       const scripts = temp.querySelectorAll('script');
@@ -136,7 +171,7 @@ export const SocialBarInjector: React.FC = () => {
     } catch (err) {
       console.error('Social Bar injection failed:', err);
     }
-  }, [siteConfig.adsterra]);
+  }, [siteConfig.adsterra, currentUser, activeVle, ownerAuthenticated]);
 
   return null;
 };
@@ -146,9 +181,14 @@ export const SocialBarInjector: React.FC = () => {
 // ============================================
 let clickCounter = 0;
 export const useAdsterraDirectLink = () => {
-  const { siteConfig } = useApp();
+  const { siteConfig, currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
 
   const triggerDirectLink = () => {
+    // 🆕 Check if user should see ads
+    if (ownerAuthenticated) return;
+    if (currentUser?.plan === 'premium' && isUserPremium()) return;
+    if (currentUser?.plan === 'vle' || activeVle) return;
+
     const config = siteConfig.adsterra;
     if (!config || !config.enabled || !config.directLinkActive || !config.directLinkUrl) {
       return;
