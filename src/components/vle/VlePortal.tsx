@@ -59,30 +59,18 @@ export const VlePortal: React.FC = () => {
   const [customerMobile, setCustomerMobile] = useState('');
   const [customerNote, setCustomerNote] = useState('');
 
-  // ============================================
   // UNIFIED ACCESS CHECK
-  // 1. VLE Portal se login (activeVle + vleLoggedIn)
-  // 2. User account with plan === 'vle' (unified system)
-  // ============================================
   const isVleUser = currentUser?.plan === 'vle' && currentUser?.vleData;
   const hasVleAccess = (activeVle && vleLoggedIn) || !!isVleUser;
 
-  // ============================================
-  // ✅ FIXED LOGOUT — Clears all state properly
-  // ============================================
+  // FIXED LOGOUT
   const handleLogout = async () => {
     try {
-      // 1. VLE Portal logout
       await vleLogout();
-      
-      // 2. Clear current user (unified system)
       setCurrentUser(null);
       localStorage.removeItem('999tools_current_user_id_v1');
-      
-      // 3. Set role back to user
       setRole('user');
       
-      // 4. Firebase Auth sign out
       const { signOut } = await import('firebase/auth');
       const { auth } = await import('../../config/firebase');
       await signOut(auth);
@@ -117,12 +105,12 @@ export const VlePortal: React.FC = () => {
             </h1>
 
             <p className="text-sm text-blue-200 mb-2 leading-relaxed">
-              Yeh portal sirf <strong className="text-amber-300">registered CSC VLE</strong> aur 
-              <strong className="text-amber-300"> Cyber Cafe operators</strong> ke liye hai.
+              This portal is only for <strong className="text-amber-300">registered CSC VLE</strong> and 
+              <strong className="text-amber-300"> Cyber Cafe operators</strong>.
             </p>
             <p className="text-xs text-blue-300/80 mb-8">
-              Pehle apne email aur password se login karein. Agar abhi tak register nahi kiya hai, 
-              toh ₹{siteConfig.vleMonthlyPrice || 199}/month ka VLE plan lein.
+              Please login with your email and password first. If you haven't registered yet, 
+              get the VLE plan at ₹{siteConfig.vleMonthlyPrice || 199}/month.
             </p>
 
             <div className="space-y-3">
@@ -173,9 +161,7 @@ export const VlePortal: React.FC = () => {
     );
   }
 
-  // ============================================
-  // CURRENT CENTER — From activeVle ya from currentUser.vleData
-  // ============================================
+  // CURRENT CENTER
   const currentCenter = activeVle || (isVleUser && currentUser?.vleData ? {
     id: currentUser.id,
     vleId: currentUser.vleData.vleId,
@@ -199,7 +185,7 @@ export const VlePortal: React.FC = () => {
       <div className="p-8 text-center text-slate-500">
         <Store className="w-12 h-12 mx-auto text-slate-300 mb-3" />
         <h3 className="text-sm font-bold text-slate-800">VLE Center not found</h3>
-        <p className="text-xs mt-1">Kuch issue hai. Page refresh karo.</p>
+        <p className="text-xs mt-1">Something went wrong. Please refresh the page.</p>
       </div>
     );
   }
@@ -376,7 +362,7 @@ export const VlePortal: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Print sheets, PVC cards, PDF tools, typing tests & bills — sab yahan.
+                Print sheets, PVC cards, PDF tools, typing tests & bills — all here.
               </p>
             </div>
 
