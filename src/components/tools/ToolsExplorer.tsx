@@ -2,101 +2,45 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   Sparkles, 
-  ArrowRight, 
   Check, 
   X, 
-  SlidersHorizontal, 
   Lightbulb, 
   Send, 
   ChevronRight, 
-  Layers, 
   Store, 
   Zap,
-  ExternalLink,
-  Award,
-  Filter,
   Crown,
   Lock,
-  Unlock,
-  TrendingUp
+  Star
 } from 'lucide-react';
 import { ToolDefinition } from '../../types';
-import { TOOLS_REGISTRY, TOOL_CATEGORIES, INITIAL_TOOL_REQUESTS } from '../../data/toolsRegistry';
-import { AdsterraBanner, useAdsterraDirectLink } from '../common/AdsterraBanner';
+import { 
+  TOOLS_REGISTRY, 
+  TOOL_CATEGORIES, 
+  INITIAL_TOOL_REQUESTS,
+  isPremiumTool,
+  isVleEssential 
+} from '../../data/toolsRegistry';
+import { AdsterraBanner } from '../common/AdsterraBanner';
 import { useApp } from '../../context/AppContext';
 import { PricingModal } from '../user/PricingModal';
 import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 
-// Tool Components Imports
-import { PassportPhotoMaker } from './PassportPhotoMaker';
-import { PhotoSignResizer } from './PhotoSignResizer';
-import { AadhaarCardFormatter } from './AadhaarCardFormatter';
-import { ResumeMaker } from './ResumeMaker';
-import { AgeCalculator } from './AgeCalculator';
-import { DocumentCleanTool } from './DocumentCleanTool';
-import { ReceiptGenerator } from './ReceiptGenerator';
-import { WatermarkTool } from './WatermarkTool';
-
-import { 
-  PhotoNameDateTool, 
-  SignatureWhiteBgTool, 
-  TargetKbCompressorTool, 
-  ImageFormatConverterTool, 
-  DpiConverterTool, 
-  ImageCropRotateTool, 
-  BulkImageResizerTool, 
-  PhotoBgColorizerTool 
-} from './PhotoToolsExtra';
-
-import { 
-  PanCardFormatterTool, 
-  AyushmanCardFormatterTool, 
-  VoterIdFormatterTool, 
-  DlRcFormatterTool, 
-  CutGuideMarkerTool, 
-  MultiCardA4Tool 
-} from './PvcPrintToolsExtra';
-
-import { 
-  ImagesToPdfTool, 
-  MergePdfTool, 
-  PdfCompressorTool, 
-  PdfToImagesTool, 
-  SplitPdfTool, 
-  RotatePdfTool, 
-  PdfWatermarkTool, 
-  PdfInfoTool 
-} from './PdfDocumentTools';
-
-import { 
-  TypingSpeedTestTool, 
-  HindiTransliterationTool, 
-  CgpaPercentageCalcTool, 
-  DateDifferenceCalcTool, 
-  CaseConverterTool, 
-  WordCharCounterTool 
-} from './StudentFormCalculators';
-
-import { 
-  NumberToWordsTool, 
-  ByajCalculatorTool, 
-  GstCalculatorTool, 
-  DiscountMarginTool, 
-  RentAgreementDraftTool, 
-  AffidavitFormatsTool, 
-  TokenSlipMakerTool 
-} from './BusinessBillingTools';
-
-import { 
-  QrCodeGeneratorTool,
-  QrPaymentStandeeTool, 
-  BarcodeGeneratorTool, 
-  WifiQrTool, 
-  SpeedTestTool, 
-  IpFinderTool, 
-  ColorPaletteTool, 
-  WhatsappDirectTool 
-} from './BarcodeWebTools';
+// ============================================
+// 🆕 IMPORT ALL 10 PHOTO TOOLS
+// ============================================
+import {
+  ImageFormatConverterTool,
+  ImageCompressorTool,
+  ImageResizeTool,
+  PhotoRotatorTool,
+  PhotoFlipTool,
+  BrightnessContrastTool,
+  BlackWhiteTool,
+  PhotoBlurTool,
+  PhotoSharpenerTool,
+  PhotoCropTool,
+} from './photo/PhotoBasics';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -126,25 +70,21 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [vleOnlyMode, setVleOnlyMode] = useState(false);
+  const [showOnlyPremium, setShowOnlyPremium] = useState(false);
 
-  // Pricing + Upgrade Modals
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'premium' | 'vle'>('premium');
   const [upgradeCycle, setUpgradeCycle] = useState<'monthly' | 'yearly'>('monthly');
 
-  // Tool Access Map
   const [toolAccessMap, setToolAccessMap] = useState<Record<string, ToolAccess>>({});
 
-  // Tool Request State
-  const [toolRequests, setToolRequests] = useState(INITIAL_TOOL_REQUESTS);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [reqTitle, setReqTitle] = useState('');
   const [reqDesc, setReqDesc] = useState('');
   const [reqUserType, setReqUserType] = useState<'public' | 'vle_owner'>('vle_owner');
   const [reqSubmitted, setReqSubmitted] = useState(false);
-
-  const { triggerDirectLink } = useAdsterraDirectLink();
+  const [toolRequests, setToolRequests] = useState(INITIAL_TOOL_REQUESTS);
 
   const userPremium = isUserPremium();
 
@@ -161,7 +101,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       const map: Record<string, ToolAccess> = {};
       
       for (const tool of TOOLS_REGISTRY) {
-        const isPremium = premiumToolIds.includes(tool.id) || (tool as any).isPremium;
+        const isPremium = isPremiumTool(tool.id) || tool.isPremium === true;
         
         if (!isPremium) {
           map[tool.id] = { allowed: true, remaining: -1, isPremium: false, limit: -1 };
@@ -191,15 +131,15 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     if (!tool) return;
 
     const access = toolAccessMap[toolId];
-    const isPremiumTool = access?.isPremium || premiumToolIds.includes(toolId);
+    const isPremiumTool_ = access?.isPremium || isPremiumTool(toolId) || tool.isPremium;
 
-    if (isPremiumTool && access && !access.allowed) {
-      showNotification('❌ Aaj ki free limit khatam. Premium upgrade karo!');
+    if (isPremiumTool_ && access && !access.allowed) {
+      showNotification('❌ Daily free limit reached. Please upgrade to continue.');
       setShowPricingModal(true);
       return;
     }
 
-    if (isPremiumTool && access && access.limit > 0 && currentUser) {
+    if (isPremiumTool_ && access && access.limit > 0 && currentUser) {
       await recordUsage(toolId);
       
       const newRemaining = Math.max(0, access.remaining - 1);
@@ -213,13 +153,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       }));
 
       if (newRemaining === 0) {
-        showNotification(`⚡ Ye aapka last free use tha! Kal reset hoga.`);
+        showNotification(`⚡ This was your last free use for today!`);
       } else {
         showNotification(`✅ Tool launched. ${newRemaining} uses left today.`);
       }
     }
 
-    triggerDirectLink();
     setActiveToolId(toolId);
     if (onSelectTool) onSelectTool(toolId);
     window.scrollTo({ top: 120, behavior: 'smooth' });
@@ -240,11 +179,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         tool.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchCat = selectedCategory === 'all' || tool.category === selectedCategory;
-      const matchVle = !vleOnlyMode || tool.vleEssential;
+      const matchVle = !vleOnlyMode || isVleEssential(tool.id) || tool.vleEssential;
+      const matchPremium = !showOnlyPremium || isPremiumTool(tool.id) || tool.isPremium;
 
-      return matchSearch && matchCat && matchVle;
+      return matchSearch && matchCat && matchVle && matchPremium;
     });
-  }, [searchQuery, selectedCategory, vleOnlyMode]);
+  }, [searchQuery, selectedCategory, vleOnlyMode, showOnlyPremium]);
 
   const handleRequestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,7 +197,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       requestedBy: reqUserType === 'vle_owner' ? 'CSC VLE Operator' : 'Citizen / Student',
       votes: 1,
       status: 'in_review' as const,
-      category: (selectedCategory === 'all' ? 'cyber_business' : selectedCategory) as any,
+      category: (selectedCategory === 'all' ? 'photo_exam' : selectedCategory) as any,
       createdAt: new Date().toISOString().split('T')[0],
     };
 
@@ -271,9 +211,14 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     }, 2000);
   };
 
+  // ============================================
+  // PREMIUM BADGE
+  // ============================================
   const renderPremiumBadge = (toolId: string) => {
+    const isPremium = isPremiumTool(toolId);
+    if (!isPremium) return null;
+
     const access = toolAccessMap[toolId];
-    if (!access || !access.isPremium) return null;
 
     if (userPremium) {
       return (
@@ -283,7 +228,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
-    if (access.remaining > 0) {
+    if (access && access.remaining > 0) {
       return (
         <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
           <Crown className="w-2.5 h-2.5" /> {access.remaining}/{access.limit}
@@ -309,133 +254,58 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       : (siteConfig.vleYearlyPrice || 1499);
   };
 
+  // ============================================
+  // RENDER TOOL WORKSPACE (10 Photo Tools)
+  // ============================================
   const renderToolWorkspace = () => {
     if (!currentActiveTool) return null;
 
     switch (currentActiveTool.componentKey) {
-      case 'PassportPhotoMaker':
-        return <PassportPhotoMaker onClose={handleCloseTool} />;
-      case 'PhotoSignResizer':
-        return <PhotoSignResizer onClose={handleCloseTool} />;
-      case 'PhotoNameDateTool':
-        return <PhotoNameDateTool onClose={handleCloseTool} />;
-      case 'SignatureWhiteBgTool':
-        return <SignatureWhiteBgTool onClose={handleCloseTool} />;
-      case 'TargetKbCompressorTool':
-        return <TargetKbCompressorTool onClose={handleCloseTool} />;
+      // 📸 Photo & Image Tools
       case 'ImageFormatConverterTool':
         return <ImageFormatConverterTool onClose={handleCloseTool} />;
-      case 'DpiConverterTool':
-        return <DpiConverterTool onClose={handleCloseTool} />;
-      case 'ImageCropRotateTool':
-        return <ImageCropRotateTool onClose={handleCloseTool} />;
-      case 'BulkImageResizerTool':
-        return <BulkImageResizerTool onClose={handleCloseTool} />;
-      case 'PhotoBgColorizerTool':
-        return <PhotoBgColorizerTool onClose={handleCloseTool} />;
-
-      case 'AadhaarCardFormatter':
-        return <AadhaarCardFormatter onClose={handleCloseTool} />;
-      case 'PanCardFormatterTool':
-        return <PanCardFormatterTool onClose={handleCloseTool} />;
-      case 'AyushmanCardFormatterTool':
-        return <AyushmanCardFormatterTool onClose={handleCloseTool} />;
-      case 'VoterIdFormatterTool':
-        return <VoterIdFormatterTool onClose={handleCloseTool} />;
-      case 'DlRcFormatterTool':
-        return <DlRcFormatterTool onClose={handleCloseTool} />;
-      case 'DocumentCleanTool':
-        return <DocumentCleanTool onClose={handleCloseTool} />;
-      case 'CutGuideMarkerTool':
-        return <CutGuideMarkerTool onClose={handleCloseTool} />;
-      case 'MultiCardA4Tool':
-        return <MultiCardA4Tool onClose={handleCloseTool} />;
-
-      case 'ImagesToPdfTool':
-        return <ImagesToPdfTool onClose={handleCloseTool} />;
-      case 'MergePdfTool':
-        return <MergePdfTool onClose={handleCloseTool} />;
-      case 'PdfCompressorTool':
-        return <PdfCompressorTool onClose={handleCloseTool} />;
-      case 'PdfToImagesTool':
-        return <PdfToImagesTool onClose={handleCloseTool} />;
-      case 'SplitPdfTool':
-        return <SplitPdfTool onClose={handleCloseTool} />;
-      case 'RotatePdfTool':
-        return <RotatePdfTool onClose={handleCloseTool} />;
-      case 'WatermarkTool':
-      case 'PdfWatermarkTool':
-        return <WatermarkTool onClose={handleCloseTool} />;
-      case 'PdfInfoTool':
-        return <PdfInfoTool onClose={handleCloseTool} />;
-
-      case 'AgeCalculator':
-        return <AgeCalculator onClose={handleCloseTool} />;
-      case 'ResumeMaker':
-        return <ResumeMaker onClose={handleCloseTool} />;
-      case 'TypingSpeedTestTool':
-        return <TypingSpeedTestTool onClose={handleCloseTool} />;
-      case 'HindiTransliterationTool':
-        return <HindiTransliterationTool onClose={handleCloseTool} />;
-      case 'CgpaPercentageCalcTool':
-        return <CgpaPercentageCalcTool onClose={handleCloseTool} />;
-      case 'DateDifferenceCalcTool':
-        return <DateDifferenceCalcTool onClose={handleCloseTool} />;
-      case 'CaseConverterTool':
-        return <CaseConverterTool onClose={handleCloseTool} />;
-      case 'WordCharCounterTool':
-        return <WordCharCounterTool onClose={handleCloseTool} />;
-
-      case 'ReceiptGenerator':
-        return <ReceiptGenerator onClose={handleCloseTool} />;
-      case 'NumberToWordsTool':
-        return <NumberToWordsTool onClose={handleCloseTool} />;
-      case 'ByajCalculatorTool':
-        return <ByajCalculatorTool onClose={handleCloseTool} />;
-      case 'GstCalculatorTool':
-        return <GstCalculatorTool onClose={handleCloseTool} />;
-      case 'DiscountMarginTool':
-        return <DiscountMarginTool onClose={handleCloseTool} />;
-      case 'RentAgreementDraftTool':
-        return <RentAgreementDraftTool onClose={handleCloseTool} />;
-      case 'AffidavitFormatsTool':
-        return <AffidavitFormatsTool onClose={handleCloseTool} />;
-      case 'TokenSlipMakerTool':
-        return <TokenSlipMakerTool onClose={handleCloseTool} />;
-
-      case 'QrCodeGeneratorTool':
-      case 'QrGenerator':
-        return <QrCodeGeneratorTool onClose={handleCloseTool} />;
-      case 'QrPaymentStandeeTool':
-        return <QrPaymentStandeeTool onClose={handleCloseTool} />;
-      case 'BarcodeGeneratorTool':
-        return <BarcodeGeneratorTool onClose={handleCloseTool} />;
-      case 'WifiPosterMakerTool':
-      case 'WifiQrTool':
-        return <WifiQrTool onClose={handleCloseTool} />;
-      case 'SpeedTestTool':
-        return <SpeedTestTool onClose={handleCloseTool} />;
-      case 'IpFinderTool':
-        return <IpFinderTool onClose={handleCloseTool} />;
-      case 'ColorPaletteTool':
-        return <ColorPaletteTool onClose={handleCloseTool} />;
-      case 'WhatsappDirectTool':
-        return <WhatsappDirectTool onClose={handleCloseTool} />;
+      case 'ImageCompressorTool':
+        return <ImageCompressorTool onClose={handleCloseTool} />;
+      case 'ImageResizeTool':
+        return <ImageResizeTool onClose={handleCloseTool} />;
+      case 'PhotoRotatorTool':
+        return <PhotoRotatorTool onClose={handleCloseTool} />;
+      case 'PhotoFlipTool':
+        return <PhotoFlipTool onClose={handleCloseTool} />;
+      case 'BrightnessContrastTool':
+        return <BrightnessContrastTool onClose={handleCloseTool} />;
+      case 'BlackWhiteTool':
+        return <BlackWhiteTool onClose={handleCloseTool} />;
+      case 'PhotoBlurTool':
+        return <PhotoBlurTool onClose={handleCloseTool} />;
+      case 'PhotoSharpenerTool':
+        return <PhotoSharpenerTool onClose={handleCloseTool} />;
+      case 'PhotoCropTool':
+        return <PhotoCropTool onClose={handleCloseTool} />;
 
       default:
-        return <div className="p-8 text-center text-slate-500">Tool component not found.</div>;
+        return (
+          <div className="p-8 text-center text-slate-500">
+            <X className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <p className="text-sm font-bold text-slate-700">Tool component not found</p>
+            <p className="text-xs mt-1">Component: {currentActiveTool.componentKey}</p>
+          </div>
+        );
     }
   };
 
+  const totalTools = TOOLS_REGISTRY.length;
+  const premiumCount = TOOLS_REGISTRY.filter(t => isPremiumTool(t.id)).length;
+
   return (
     <div className="space-y-8">
-      {/* 999TOOLS ROADMAP PROGRESS BAR */}
+      {/* ROADMAP PROGRESS BAR */}
       <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white border border-slate-800 shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs uppercase tracking-wider border border-amber-500/30">
-                Phase 1 Active • 50/999 Online Tools Live
+                🚀 Phase 2 Active • {totalTools}/999 Tools Live
               </span>
               <span className="text-xs text-slate-400 font-medium">100% Free & Client-Side Safe</span>
               
@@ -453,7 +323,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
               999tools Multi-Tool Engine
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              India's all-in-one utility hub built specifically for students, normal users, and CSC VLE / Cyber Cafe operators.
+              India's all-in-one utility hub built for students, cyber cafe operators, and everyday users.
             </p>
           </div>
 
@@ -478,15 +348,20 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           </div>
         </div>
 
+        {/* Progress Metric */}
         <div className="mt-6 pt-4 border-t border-slate-800">
           <div className="flex justify-between items-center text-xs mb-2">
-            <span className="text-slate-400">Total Live Catalog: <strong className="text-white">50 Tools</strong></span>
+            <span className="text-slate-400">
+              Live: <strong className="text-white">{totalTools} Tools</strong> • 
+              Free: <strong className="text-emerald-400">{totalTools - premiumCount}</strong> • 
+              Premium: <strong className="text-amber-400">{premiumCount}</strong>
+            </span>
             <span className="text-amber-400 font-bold">Goal: 999 Tools</span>
           </div>
           <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
             <div
-              className="h-full bg-gradient-to-r from-blue-500 via-emerald-400 to-amber-400 rounded-full"
-              style={{ width: `${(50 / 999) * 100 * 3}%` }}
+              className="h-full bg-gradient-to-r from-blue-500 via-emerald-400 to-amber-400 rounded-full transition-all"
+              style={{ width: `${Math.max((totalTools / 999) * 100, 1)}%` }}
             />
           </div>
         </div>
@@ -505,7 +380,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                 <p className="text-xs text-slate-500">{currentActiveTool.description}</p>
               </div>
             </div>
-
             <button
               onClick={handleCloseTool}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
@@ -528,25 +402,41 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by tool name, number, or tags..."
+              placeholder="Search by name, number (#001), or tags (compress, resize, passport)..."
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 font-medium"
             />
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 px-3.5 py-2 rounded-xl border border-amber-200">
-            <input
-              type="checkbox"
-              checked={vleOnlyMode}
-              onChange={(e) => setVleOnlyMode(e.target.checked)}
-              className="rounded accent-amber-600 w-4 h-4"
-            />
-            <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-              <Store className="w-3.5 h-3.5 text-amber-700" />
-              <span>Cyber Cafe / VLE Mode</span>
-            </div>
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 px-3.5 py-2 rounded-xl border border-amber-200">
+              <input
+                type="checkbox"
+                checked={vleOnlyMode}
+                onChange={(e) => setVleOnlyMode(e.target.checked)}
+                className="rounded accent-amber-600 w-4 h-4"
+              />
+              <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <Store className="w-3.5 h-3.5 text-amber-700" />
+                <span>VLE Mode</span>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none bg-purple-50 px-3.5 py-2 rounded-xl border border-purple-200">
+              <input
+                type="checkbox"
+                checked={showOnlyPremium}
+                onChange={(e) => setShowOnlyPremium(e.target.checked)}
+                className="rounded accent-purple-600 w-4 h-4"
+              />
+              <div className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                <Crown className="w-3.5 h-3.5 text-purple-700" />
+                <span>Premium Only</span>
+              </div>
+            </label>
+          </div>
         </div>
 
+        {/* Category Pills */}
         <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
           <button
             onClick={() => setSelectedCategory('all')}
@@ -556,9 +446,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            All 50 Tools
+            All Tools ({totalTools})
           </button>
-          {TOOL_CATEGORIES.map((cat) => (
+          {TOOL_CATEGORIES.filter(c => c.count > 0).map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
@@ -574,97 +464,112 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         </div>
       </div>
 
-      {/* ADSTERRA HEADER BANNER */}
+      {/* ADSTERRA BANNER */}
       <AdsterraBanner slot="header" />
 
       {/* TOOLS CARDS GRID */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-            Showing {filteredTools.length} of {TOOLS_REGISTRY.length} Available Tools
+            Showing {filteredTools.length} of {totalTools} Available Tools
           </span>
-          {vleOnlyMode && (
+          {(vleOnlyMode || showOnlyPremium) && (
             <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-              Filtering: VLE Recommended Tools
+              Filters Active
             </span>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredTools.map((tool) => {
-            const access = toolAccessMap[tool.id];
-            const isPremiumTool = access?.isPremium || false;
-            const isLocked = isPremiumTool && access && !access.allowed;
+        {filteredTools.length === 0 ? (
+          <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center">
+            <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h4 className="text-sm font-bold text-slate-800">No tools found</h4>
+            <p className="text-xs text-slate-500 mt-1">Try a different search or filter</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredTools.map((tool) => {
+              const access = toolAccessMap[tool.id];
+              const isPremium = isPremiumTool(tool.id) || tool.isPremium === true;
+              const isLocked = isPremium && access && !access.allowed;
+              const isVle = isVleEssential(tool.id) || tool.vleEssential;
 
-            return (
-              <div
-                key={tool.id}
-                onClick={() => handleOpenTool(tool.id)}
-                className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group hover:shadow-lg relative ${
-                  activeToolId === tool.id
-                    ? 'border-blue-600 bg-blue-50/50 shadow-md ring-2 ring-blue-500/20'
-                    : isLocked
-                    ? 'border-rose-200 bg-rose-50/30 hover:border-rose-400'
-                    : 'border-slate-200 bg-white hover:border-blue-400'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-                    <span className="text-[10px] font-black font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800 transition">
-                      #{String(tool.num).padStart(3, '0')}
-                    </span>
-                    
-                    <div className="flex items-center gap-1">
-                      {renderPremiumBadge(tool.id)}
+              return (
+                <div
+                  key={tool.id}
+                  onClick={() => handleOpenTool(tool.id)}
+                  className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group hover:shadow-lg relative ${
+                    activeToolId === tool.id
+                      ? 'border-blue-600 bg-blue-50/50 shadow-md ring-2 ring-blue-500/20'
+                      : isLocked
+                      ? 'border-rose-200 bg-rose-50/30 hover:border-rose-400'
+                      : 'border-slate-200 bg-white hover:border-blue-400'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                      <span className="text-[10px] font-black font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800 transition">
+                        #{String(tool.num).padStart(3, '0')}
+                      </span>
                       
-                      {tool.vleEssential && (
-                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Store className="w-2.5 h-2.5" /> VLE
+                      <div className="flex items-center gap-1">
+                        {renderPremiumBadge(tool.id)}
+                        
+                        {isVle && (
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Store className="w-2.5 h-2.5" /> VLE
+                          </span>
+                        )}
+
+                        {tool.badge === 'POPULAR' && !isPremium && (
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Star className="w-2.5 h-2.5" /> Hot
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition">
+                      {tool.name}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">
+                      {tool.description}
+                    </p>
+
+                    <div className="flex flex-wrap gap-1 mt-3">
+                      {tool.tags.slice(0, 3).map((tag, i) => (
+                        <span key={i} className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
+                          #{tag}
                         </span>
-                      )}
+                      ))}
                     </div>
                   </div>
 
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition">
-                    {tool.name}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">
-                    {tool.description}
-                  </p>
-
-                  <div className="flex flex-wrap gap-1 mt-3">
-                    {tool.tags.slice(0, 3).map((tag, i) => (
-                      <span key={i} className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
-                        #{tag}
-                      </span>
-                    ))}
+                  <div className={`mt-4 pt-3 border-t flex items-center justify-between text-xs font-bold ${
+                    isLocked 
+                      ? 'border-rose-100 text-rose-600' 
+                      : 'border-slate-100 text-blue-600 group-hover:text-blue-700'
+                  }`}>
+                    {isLocked ? (
+                      <>
+                        <span className="flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          Upgrade to Unlock
+                        </span>
+                        <Crown className="w-4 h-4" />
+                      </>
+                    ) : (
+                      <>
+                        <span>Launch Tool</span>
+                        <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+                      </>
+                    )}
                   </div>
                 </div>
-
-                <div className={`mt-4 pt-3 border-t flex items-center justify-between text-xs font-bold ${
-                  isLocked 
-                    ? 'border-rose-100 text-rose-600' 
-                    : 'border-slate-100 text-blue-600 group-hover:text-blue-700'
-                }`}>
-                  {isLocked ? (
-                    <>
-                      <span className="flex items-center gap-1">
-                        <Lock className="w-3 h-3" />
-                        Upgrade to Unlock
-                      </span>
-                      <Crown className="w-4 h-4" />
-                    </>
-                  ) : (
-                    <>
-                      <span>Launch Tool</span>
-                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition" />
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* SUGGEST A TOOL MODAL */}
@@ -674,7 +579,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
             <div className="flex items-center justify-between border-b pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Suggest a Tool for 999tools</h3>
-                <p className="text-xs text-slate-500">Help us reach 999 tools! Request anything you need daily.</p>
+                <p className="text-xs text-slate-500">Help us reach 999 tools!</p>
               </div>
               <button onClick={() => setShowRequestModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -720,7 +625,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                     required
                     value={reqTitle}
                     onChange={(e) => setReqTitle(e.target.value)}
-                    placeholder="e.g. Samagra ID Card Print..."
+                    placeholder="e.g. Video Compressor"
                     className="w-full px-3 py-2 border rounded-xl"
                   />
                 </div>
@@ -731,7 +636,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                     rows={3}
                     value={reqDesc}
                     onChange={(e) => setReqDesc(e.target.value)}
-                    placeholder="Describe how it will save time..."
+                    placeholder="Describe how it will help..."
                     className="w-full p-3 border rounded-xl"
                   />
                 </div>
@@ -761,7 +666,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         }}
       />
 
-      {/* UPGRADE PAYMENT MODAL — with onBack */}
+      {/* UPGRADE PAYMENT MODAL */}
       <UpgradePaymentModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
