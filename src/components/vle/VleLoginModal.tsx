@@ -50,7 +50,7 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
         setPassword('');
         onClose();
       } else {
-        setErrorMsg('Login failed. Check your ID/Email and Password.');
+        setErrorMsg('Login failed. Please check your ID/Email and Password.');
       }
     } catch (error) {
       setErrorMsg('Something went wrong. Please try again.');
@@ -102,7 +102,7 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
               autoComplete="email"
             />
             <p className="text-[10px] text-slate-400 mt-1">
-              Jo email aapne registration mein diya tha
+              The email you used during VLE registration
             </p>
           </div>
 
@@ -133,7 +133,7 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
               </button>
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              Password aapko Owner ne WhatsApp/Email pe bheja tha
+              Password was sent to you by the Owner via WhatsApp/Email
             </p>
           </div>
 
@@ -176,7 +176,7 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
             className="mt-1.5 text-xs font-bold text-amber-600 hover:text-amber-700 hover:underline inline-flex items-center gap-1"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Apply for One-Time Lifetime Registration (₹299)</span>
+            <span>Apply for Monthly VLE Plan (₹{199}/month)</span>
           </button>
         </div>
 
@@ -184,7 +184,7 @@ export const VleLoginModal: React.FC<VleLoginModalProps> = ({ isOpen, onClose, o
           <div className="flex items-start gap-2 text-[11px] text-slate-500">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <strong className="text-slate-700">Firebase Protected Login.</strong> Aapka password Google Firebase ke servers pe encrypted save hai. Koi bhi hack ya bypass nahi kar sakta.
+              <strong className="text-slate-700">Firebase Protected Login.</strong> Your password is encrypted and stored on Google Firebase servers. No one can hack or bypass it.
             </p>
           </div>
         </div>
