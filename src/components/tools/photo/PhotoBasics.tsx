@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, Upload, Download, RotateCw, RotateCcw, FlipHorizontal, FlipVertical,
   Sun, Contrast, Droplet, Sparkles, Circle, Loader2, Check,
-  Image as ImageIcon, ZoomIn, Crop, Sliders
+  Image as ImageIcon, ZoomIn, Crop
 } from 'lucide-react';
 
 // ============================================
@@ -54,7 +54,6 @@ interface ToolProps {
 // 🆕 FULL-SCREEN TOOL WRAPPER
 // ============================================
 const ToolWrapper: React.FC<{ title: string; icon: React.ReactNode; onClose: () => void; children: React.ReactNode }> = ({ title, icon, onClose, children }) => {
-  // Esc key to close
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -66,7 +65,6 @@ const ToolWrapper: React.FC<{ title: string; icon: React.ReactNode; onClose: () 
   return (
     <div className="fixed inset-0 z-[90] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-2 sm:p-3">
       <div className="bg-white rounded-2xl w-full h-[97vh] max-w-[99vw] shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
-        {/* Fixed Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md">
@@ -85,7 +83,6 @@ const ToolWrapper: React.FC<{ title: string; icon: React.ReactNode; onClose: () 
             <X className="w-5 h-5" />
           </button>
         </div>
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50">
           {children}
         </div>
@@ -142,7 +139,6 @@ export const ImageFormatConverterTool: React.FC<ToolProps> = ({ onClose }) => {
         </label>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 h-full">
-          {/* Controls */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
               <label className="block text-sm font-bold text-slate-700 mb-3">Convert To:</label>
@@ -199,7 +195,6 @@ export const ImageFormatConverterTool: React.FC<ToolProps> = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Preview */}
           <div className="lg:col-span-3 bg-[repeating-conic-gradient(#f1f5f9_0%_25%,#ffffff_0%_50%)] bg-[length:24px_24px] rounded-2xl border border-slate-200 flex items-center justify-center min-h-[400px] lg:min-h-[600px] p-4">
             <canvas ref={canvasRef} className="max-w-full max-h-full object-contain drop-shadow-lg" />
           </div>
