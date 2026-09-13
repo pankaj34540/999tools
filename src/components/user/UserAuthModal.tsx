@@ -63,7 +63,7 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setErrorMsg('Email aur Password daalo');
+      setErrorMsg('Please enter email and password');
       return;
     }
 
@@ -71,11 +71,9 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
     setErrorMsg('');
 
     try {
-      // Firebase login
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
       const user = cred.user;
 
-      // Save user account in Firestore
       await createOrUpdateUserAccount({
         id: user.uid,
         email: user.email || email,
@@ -96,23 +94,23 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
       let msg = 'Login failed';
       switch (error.code) {
         case 'auth/user-not-found':
-          msg = 'Yeh email registered nahi hai. Pehle signup karo.';
+          msg = 'This email is not registered. Please signup first.';
           break;
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
-          msg = 'Password galat hai!';
+          msg = 'Incorrect password!';
           break;
         case 'auth/too-many-requests':
-          msg = 'Bahut zyada attempts! Thodi der baad try karo.';
+          msg = 'Too many attempts! Please try again later.';
           break;
         case 'auth/invalid-email':
           msg = 'Invalid email format';
           break;
         case 'auth/network-request-failed':
-          msg = 'Internet connection check karo';
+          msg = 'Please check your internet connection';
           break;
         default:
-          msg = error.message || 'Kuch galat ho gaya';
+          msg = error.message || 'Something went wrong';
       }
       setErrorMsg(msg);
     } finally {
@@ -123,29 +121,25 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name.trim()) { setErrorMsg('Naam daalo'); return; }
-    if (!email.trim()) { setErrorMsg('Email daalo'); return; }
-    if (password.length < 6) { setErrorMsg('Password kam se kam 6 characters ka hona chahiye'); return; }
+    if (!name.trim()) { setErrorMsg('Please enter your name'); return; }
+    if (!email.trim()) { setErrorMsg('Please enter your email'); return; }
+    if (password.length < 6) { setErrorMsg('Password must be at least 6 characters long'); return; }
 
     setLoading(true);
     setErrorMsg('');
 
     try {
-      // Check if trying to signup with owner email
       if (email.trim().toLowerCase() === 'pdas966846@gmail.com') {
-        setErrorMsg('Yeh email Owner account ka hai. Owner Panel se login karo.');
+        setErrorMsg('This email is reserved for Owner account. Please login from Owner Panel.');
         setLoading(false);
         return;
       }
 
-      // Firebase signup
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = cred.user;
 
-      // Update display name
       await updateProfile(user, { displayName: name.trim() });
 
-      // Save user account in Firestore
       await createOrUpdateUserAccount({
         id: user.uid,
         email: user.email || email,
@@ -156,7 +150,7 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
       });
 
       setSuccess(true);
-      showNotification('🎉 Account ban gaya! Welcome to 999tools!');
+      showNotification('🎉 Account created! Welcome to 999tools!');
       
       setTimeout(() => {
         handleClose();
@@ -168,19 +162,19 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
       let msg = 'Signup failed';
       switch (error.code) {
         case 'auth/email-already-in-use':
-          msg = 'Yeh email already registered hai. Login karo.';
+          msg = 'This email is already registered. Please login instead.';
           break;
         case 'auth/invalid-email':
           msg = 'Invalid email format';
           break;
         case 'auth/weak-password':
-          msg = 'Password kamzor hai (min 6 characters)';
+          msg = 'Password is too weak (min 6 characters)';
           break;
         case 'auth/network-request-failed':
-          msg = 'Internet connection check karo';
+          msg = 'Please check your internet connection';
           break;
         default:
-          msg = error.message || 'Kuch galat ho gaya';
+          msg = error.message || 'Something went wrong';
       }
       setErrorMsg(msg);
     } finally {
@@ -192,7 +186,6 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
     <div className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative">
         
-        {/* Close Button */}
         <button
           onClick={handleClose}
           disabled={loading}
@@ -201,7 +194,6 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
           <X className="w-4 h-4" />
         </button>
 
-        {/* Header */}
         <div className="text-center mb-6">
           <div className="w-14 h-14 mx-auto bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mb-3 shadow-lg">
             <User className="w-7 h-7 text-white" />
@@ -211,12 +203,11 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             {mode === 'login' 
-              ? '999tools account mein login karo' 
-              : 'Free account banao — 700+ tools unlock karo'}
+              ? 'Login to your 999tools account' 
+              : 'Create a free account — unlock 700+ tools'}
           </p>
         </div>
 
-        {/* Success State */}
         {success ? (
           <div className="text-center py-8">
             <div className="w-16 h-16 mx-auto bg-emerald-100 rounded-full flex items-center justify-center mb-4">
@@ -231,7 +222,6 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
           </div>
         ) : (
           <>
-            {/* Mode Toggle */}
             <div className="flex bg-slate-100 p-1 rounded-xl mb-5">
               <button
                 type="button"
@@ -257,10 +247,8 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
               </button>
             </div>
 
-            {/* Form */}
             <form onSubmit={mode === 'login' ? handleLogin : handleSignup} className="space-y-3">
               
-              {/* Name Field (Signup only) */}
               {mode === 'signup' && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -273,14 +261,13 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                       value={name}
                       onChange={(e) => { setName(e.target.value); setErrorMsg(''); }}
                       disabled={loading}
-                      placeholder="Aapka naam"
+                      placeholder="Your full name"
                       className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Email */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Email *
@@ -299,7 +286,6 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Mobile (Signup only) */}
               {mode === 'signup' && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -319,7 +305,6 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                 </div>
               )}
 
-              {/* Password */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Password *
@@ -345,7 +330,6 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Error */}
               {errorMsg && (
                 <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -353,7 +337,6 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                 </div>
               )}
 
-              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
@@ -373,7 +356,6 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
               </button>
             </form>
 
-            {/* Benefits (Signup only) */}
             {mode === 'signup' && (
               <div className="mt-5 pt-4 border-t border-slate-100">
                 <div className="flex items-start gap-2 text-[11px] text-slate-600">
@@ -385,18 +367,17 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
               </div>
             )}
 
-            {/* Footer */}
             <div className="mt-4 pt-4 border-t border-slate-100 text-center">
               <p className="text-[11px] text-slate-500">
                 {mode === 'login' ? (
                   <>
-                    Account nahi hai?{' '}
+                    Don't have an account?{' '}
                     <button
                       type="button"
                       onClick={() => { setMode('signup'); setErrorMsg(''); }}
                       className="font-bold text-amber-600 hover:underline"
                     >
-                      Signup karo
+                      Signup here
                     </button>
                   </>
                 ) : (
@@ -407,7 +388,7 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                       onClick={() => { setMode('login'); setErrorMsg(''); }}
                       className="font-bold text-amber-600 hover:underline"
                     >
-                      Login karo
+                      Login here
                     </button>
                   </>
                 )}
