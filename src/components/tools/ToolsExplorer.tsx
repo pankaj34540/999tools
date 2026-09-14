@@ -86,7 +86,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
   const userPremium = isUserPremium();
 
-  // Listen for pricing modal event from Header
   useEffect(() => {
     const handler = () => setShowPricingModal(true);
     window.addEventListener('openPricingModal', handler);
@@ -94,7 +93,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   }, []);
 
   // ============================================
-  // LOAD TOOL ACCESS
+  // LOAD TOOL ACCESS — Guest + Logged-in both supported
   // ============================================
   useEffect(() => {
     const loadAccess = async () => {
@@ -124,7 +123,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     };
     
     loadAccess();
-  }, [currentUser?.id, currentUser?.plan, currentUser?.subscriptionEnd, userPremium]);
+  }, [currentUser?.id, currentUser?.plan, currentUser?.subscriptionEnd, userPremium, activeToolId]);
 
   const currentActiveTool = useMemo(() => {
     if (!activeToolId) return null;
@@ -140,7 +139,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
     const isPremium = PREMIUM_TOOL_IDS.includes(tool.id);
 
-    // If NOT premium tool — always open
+    // Non-premium tool — always open
     if (!isPremium) {
       setActiveToolId(toolId);
       if (onSelectTool) onSelectTool(toolId);
@@ -151,7 +150,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     // Premium tool — check access
     const access = toolAccessMap[toolId];
 
-    // Premium/VLE user — unlimited access
+    // Premium/VLE user — unlimited
     if (userPremium) {
       setActiveToolId(toolId);
       if (onSelectTool) onSelectTool(toolId);
@@ -159,15 +158,15 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       return;
     }
 
-    // Free user — check daily limit
+    // Limit exhausted
     if (access && !access.allowed) {
-      showNotification('❌ Daily free limit reached (3/day). Upgrade to Premium for unlimited.');
+      showNotification('❌ Daily free limit reached (3/day). Upgrade to Premium.');
       setShowPricingModal(true);
       return;
     }
 
-    // Free user with remaining uses — record usage
-    if (currentUser && access && access.limit > 0) {
+    // ✅ FIXED: Record usage for BOTH logged-in AND guest users
+    if (access && access.limit > 0) {
       await recordUsage(toolId);
       
       const newRemaining = Math.max(0, access.remaining - 1);
@@ -240,13 +239,13 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   };
 
   // ============================================
-  // PREMIUM BADGE — Fixed Logic
+  // PREMIUM BADGE
   // ============================================
   const renderPremiumBadge = (toolId: string) => {
     const isPremium = PREMIUM_TOOL_IDS.includes(toolId);
     if (!isPremium) return null;
 
-    // 1. Premium/VLE user → PRO badge (unlimited)
+    // Premium/VLE user → PRO (unlimited)
     if (userPremium) {
       return (
         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -255,7 +254,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
-    // 2. Free user — check daily usage
     const access = toolAccessMap[toolId];
 
     if (!access) {
@@ -266,7 +264,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
-    // Free user with remaining uses
     if (access.remaining > 0) {
       return (
         <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -275,7 +272,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
-    // Free user — limit exhausted
     return (
       <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1">
         <Lock className="w-2.5 h-2.5" /> LOCKED
