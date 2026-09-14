@@ -28,7 +28,7 @@ import {
   initialImportantLinks,
   initialVleApplications 
 } from '../data/initialData';
-import { TOOLS_REGISTRY } from '../data/toolsRegistry';
+import { TOOLS_REGISTRY, PREMIUM_TOOL_IDS } from '../data/toolsRegistry';
 import { DEFAULT_PREMIUM_TOOL_IDS, FREE_USER_DAILY_LIMIT } from '../data/premiumTools';
 import {
   saveSiteConfigToFirebase,
@@ -268,12 +268,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   });
 
-  // PREMIUM TOOLS LIST
+  // ============================================
+  // ✅ FIXED: PREMIUM TOOLS — Always use registry IDs
+  // (localStorage gets stale when premium IDs change)
+  // ============================================
   const [premiumToolIds, setPremiumToolIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PREMIUM_TOOLS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
     return DEFAULT_PREMIUM_TOOL_IDS;
   });
 
@@ -502,9 +501,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return appId;
   };
 
-  // ============================================
   // APPROVE VLE APPLICATION — Unified System
-  // ============================================
   const approveVleApplication = async (appId: string, customVleId?: string, customPassword?: string): Promise<{ vleId: string; password: string } | null> => {
     const targetApp = vleApplications.find((a) => a.id === appId);
     if (!targetApp) return null;
@@ -512,7 +509,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const generatedVleId = customVleId || `VLE-999-${Math.floor(1000 + Math.random() * 9000)}`;
     const generatedPassword = customPassword || generateVlePassword();
 
-    // 1. Firebase Auth account banao
     console.log('📝 Creating Firebase Auth account for VLE...');
     const authResult = await createVleAuthAccount(targetApp.email, generatedPassword);
     if (!authResult.success) {
@@ -521,7 +517,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     console.log('✅ Firebase Auth account created:', authResult.uid);
 
-    // 2. VLE Data object banao
     const vleData: VleData = {
       vleId: generatedVleId,
       centerName: targetApp.centerName,
@@ -538,7 +533,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       shopUpiId: siteConfig.upiId,
     };
 
-    // 3. userAccounts collection mein VLE user banao/update karo
     console.log('📝 Creating unified user account for VLE...');
     const userResult = await createOrUpdateVleUser(
       targetApp.email,
@@ -556,7 +550,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('✅ Unified VLE user account created:', userResult.userId);
     }
 
-    // 4. Legacy VLE entry (backward compatibility)
     const newVle: VleOperator = {
       id: 'vle_' + Date.now().toString(36),
       vleId: generatedVleId,
@@ -605,9 +598,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Application rejected.');
   };
 
-  // ============================================
-  // VLE AUTH — Unified Login (User Accounts bhi check karta hai)
-  // ============================================
+  // VLE AUTH — Unified Login
   const [vleLoggedIn, setVleLoggedIn] = useState<boolean>(false);
 
   const vleLogin = async (emailOrVleId: string, password?: string): Promise<boolean> => {
@@ -615,14 +606,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const input = emailOrVleId.trim().toLowerCase();
 
-    // Pehle VLE list mein dhundo (legacy)
     let found: VleOperator | null = vles.find(
       (v) =>
         v.email.toLowerCase() === input ||
         v.vleId.toLowerCase() === input
     ) || null;
 
-    // Agar VLE list mein nahi mila, toh userAccounts mein dhundo
     if (!found) {
       console.log('🔍 VLE not in legacy list, checking user accounts...');
       const userAccount = await getUserByEmail(input);
@@ -652,17 +641,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!found) { showNotification('VLE account nahi mila. Pehle register karein.'); return false; }
     if (found.status === 'suspended') { showNotification('Account suspended.'); return false; }
 
-    // Firebase Auth se login karo
     const result = await loginVle(found.email, password);
     if (!result.success) { showNotification(result.error || 'Login failed'); return false; }
 
-    // Active VLE set karo
     setActiveVleId(found.id);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_VLE_ID, found.id);
     setVleLoggedIn(true);
     localStorage.setItem(STORAGE_KEYS.VLE_LOGGED_IN, 'true');
 
-    // Agar userAccount hai, toh currentUser bhi set karo (unified!)
     const userAcc = await getUserByEmail(found.email);
     if (userAcc) {
       setCurrentUser(userAcc);
@@ -890,9 +876,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // ============================================
+  // ✅ FIXED: Use registry premium IDs directly
+  // ============================================
   const checkToolAccess = async (toolId: string) => {
     const { canUserUseTool } = await import('../services/toolUsageService');
-    return canUserUseTool(currentUser, toolId, premiumToolIds);
+    return canUserUseTool(currentUser, toolId, DEFAULT_PREMIUM_TOOL_IDS);
   };
 
   const recordUsage = async (toolId: string) => {
