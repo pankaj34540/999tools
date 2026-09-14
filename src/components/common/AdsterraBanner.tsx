@@ -55,13 +55,16 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
   }
 
   // ============================================
-  // ✅ Adsterra canonical script injection
+  // ✅ OFFICIAL ADSTERRA SCRIPT INJECTION
+  // Handles highrevenueformat.com / highperformanceformat.com / etc.
   // ============================================
   useEffect(() => {
     if (!userCanSeeAds) return;
     if (!containerRef.current) return;
 
     const container = containerRef.current;
+
+    // 🧹 Clean up previous injection for THIS slot
     container.innerHTML = '';
 
     if (!isActive || !adCode.trim()) {
@@ -69,12 +72,17 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
       return;
     }
 
+    // 🆕 Unique namespace for atOptions per slot (avoids collision between multiple ads)
+    // We'll trick Adsterra's script by wrapping in an iframe-friendly approach
     try {
-      // Parse the adCode with DOMParser (safe, no script execution yet)
-      const doc = new DOMParser().parseFromString(
-        `<div id="adsterra-root">${adCode}</div>`,
-        'text/html'
-      );
+      const wrapper = document.createElement('div');
+      wrapper.setAttribute('data-999tools-ad-slot', slot);
+      wrapper.style.textAlign = 'center';
+      wrapper.style.width = '100%';
+
+      // Parse adCode with DOMParser — gives us clean nodes without executing
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<div id="adsterra-root">${adCode}</div>`, 'text/html');
       const root = doc.getElementById('adsterra-root');
 
       if (!root) {
@@ -82,49 +90,52 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
         return;
       }
 
-      const nodes = Array.from(root.childNodes);
-      let scriptCount = 0;
-      let inlineCount = 0;
+      const scripts = Array.from(root.querySelectorAll('script'));
+      const nonScriptNodes = Array.from(root.childNodes).filter(
+        (n) => n.nodeName !== 'SCRIPT'
+      );
 
-      // Process in ORDER — atOptions must run BEFORE invoke.js
-      nodes.forEach((node) => {
-        if (node.nodeName === 'SCRIPT') {
-          const oldScript = node as HTMLScriptElement;
-          const newScript = document.createElement('script');
-
-          // Copy all attributes
-          Array.from(oldScript.attributes).forEach((attr) => {
-            newScript.setAttribute(attr.name, attr.value);
-          });
-
-          if (oldScript.src) {
-            // External script — make protocol-relative respect HTTPS
-            let src = oldScript.src;
-            if (src.startsWith('//')) {
-              src = window.location.protocol + src;
-            }
-            newScript.src = src;
-            newScript.async = true;
-            console.log(`  📎 [${slot}] External: ${src}`);
-          } else if (oldScript.textContent) {
-            // Inline script (like atOptions) — browser will execute
-            newScript.textContent = oldScript.textContent;
-            console.log(`  📎 [${slot}] Inline: ${oldScript.textContent.trim().substring(0, 80)}...`);
-          }
-
-          newScript.setAttribute('data-999tools-ad', slot);
-          container.appendChild(newScript);
-          scriptCount++;
-        } else if (node.nodeType === 1 || node.nodeType === 3) {
-          // Element or text node — clone it
-          container.appendChild(node.cloneNode(true));
-          inlineCount++;
-        }
+      // Append non-script elements first (unlikely for Adsterra, but safe)
+      nonScriptNodes.forEach((node) => {
+        wrapper.appendChild(node.cloneNode(true));
       });
 
-      console.log(`✅ [${slot}] Injected ${scriptCount} script(s) + ${inlineCount} node(s)`);
+      container.appendChild(wrapper);
+
+      // Append scripts one-by-one — inline executes immediately, external loads async
+      let scriptCount = 0;
+      scripts.forEach((oldScript) => {
+        const newScript = document.createElement('script');
+        newScript.setAttribute('data-999tools-ad', slot);
+
+        // Copy all attributes (type, async, etc.)
+        Array.from(oldScript.attributes).forEach((attr) => {
+          newScript.setAttribute(attr.name, attr.value);
+        });
+
+        if (oldScript.src) {
+          // External script (invoke.js)
+          let src = oldScript.src;
+          // Fix protocol-relative URLs (//www.highrevenueformat.com/...)
+          if (src.startsWith('//')) {
+            src = window.location.protocol + src;
+          }
+          newScript.src = src;
+          newScript.async = true;
+          console.log(`  📎 [${slot}] External script: ${src}`);
+        } else if (oldScript.textContent) {
+          // Inline script (atOptions config)
+          newScript.textContent = oldScript.textContent;
+          console.log(`  📎 [${slot}] Inline script: ${oldScript.textContent.trim().substring(0, 70)}...`);
+        }
+
+        wrapper.appendChild(newScript);
+        scriptCount++;
+      });
+
+      console.log(`✅ [${slot}] Injected ${scriptCount} script(s) — Adsterra will create iframe inside wrapper`);
     } catch (err) {
-      console.error(`❌ [${slot}] Injection failed:`, err);
+      console.error(`❌ [${slot}] Ad injection failed:`, err);
     }
   }, [isActive, adCode, slot, userCanSeeAds]);
 
@@ -136,7 +147,10 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
     return (
       <div className={`adsterra-ad-container my-3 overflow-hidden text-center flex flex-col items-center justify-center ${className}`}>
         <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Sponsored</div>
-        <div ref={containerRef} className="min-h-[60px] flex items-center justify-center w-full" />
+        <div
+          ref={containerRef}
+          className="min-h-[60px] flex items-center justify-center w-full"
+        />
       </div>
     );
   }
@@ -194,7 +208,9 @@ export const SocialBarInjector: React.FC = () => {
         const newScript = document.createElement('script');
         newScript.setAttribute('data-999tools-socialbar', 'true');
         if (oldScript.src) {
-          newScript.src = oldScript.src;
+          let src = oldScript.src;
+          if (src.startsWith('//')) src = window.location.protocol + src;
+          newScript.src = src;
           newScript.async = true;
         } else {
           newScript.textContent = oldScript.textContent;
