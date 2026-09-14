@@ -154,16 +154,20 @@ const STORAGE_KEYS = {
 };
 
 // ============================================
-// STORAGE VERSIONING — Bump this to force-clear old localStorage
+// STORAGE VERSIONING + FIREBASE FORCE RESET
+// Bump this to force-clear localStorage AND Firebase
 // ============================================
-const STORAGE_VERSION = '2.0.0';
+const STORAGE_VERSION = '3.0.0';   // ⬅️ bumped from 2.0.0 → 3.0.0
 const STORAGE_VERSION_KEY = '999tools_storage_version';
+const FORCE_RESET_FLAG = '999tools_force_firebase_reset';
 
-const clearOldStorageIfNeeded = () => {
+const clearOldStorageIfNeeded = (): boolean => {
   try {
     const currentVersion = localStorage.getItem(STORAGE_VERSION_KEY);
     if (currentVersion !== STORAGE_VERSION) {
-      console.log(`🧹 Clearing old localStorage (was ${currentVersion}, now ${STORAGE_VERSION})`);
+      console.log(`🧹 Version mismatch: was ${currentVersion}, now ${STORAGE_VERSION}`);
+      
+      // Clear all old localStorage keys
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -172,16 +176,48 @@ const clearOldStorageIfNeeded = () => {
         }
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      // Mark for Firebase reset
       localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
-      console.log(`✅ Cleared ${keysToRemove.length} old localStorage keys`);
+      localStorage.setItem(FORCE_RESET_FLAG, 'true');
+      console.log(`✅ Cleared ${keysToRemove.length} localStorage keys. Firebase reset pending...`);
+      return true;
     }
+    return false;
   } catch (e) {
     console.error('Storage cleanup error:', e);
+    return false;
+  }
+};
+
+// ============================================
+// FIREBASE FORCE RESET — overwrites Firestore with clean initialData
+// ============================================
+const forceResetFirebaseIfNeeded = async () => {
+  try {
+    const shouldReset = localStorage.getItem(FORCE_RESET_FLAG);
+    if (shouldReset !== 'true') return false;
+
+    console.log('🔥 Force resetting Firebase with clean data...');
+
+    await saveSiteConfigToFirebase(initialSiteConfig);
+    await saveVlesToFirebase([]);
+    await saveApplicationsToFirebase([]);
+    await saveOrdersToFirebase([]);
+    await saveCustomToolsToFirebase([]);
+    await saveLinksToFirebase(initialImportantLinks);
+
+    localStorage.removeItem(FORCE_RESET_FLAG);
+    console.log('✅ Firebase force reset complete');
+    return true;
+  } catch (e) {
+    console.error('❌ Firebase force reset error:', e);
+    return false;
   }
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // ✅ Force-clean old localStorage on version bump
+  // ✅ Force-clean old localStorage + set Firebase reset flag
   clearOldStorageIfNeeded();
 
   const [firebaseReady, setFirebaseReady] = useState(false);
@@ -276,7 +312,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   });
 
-  // ✅ FIXED: Always use registry premium IDs
   const [premiumToolIds, setPremiumToolIds] = useState<string[]>(() => {
     return DEFAULT_PREMIUM_TOOL_IDS;
   });
@@ -300,8 +335,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
+  // ============================================
+  // ✅ FIREBASE LOAD — with auto-reset check
+  // ============================================
   useEffect(() => {
     const loadFromFirebase = async () => {
+      // 🔥 First: check if we need to force-reset Firebase
+      const didReset = await forceResetFirebaseIfNeeded();
+      
+      if (didReset) {
+        // After reset, use clean initial data
+        setSiteConfig(initialSiteConfig);
+        setVles([]);
+        setOrders([]);
+        setVleApplications([]);
+        setCustomTools([]);
+        setImportantLinks(initialImportantLinks);
+        setFirebaseReady(true);
+        console.log('✅ Firebase sync ready (after reset)');
+        return;
+      }
+
+      // Normal load flow
       const fbConfig = await loadSiteConfigFromFirebase();
       if (fbConfig) {
         setSiteConfig(fbConfig);
@@ -816,9 +871,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTool, setActiveTool] = useState<string | null>(null);
 
   const resetToDefaultData = () => {
-    if (confirm('Reset all data? This will clear localStorage and reload.')) {
+    if (confirm('Reset all data? This will clear localStorage, Firebase, and reload.')) {
       localStorage.clear();
       sessionStorage.clear();
+      // Set flag to force Firebase reset on next load
+      localStorage.setItem(FORCE_RESET_FLAG, 'true');
       location.reload();
     }
   };
@@ -860,7 +917,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return canUserUseTool(currentUser, toolId, DEFAULT_PREMIUM_TOOL_IDS);
   };
 
-  // ✅ FIXED: Allow guest usage tracking (null userId)
   const recordUsage = async (toolId: string) => {
     const { recordToolUsage } = await import('../services/toolUsageService');
     await recordToolUsage(currentUser?.id || null, toolId);
