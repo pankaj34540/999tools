@@ -7,7 +7,7 @@ export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; 
   {
     id: 'photo_exam',
     label: '📸 Photo & Image',
-    count: 10,
+    count: 20,
     description: 'Passport photo, resize, compress, convert, background remove',
     icon: 'Camera',
   },
@@ -77,11 +77,11 @@ export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; 
 ];
 
 // ============================================
-// TOOLS REGISTRY
+// TOOLS REGISTRY — 20 Tools (Batch 1 + 2)
 // ============================================
 export const TOOLS_REGISTRY: ToolDefinition[] = [
   // ============================================
-  // 📸 CATEGORY 1: PHOTO & IMAGE — Batch 1 (10 tools)
+  // 📸 BATCH 1: PHOTO BASICS (#001 - #010)
   // ============================================
   {
     num: 1,
@@ -234,21 +234,171 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PhotoCropTool',
     active: true,
   },
+
+  // ============================================
+  // 📸 BATCH 2: PASSPORT & ID (#011 - #020)
+  // ============================================
+  {
+    num: 11,
+    id: 'passport_photo_sheet',
+    name: 'Passport Photo Sheet Maker',
+    shortName: 'Photo Sheet',
+    category: 'photo_exam',
+    description: 'Print 4, 6, 8, 12, 16, 24, or 32 photos on 4x6" lab paper or A4 with cutting guides',
+    badge: 'POPULAR',
+    tags: ['passport', 'sheet', '4x6', 'a4', 'print', 'lab'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Camera',
+    componentKey: 'PassportPhotoSheetTool',
+    active: true,
+  },
+  {
+    num: 12,
+    id: 'govt_exam_resizer',
+    name: 'Govt Exam Photo & Sign Resizer',
+    shortName: 'Exam Resizer',
+    category: 'photo_exam',
+    description: 'Exact KB & pixel presets for SSC, UPSC, Railway, PAN, IBPS, and State Police forms',
+    badge: 'PREMIUM',
+    tags: ['ssc', 'upsc', 'railway', 'pan', 'ibps', 'police', 'resizer'],
+    popular: true,
+    vleEssential: true,
+    isPremium: true,
+    iconName: 'Maximize2',
+    componentKey: 'GovtExamResizerTool',
+    active: true,
+  },
+  {
+    num: 13,
+    id: 'signature_white_bg',
+    name: 'Signature White Background Cleaner',
+    shortName: 'Signature BG',
+    category: 'photo_exam',
+    description: 'Remove yellow tint, shadows, and paper creases from signature photos — pure white output',
+    badge: 'POPULAR',
+    tags: ['signature', 'white background', 'cleaner', 'scan'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Sparkles',
+    componentKey: 'SignatureWhiteBgTool',
+    active: true,
+  },
+  {
+    num: 14,
+    id: 'photo_name_date_stamp',
+    name: 'Photo Name & Date (DOPO/DOB) Stamp',
+    shortName: 'Name Date',
+    category: 'photo_exam',
+    description: 'Add candidate name and photo captured date banner on bottom of passport photo (UPSC/SSC requirement)',
+    badge: 'POPULAR',
+    tags: ['name', 'date', 'dopo', 'dob', 'stamp'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Stamp',
+    componentKey: 'PhotoNameDateStampTool',
+    active: true,
+  },
+  {
+    num: 15,
+    id: 'face_center_crop',
+    name: 'Face Center & Auto Crop',
+    shortName: 'Face Center',
+    category: 'photo_exam',
+    description: 'Manually center face in crop frame for Passport India, US Visa, Schengen standards',
+    tags: ['face', 'center', 'crop', 'auto', 'visa'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'User',
+    componentKey: 'FaceCenterCropTool',
+    active: true,
+  },
+  {
+    num: 16,
+    id: 'multiple_photo_stitcher',
+    name: 'Multiple Photo Stitcher',
+    shortName: 'Stitcher',
+    category: 'photo_exam',
+    description: 'Join 2 or more photos vertically or horizontally with adjustable gap',
+    tags: ['stitch', 'join', 'merge', 'combine', 'multi'],
+    vleEssential: false,
+    isPremium: false,
+    iconName: 'Layers',
+    componentKey: 'MultiplePhotoStitcherTool',
+    active: true,
+  },
+  {
+    num: 17,
+    id: 'photo_grid_maker',
+    name: 'Photo Grid Maker',
+    shortName: 'Grid',
+    category: 'photo_exam',
+    description: 'Create 2x2, 3x3, or 4x4 grid of photos with equal spacing — perfect for bulk printing',
+    tags: ['grid', '2x2', '3x3', '4x4', 'bulk'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Grid3x3',
+    componentKey: 'PhotoGridMakerTool',
+    active: true,
+  },
+  {
+    num: 18,
+    id: 'polaroid_maker',
+    name: 'Polaroid Photo Maker',
+    shortName: 'Polaroid',
+    category: 'photo_exam',
+    description: 'Create retro polaroid-style prints with custom captions and frame colors',
+    tags: ['polaroid', 'retro', 'caption', 'vintage'],
+    vleEssential: false,
+    isPremium: false,
+    iconName: 'Image',
+    componentKey: 'PolaroidMakerTool',
+    active: true,
+  },
+  {
+    num: 19,
+    id: 'photo_collage',
+    name: 'Photo Collage Maker',
+    shortName: 'Collage',
+    category: 'photo_exam',
+    description: 'Create beautiful 2-photo, 3-photo, or 4-photo collages in side, stack, or quad layouts',
+    tags: ['collage', 'quad', 'stack', 'side'],
+    vleEssential: false,
+    isPremium: false,
+    iconName: 'Layers',
+    componentKey: 'PhotoCollageMakerTool',
+    active: true,
+  },
+  {
+    num: 20,
+    id: 'passport_template_india',
+    name: 'Passport Photo Template (India)',
+    shortName: 'Passport 35x45',
+    category: 'photo_exam',
+    description: 'Perfect 35×45mm Indian Passport size output with White, Blue, or Grey background',
+    tags: ['passport', '35x45', 'india', 'template'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'CreditCard',
+    componentKey: 'PassportTemplateTool',
+    active: true,
+  },
 ];
 
 // ============================================
 // PREMIUM TOOLS LIST
-// Free users get 3 uses/day on these tools
-// Premium/VLE users get unlimited access
 // ============================================
 export const PREMIUM_TOOL_IDS: string[] = [
-  'photo_target_kb_compressor',
-  'photo_sharpener',
+  'photo_target_kb_compressor',  // #002
+  'photo_sharpener',              // #009
+  'govt_exam_resizer',            // #012
 ];
 
 // ============================================
 // VLE ESSENTIAL TOOLS
-// Tools that Cyber Cafe / CSC operators use daily
 // ============================================
 export const VLE_ESSENTIAL_IDS: string[] = [
   'photo_format_converter',
@@ -259,6 +409,13 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'photo_brightness_contrast',
   'photo_bw_converter',
   'photo_crop',
+  'passport_photo_sheet',
+  'govt_exam_resizer',
+  'signature_white_bg',
+  'photo_name_date_stamp',
+  'face_center_crop',
+  'photo_grid_maker',
+  'passport_template_india',
 ];
 
 // ============================================
@@ -310,7 +467,7 @@ export const getFreeToolCount = (): number => {
 };
 
 // ============================================
-// TOOL REQUESTS (User Suggestions)
+// TOOL REQUESTS
 // ============================================
 export const INITIAL_TOOL_REQUESTS: ToolRequestItem[] = [
   {
