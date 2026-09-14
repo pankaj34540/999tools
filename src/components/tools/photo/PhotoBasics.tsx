@@ -51,7 +51,7 @@ interface ToolProps {
 }
 
 // ============================================
-// 🆕 FULL-SCREEN TOOL WRAPPER
+// FULL-SCREEN TOOL WRAPPER
 // ============================================
 const ToolWrapper: React.FC<{ title: string; icon: React.ReactNode; onClose: () => void; children: React.ReactNode }> = ({ title, icon, onClose, children }) => {
   useEffect(() => {
@@ -226,6 +226,10 @@ export const ImageCompressorTool: React.FC<ToolProps> = ({ onClose }) => {
 
   const compressToTarget = async () => {
     if (!image) return;
+    if (targetKB < 5) {
+      alert('Please enter a valid target size (minimum 5 KB)');
+      return;
+    }
     setCompressing(true);
 
     const canvas = document.createElement('canvas');
@@ -305,12 +309,15 @@ export const ImageCompressorTool: React.FC<ToolProps> = ({ onClose }) => {
               <label className="block text-sm font-bold text-amber-900 mb-3">Target File Size (KB)</label>
               <div className="flex gap-2">
                 <input
-                  type="number"
-                  value={targetKB}
-                  onChange={(e) => setTargetKB(parseInt(e.target.value) || 50)}
-                  min="5"
-                  max="2000"
-                  className="flex-1 px-4 py-3 border border-amber-300 rounded-xl text-2xl font-black font-mono text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  type="text"
+                  inputMode="numeric"
+                  value={targetKB === 0 ? '' : targetKB}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setTargetKB(val === '' ? 0 : parseInt(val, 10));
+                  }}
+                  placeholder="50"
+                  className="flex-1 px-4 py-3 border border-amber-300 rounded-xl text-2xl font-black font-mono text-amber-900 text-center focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
                 <button
                   onClick={compressToTarget}
@@ -423,19 +430,29 @@ export const ImageResizeTool: React.FC<ToolProps> = ({ onClose }) => {
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">Width (px)</label>
                   <input
-                    type="number"
-                    value={width}
-                    onChange={(e) => handleWidthChange(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-base font-bold font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    type="text"
+                    inputMode="numeric"
+                    value={width === 0 ? '' : width}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      handleWidthChange(val === '' ? 0 : parseInt(val, 10));
+                    }}
+                    placeholder="800"
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-base font-bold font-mono text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">Height (px)</label>
                   <input
-                    type="number"
-                    value={height}
-                    onChange={(e) => handleHeightChange(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-base font-bold font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    type="text"
+                    inputMode="numeric"
+                    value={height === 0 ? '' : height}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      handleHeightChange(val === '' ? 0 : parseInt(val, 10));
+                    }}
+                    placeholder="600"
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-base font-bold font-mono text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
