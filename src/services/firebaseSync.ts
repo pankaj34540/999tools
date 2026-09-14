@@ -7,26 +7,21 @@ import {
 import { db } from '../config/firebase';
 
 // ============================================
-// DEEP CLEAN — Remove undefined/null/empty values recursively
-// Firestore does NOT accept undefined values
+// DEEP CLEAN — Remove undefined/null but ALLOW empty strings
+// (Firestore accepts empty strings, only rejects undefined)
 // ============================================
 const deepClean = (value: any): any => {
-  // Handle null
   if (value === null || value === undefined) return undefined;
   
-  // Handle arrays
   if (Array.isArray(value)) {
-    const cleanedArray = value
-      .map(item => deepClean(item))
-      .filter(item => item !== undefined);
-    return cleanedArray;
+    return value.map(item => deepClean(item)).filter(item => item !== undefined);
   }
   
-  // Handle objects
   if (typeof value === 'object') {
     const cleanedObj: Record<string, any> = {};
     Object.entries(value).forEach(([key, val]) => {
       const cleanedVal = deepClean(val);
+      // ✅ Allow empty strings — only skip undefined
       if (cleanedVal !== undefined) {
         cleanedObj[key] = cleanedVal;
       }
@@ -34,10 +29,7 @@ const deepClean = (value: any): any => {
     return cleanedObj;
   }
   
-  // Handle empty strings (optional — comment out if you want to keep empty strings)
-  if (value === '') return undefined;
-  
-  // Return primitives (string, number, boolean)
+  // ✅ Allow empty strings (return as-is)
   return value;
 };
 
@@ -104,17 +96,12 @@ export const subscribeToVles = (callback: (vles: any[]) => void) => {
 };
 
 // ============================================
-// 🆕 VLE APPLICATIONS — with deep clean
+// VLE APPLICATIONS
 // ============================================
 export const saveApplicationsToFirebase = async (apps: any[]) => {
   try {
     console.log('📝 Saving applications to Firebase:', apps.length, 'items');
-    
-    // Deep clean to remove all undefined values
     const cleaned = deepClean(apps) || [];
-    
-    console.log('🧹 Cleaned applications:', cleaned.length, 'items');
-    
     await setDoc(doc(db, 'data', 'vleApplications'), { list: cleaned });
     console.log('✅ Applications saved to Firebase');
     return true;
