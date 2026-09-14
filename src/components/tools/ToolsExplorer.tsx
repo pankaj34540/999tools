@@ -28,6 +28,7 @@ import { useApp } from '../../context/AppContext';
 import { PricingModal } from '../user/PricingModal';
 import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 
+// Batch 1 imports
 import {
   ImageFormatConverterTool,
   ImageCompressorTool,
@@ -40,6 +41,20 @@ import {
   PhotoSharpenerTool,
   PhotoCropTool,
 } from './photo/PhotoBasics';
+
+// 🆕 Batch 2 imports
+import {
+  PassportPhotoSheetTool,
+  GovtExamResizerTool,
+  SignatureWhiteBgTool,
+  PhotoNameDateStampTool,
+  FaceCenterCropTool,
+  MultiplePhotoStitcherTool,
+  PhotoGridMakerTool,
+  PolaroidMakerTool,
+  PhotoCollageMakerTool,
+  PassportTemplateTool,
+} from './photo/PhotoPassport';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -92,9 +107,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     return () => window.removeEventListener('openPricingModal', handler);
   }, []);
 
-  // ============================================
-  // LOAD TOOL ACCESS — Guest + Logged-in both supported
-  // ============================================
   useEffect(() => {
     const loadAccess = async () => {
       const map: Record<string, ToolAccess> = {};
@@ -130,16 +142,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     return TOOLS_REGISTRY.find((t) => t.id === activeToolId) || null;
   }, [activeToolId]);
 
-  // ============================================
-  // HANDLE OPEN TOOL
-  // ============================================
   const handleOpenTool = async (toolId: string) => {
     const tool = TOOLS_REGISTRY.find(t => t.id === toolId);
     if (!tool) return;
 
     const isPremium = PREMIUM_TOOL_IDS.includes(tool.id);
 
-    // Non-premium tool — always open
     if (!isPremium) {
       setActiveToolId(toolId);
       if (onSelectTool) onSelectTool(toolId);
@@ -147,10 +155,8 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       return;
     }
 
-    // Premium tool — check access
     const access = toolAccessMap[toolId];
 
-    // Premium/VLE user — unlimited
     if (userPremium) {
       setActiveToolId(toolId);
       if (onSelectTool) onSelectTool(toolId);
@@ -158,14 +164,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       return;
     }
 
-    // Limit exhausted
     if (access && !access.allowed) {
       showNotification('❌ Daily free limit reached (3/day). Upgrade to Premium.');
       setShowPricingModal(true);
       return;
     }
 
-    // ✅ FIXED: Record usage for BOTH logged-in AND guest users
     if (access && access.limit > 0) {
       await recordUsage(toolId);
       
@@ -238,14 +242,10 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     }, 2000);
   };
 
-  // ============================================
-  // PREMIUM BADGE
-  // ============================================
   const renderPremiumBadge = (toolId: string) => {
     const isPremium = PREMIUM_TOOL_IDS.includes(toolId);
     if (!isPremium) return null;
 
-    // Premium/VLE user → PRO (unlimited)
     if (userPremium) {
       return (
         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -290,30 +290,36 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       : (siteConfig.vleYearlyPrice || 1499);
   };
 
+  // ============================================
+  // TOOL WORKSPACE SWITCH (20 Tools)
+  // ============================================
   const renderToolWorkspace = () => {
     if (!currentActiveTool) return null;
 
     switch (currentActiveTool.componentKey) {
-      case 'ImageFormatConverterTool':
-        return <ImageFormatConverterTool onClose={handleCloseTool} />;
-      case 'ImageCompressorTool':
-        return <ImageCompressorTool onClose={handleCloseTool} />;
-      case 'ImageResizeTool':
-        return <ImageResizeTool onClose={handleCloseTool} />;
-      case 'PhotoRotatorTool':
-        return <PhotoRotatorTool onClose={handleCloseTool} />;
-      case 'PhotoFlipTool':
-        return <PhotoFlipTool onClose={handleCloseTool} />;
-      case 'BrightnessContrastTool':
-        return <BrightnessContrastTool onClose={handleCloseTool} />;
-      case 'BlackWhiteTool':
-        return <BlackWhiteTool onClose={handleCloseTool} />;
-      case 'PhotoBlurTool':
-        return <PhotoBlurTool onClose={handleCloseTool} />;
-      case 'PhotoSharpenerTool':
-        return <PhotoSharpenerTool onClose={handleCloseTool} />;
-      case 'PhotoCropTool':
-        return <PhotoCropTool onClose={handleCloseTool} />;
+      // Batch 1
+      case 'ImageFormatConverterTool': return <ImageFormatConverterTool onClose={handleCloseTool} />;
+      case 'ImageCompressorTool': return <ImageCompressorTool onClose={handleCloseTool} />;
+      case 'ImageResizeTool': return <ImageResizeTool onClose={handleCloseTool} />;
+      case 'PhotoRotatorTool': return <PhotoRotatorTool onClose={handleCloseTool} />;
+      case 'PhotoFlipTool': return <PhotoFlipTool onClose={handleCloseTool} />;
+      case 'BrightnessContrastTool': return <BrightnessContrastTool onClose={handleCloseTool} />;
+      case 'BlackWhiteTool': return <BlackWhiteTool onClose={handleCloseTool} />;
+      case 'PhotoBlurTool': return <PhotoBlurTool onClose={handleCloseTool} />;
+      case 'PhotoSharpenerTool': return <PhotoSharpenerTool onClose={handleCloseTool} />;
+      case 'PhotoCropTool': return <PhotoCropTool onClose={handleCloseTool} />;
+
+      // 🆕 Batch 2
+      case 'PassportPhotoSheetTool': return <PassportPhotoSheetTool onClose={handleCloseTool} />;
+      case 'GovtExamResizerTool': return <GovtExamResizerTool onClose={handleCloseTool} />;
+      case 'SignatureWhiteBgTool': return <SignatureWhiteBgTool onClose={handleCloseTool} />;
+      case 'PhotoNameDateStampTool': return <PhotoNameDateStampTool onClose={handleCloseTool} />;
+      case 'FaceCenterCropTool': return <FaceCenterCropTool onClose={handleCloseTool} />;
+      case 'MultiplePhotoStitcherTool': return <MultiplePhotoStitcherTool onClose={handleCloseTool} />;
+      case 'PhotoGridMakerTool': return <PhotoGridMakerTool onClose={handleCloseTool} />;
+      case 'PolaroidMakerTool': return <PolaroidMakerTool onClose={handleCloseTool} />;
+      case 'PhotoCollageMakerTool': return <PhotoCollageMakerTool onClose={handleCloseTool} />;
+      case 'PassportTemplateTool': return <PassportTemplateTool onClose={handleCloseTool} />;
 
       default:
         return (
@@ -440,12 +446,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 px-3.5 py-2 rounded-xl border border-amber-200">
-              <input
-                type="checkbox"
-                checked={vleOnlyMode}
-                onChange={(e) => setVleOnlyMode(e.target.checked)}
-                className="rounded accent-amber-600 w-4 h-4"
-              />
+              <input type="checkbox" checked={vleOnlyMode} onChange={(e) => setVleOnlyMode(e.target.checked)} className="rounded accent-amber-600 w-4 h-4" />
               <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
                 <Store className="w-3.5 h-3.5 text-amber-700" />
                 <span>VLE Mode</span>
@@ -453,12 +454,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer select-none bg-purple-50 px-3.5 py-2 rounded-xl border border-purple-200">
-              <input
-                type="checkbox"
-                checked={showOnlyPremium}
-                onChange={(e) => setShowOnlyPremium(e.target.checked)}
-                className="rounded accent-purple-600 w-4 h-4"
-              />
+              <input type="checkbox" checked={showOnlyPremium} onChange={(e) => setShowOnlyPremium(e.target.checked)} className="rounded accent-purple-600 w-4 h-4" />
               <div className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
                 <Crown className="w-3.5 h-3.5 text-purple-700" />
                 <span>Premium Only</span>
