@@ -6,6 +6,7 @@
 export const DEFAULT_PREMIUM_TOOL_IDS: string[] = [
   'photo_target_kb_compressor',  // #002 Target KB Compressor
   'photo_sharpener',              // #009 Photo Sharpener
+  'govt_exam_resizer',            // #012 Govt Exam Photo & Sign Resizer
 ];
 
 export const isPremiumTool = (toolId: string, customPremiumList?: string[]): boolean => {
