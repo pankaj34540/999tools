@@ -18,17 +18,16 @@ import {
   TOOLS_REGISTRY, 
   TOOL_CATEGORIES, 
   INITIAL_TOOL_REQUESTS,
+  PREMIUM_TOOL_IDS,
   isPremiumTool,
   isVleEssential 
 } from '../../data/toolsRegistry';
+import { FREE_USER_DAILY_LIMIT } from '../../data/premiumTools';
 import { AdsterraBanner } from '../common/AdsterraBanner';
 import { useApp } from '../../context/AppContext';
 import { PricingModal } from '../user/PricingModal';
 import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 
-// ============================================
-// IMPORT 10 PHOTO TOOLS
-// ============================================
 import {
   ImageFormatConverterTool,
   ImageCompressorTool,
@@ -58,7 +57,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const { 
     siteConfig,
     currentUser, 
-    premiumToolIds, 
     checkToolAccess, 
     recordUsage,
     isUserPremium,
@@ -88,18 +86,22 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
   const userPremium = isUserPremium();
 
+  // Listen for pricing modal event from Header
   useEffect(() => {
     const handler = () => setShowPricingModal(true);
     window.addEventListener('openPricingModal', handler);
     return () => window.removeEventListener('openPricingModal', handler);
   }, []);
 
+  // ============================================
+  // LOAD TOOL ACCESS
+  // ============================================
   useEffect(() => {
     const loadAccess = async () => {
       const map: Record<string, ToolAccess> = {};
       
       for (const tool of TOOLS_REGISTRY) {
-        const isPremium = isPremiumTool(tool.id) || tool.isPremium === true;
+        const isPremium = PREMIUM_TOOL_IDS.includes(tool.id);
         
         if (!isPremium) {
           map[tool.id] = { allowed: true, remaining: -1, isPremium: false, limit: -1 };
@@ -108,7 +110,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
             const access = await checkToolAccess(tool.id);
             map[tool.id] = access;
           } catch (error) {
-            map[tool.id] = { allowed: true, remaining: 3, isPremium: true, limit: 3 };
+            map[tool.id] = { 
+              allowed: true, 
+              remaining: FREE_USER_DAILY_LIMIT, 
+              isPremium: true, 
+              limit: FREE_USER_DAILY_LIMIT 
+            };
           }
         }
       }
@@ -117,27 +124,50 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     };
     
     loadAccess();
-  }, [currentUser, premiumToolIds]);
+  }, [currentUser?.id, currentUser?.plan, currentUser?.subscriptionEnd, userPremium]);
 
   const currentActiveTool = useMemo(() => {
     if (!activeToolId) return null;
     return TOOLS_REGISTRY.find((t) => t.id === activeToolId) || null;
   }, [activeToolId]);
 
+  // ============================================
+  // HANDLE OPEN TOOL
+  // ============================================
   const handleOpenTool = async (toolId: string) => {
     const tool = TOOLS_REGISTRY.find(t => t.id === toolId);
     if (!tool) return;
 
-    const access = toolAccessMap[toolId];
-    const isPremiumTool_ = access?.isPremium || isPremiumTool(toolId) || tool.isPremium;
+    const isPremium = PREMIUM_TOOL_IDS.includes(tool.id);
 
-    if (isPremiumTool_ && access && !access.allowed) {
-      showNotification('❌ Daily free limit reached. Please upgrade to continue.');
+    // If NOT premium tool — always open
+    if (!isPremium) {
+      setActiveToolId(toolId);
+      if (onSelectTool) onSelectTool(toolId);
+      window.scrollTo({ top: 120, behavior: 'smooth' });
+      return;
+    }
+
+    // Premium tool — check access
+    const access = toolAccessMap[toolId];
+
+    // Premium/VLE user — unlimited access
+    if (userPremium) {
+      setActiveToolId(toolId);
+      if (onSelectTool) onSelectTool(toolId);
+      window.scrollTo({ top: 120, behavior: 'smooth' });
+      return;
+    }
+
+    // Free user — check daily limit
+    if (access && !access.allowed) {
+      showNotification('❌ Daily free limit reached (3/day). Upgrade to Premium for unlimited.');
       setShowPricingModal(true);
       return;
     }
 
-    if (isPremiumTool_ && access && access.limit > 0 && currentUser) {
+    // Free user with remaining uses — record usage
+    if (currentUser && access && access.limit > 0) {
       await recordUsage(toolId);
       
       const newRemaining = Math.max(0, access.remaining - 1);
@@ -151,9 +181,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       }));
 
       if (newRemaining === 0) {
-        showNotification(`⚡ This was your last free use for today!`);
+        showNotification(`⚡ Last free use for today! Upgrade for unlimited.`);
       } else {
-        showNotification(`✅ Tool launched. ${newRemaining} uses left today.`);
+        showNotification(`✅ ${newRemaining} free uses left today.`);
       }
     }
 
@@ -178,7 +208,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
       const matchCat = selectedCategory === 'all' || tool.category === selectedCategory;
       const matchVle = !vleOnlyMode || isVleEssential(tool.id) || tool.vleEssential;
-      const matchPremium = !showOnlyPremium || isPremiumTool(tool.id) || tool.isPremium;
+      const matchPremium = !showOnlyPremium || PREMIUM_TOOL_IDS.includes(tool.id);
 
       return matchSearch && matchCat && matchVle && matchPremium;
     });
@@ -209,12 +239,14 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     }, 2000);
   };
 
+  // ============================================
+  // PREMIUM BADGE — Fixed Logic
+  // ============================================
   const renderPremiumBadge = (toolId: string) => {
-    const isPremium = isPremiumTool(toolId);
+    const isPremium = PREMIUM_TOOL_IDS.includes(toolId);
     if (!isPremium) return null;
 
-    const access = toolAccessMap[toolId];
-
+    // 1. Premium/VLE user → PRO badge (unlimited)
     if (userPremium) {
       return (
         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -223,7 +255,19 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
-    if (access && access.remaining > 0) {
+    // 2. Free user — check daily usage
+    const access = toolAccessMap[toolId];
+
+    if (!access) {
+      return (
+        <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+          <Crown className="w-2.5 h-2.5" /> {FREE_USER_DAILY_LIMIT}/{FREE_USER_DAILY_LIMIT}
+        </span>
+      );
+    }
+
+    // Free user with remaining uses
+    if (access.remaining > 0) {
       return (
         <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
           <Crown className="w-2.5 h-2.5" /> {access.remaining}/{access.limit}
@@ -231,6 +275,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
+    // Free user — limit exhausted
     return (
       <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1">
         <Lock className="w-2.5 h-2.5" /> LOCKED
@@ -253,7 +298,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     if (!currentActiveTool) return null;
 
     switch (currentActiveTool.componentKey) {
-      // 📸 Photo & Image Tools
       case 'ImageFormatConverterTool':
         return <ImageFormatConverterTool onClose={handleCloseTool} />;
       case 'ImageCompressorTool':
@@ -287,7 +331,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   };
 
   const totalTools = TOOLS_REGISTRY.length;
-  const premiumCount = TOOLS_REGISTRY.filter(t => isPremiumTool(t.id)).length;
+  const premiumCount = PREMIUM_TOOL_IDS.length;
 
   return (
     <div className="space-y-8">
@@ -393,7 +437,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, number (#001), or tags (compress, resize, passport)..."
+              placeholder="Search by name, number (#001), or tags..."
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 font-medium"
             />
           </div>
@@ -479,8 +523,8 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredTools.map((tool) => {
               const access = toolAccessMap[tool.id];
-              const isPremium = isPremiumTool(tool.id) || tool.isPremium === true;
-              const isLocked = isPremium && access && !access.allowed;
+              const isPremium = PREMIUM_TOOL_IDS.includes(tool.id);
+              const isLocked = isPremium && !userPremium && access && access.remaining === 0;
               const isVle = isVleEssential(tool.id) || tool.vleEssential;
 
               return (
@@ -643,7 +687,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         </div>
       )}
 
-      {/* PRICING MODAL */}
       <PricingModal
         isOpen={showPricingModal}
         onClose={() => setShowPricingModal(false)}
@@ -655,7 +698,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         }}
       />
 
-      {/* UPGRADE PAYMENT MODAL */}
       <UpgradePaymentModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
