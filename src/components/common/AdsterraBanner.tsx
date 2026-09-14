@@ -13,7 +13,6 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
 
   const adConfig = siteConfig.adsterra;
 
-  // 🆕 Check if user should see ads
   const shouldShowAds = () => {
     if (ownerAuthenticated) return false;
     if (currentUser?.plan === 'premium' && isUserPremium()) return false;
@@ -56,7 +55,7 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
   }
 
   // ============================================
-  // ✅ FIXED INJECTION LOGIC
+  // ✅ Adsterra canonical script injection
   // ============================================
   useEffect(() => {
     if (!userCanSeeAds) return;
@@ -65,97 +64,73 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({ slot, className 
     const container = containerRef.current;
     container.innerHTML = '';
 
-    if (!isActive || !adCode.trim()) return;
+    if (!isActive || !adCode.trim()) {
+      console.log(`⏸️ [${slot}] Skipped (isActive: ${isActive}, code: ${adCode.length} chars)`);
+      return;
+    }
 
     try {
-      // ── STEP 1: Try to parse Adsterra iframe format ──
-      let keyMatch = adCode.match(/'key'\s*:\s*'([^']+)'/);
-      let widthMatch = adCode.match(/'width'\s*:\s*(\d+)/);
-      let heightMatch = adCode.match(/'height'\s*:\s*(\d+)/);
-      let formatMatch = adCode.match(/'format'\s*:\s*'([^']+)'/);
+      // Parse the adCode with DOMParser (safe, no script execution yet)
+      const doc = new DOMParser().parseFromString(
+        `<div id="adsterra-root">${adCode}</div>`,
+        'text/html'
+      );
+      const root = doc.getElementById('adsterra-root');
 
-      // Fallback: extract key from invoke.js URL if not in atOptions
-      if (!keyMatch) {
-        const urlMatch = adCode.match(/highperformanceformat\.com\/([a-f0-9]+)\/invoke\.js/i);
-        if (urlMatch) {
-          keyMatch = [urlMatch[0], urlMatch[1]];
-        }
-      }
-
-      // ── STEP 2: If iframe format detected, render iframe directly ──
-      if (keyMatch && keyMatch[1] && (!formatMatch || formatMatch[1] === 'iframe')) {
-        const adKey = keyMatch[1];
-        const width = widthMatch ? widthMatch[1] : '728';
-        const height = heightMatch ? heightMatch[1] : '90';
-
-        const iframe = document.createElement('iframe');
-        iframe.src = `//www.highperformanceformat.com/${adKey}/invoke.html`;
-        iframe.width = width;
-        iframe.height = height;
-        iframe.frameBorder = '0';
-        iframe.scrolling = 'no';
-        iframe.style.border = 'none';
-        iframe.style.display = 'block';
-        iframe.style.margin = '0 auto';
-        iframe.style.maxWidth = '100%';
-        iframe.setAttribute('data-999tools-ad', slot);
-        iframe.setAttribute('title', `${slotLabel} Ad`);
-
-        container.appendChild(iframe);
-        console.log(`✅ [${slot}] iframe ad injected (${width}x${height}, key: ${adKey.substring(0, 8)}...)`);
+      if (!root) {
+        console.warn(`⚠️ [${slot}] Could not parse adCode`);
         return;
       }
 
-      // ── STEP 3: Fallback — re-create scripts manually (innerHTML scripts don't run) ──
-      console.log(`⚙️ [${slot}] Using script re-creation fallback`);
+      const nodes = Array.from(root.childNodes);
+      let scriptCount = 0;
+      let inlineCount = 0;
 
-      // Extract scripts from adCode using DOMParser (safer)
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(adCode, 'text/html');
-      const scripts = doc.querySelectorAll('script');
-      const nonScriptNodes: Node[] = [];
-      doc.body.childNodes.forEach((node) => {
-        if (node.nodeName !== 'SCRIPT') {
-          nonScriptNodes.push(node.cloneNode(true));
+      // Process in ORDER — atOptions must run BEFORE invoke.js
+      nodes.forEach((node) => {
+        if (node.nodeName === 'SCRIPT') {
+          const oldScript = node as HTMLScriptElement;
+          const newScript = document.createElement('script');
+
+          // Copy all attributes
+          Array.from(oldScript.attributes).forEach((attr) => {
+            newScript.setAttribute(attr.name, attr.value);
+          });
+
+          if (oldScript.src) {
+            // External script — make protocol-relative respect HTTPS
+            let src = oldScript.src;
+            if (src.startsWith('//')) {
+              src = window.location.protocol + src;
+            }
+            newScript.src = src;
+            newScript.async = true;
+            console.log(`  📎 [${slot}] External: ${src}`);
+          } else if (oldScript.textContent) {
+            // Inline script (like atOptions) — browser will execute
+            newScript.textContent = oldScript.textContent;
+            console.log(`  📎 [${slot}] Inline: ${oldScript.textContent.trim().substring(0, 80)}...`);
+          }
+
+          newScript.setAttribute('data-999tools-ad', slot);
+          container.appendChild(newScript);
+          scriptCount++;
+        } else if (node.nodeType === 1 || node.nodeType === 3) {
+          // Element or text node — clone it
+          container.appendChild(node.cloneNode(true));
+          inlineCount++;
         }
       });
 
-      // Add non-script nodes first (like divs with class)
-      nonScriptNodes.forEach((node) => container.appendChild(node));
-
-      // Add scripts one-by-one, browser WILL execute these
-      scripts.forEach((oldScript) => {
-        const newScript = document.createElement('script');
-        if (oldScript.src) {
-          newScript.src = oldScript.src;
-          newScript.async = true;
-        } else {
-          newScript.textContent = oldScript.textContent;
-        }
-        // Copy all attributes
-        Array.from(oldScript.attributes).forEach((attr) => {
-          newScript.setAttribute(attr.name, attr.value);
-        });
-        newScript.setAttribute('data-999tools-ad', slot);
-        container.appendChild(newScript);
-      });
-
-      console.log(`✅ [${slot}] script ad injected (${scripts.length} script(s))`);
+      console.log(`✅ [${slot}] Injected ${scriptCount} script(s) + ${inlineCount} node(s)`);
     } catch (err) {
-      console.warn(`❌ [${slot}] ad injection failed:`, err);
-      // Last-resort fallback
-      container.innerHTML = adCode;
+      console.error(`❌ [${slot}] Injection failed:`, err);
     }
   }, [isActive, adCode, slot, userCanSeeAds]);
 
-  // ✅ NOW safe to return null — after all hooks
-  if (!userCanSeeAds) {
-    return null;
-  }
+  if (!userCanSeeAds) return null;
 
-  if (!isActive && !adConfig?.testMode) {
-    return null;
-  }
+  if (!isActive && !adConfig?.testMode) return null;
 
   if (isActive && adCode.trim().length > 0) {
     return (
@@ -191,8 +166,7 @@ export const SocialBarInjector: React.FC = () => {
   const { siteConfig, currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const injected = useRef(false);
 
-  // ✅ Compute values BEFORE hooks
-  const shouldInject = 
+  const shouldInject =
     !ownerAuthenticated &&
     !(currentUser?.plan === 'premium' && isUserPremium()) &&
     !(currentUser?.plan === 'vle' || activeVle);
