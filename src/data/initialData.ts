@@ -1,24 +1,27 @@
 import { SiteConfig, ServiceItem, VleOperator, CustomerOrder, WalletTransaction, GovtExamPreset, ImportantLink, VleApplication } from '../types';
 
+// ============================================
+// SITE CONFIG — Production ready
+// ============================================
 export const initialSiteConfig: SiteConfig = {
   siteName: '999tools',
   tagline: 'All-in-One Digital Services, CSC VLE & Cyber Cafe Portal',
-  supportPhone: '+91 98765 43210',
-  supportWhatsApp: '+91 98765 43210',
-  supportEmail: 'support@999tools.in',
+  supportPhone: '',
+  supportWhatsApp: '',
+  supportEmail: '',
   upiId: '9124231432@mairtel',
   upiQrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=9124231432@mairtel&pn=999tools%20Services&cu=INR',
-  noticeMarquee: '🔥 NEW: SSC GD 2026 Form Fill Up & Photo/Sign Resizer Tool Live! | High Speed Passport Sheet Maker with 4x6 & A4 Print Added | All CSC Kendra e-KYC Active',
+  noticeMarquee: '🔥 Welcome to 999tools — India\'s all-in-one online tools platform for students, CSC VLE, and cyber cafe operators.',
   noticeEnabled: true,
   maintenanceMode: false,
   defaultVleCommissionRate: 20,
   allowPublicRegistrations: true,
   targetToolsGoal: 999,
   vleOneTimeFee: 0,
-  ownerSecurityPin: '9999',
-  ownerPassword: 'admin@999tools',
+  ownerSecurityPin: '',      // ⚠️ Legacy — Firebase Auth use hota hai
+  ownerPassword: '',          // ⚠️ Legacy — Firebase Auth use hota hai
 
-  // 🆕 NEW PRICING FIELDS
+  // PRICING
   premiumMonthlyPrice: 49,
   premiumYearlyPrice: 399,
   vleMonthlyPrice: 199,
@@ -40,12 +43,14 @@ export const initialSiteConfig: SiteConfig = {
     directLinkFrequency: 2,
     socialBarActive: true,
     socialBarCode: '',
-    testMode: true,
+    testMode: false,           // ⚠️ Production pe testMode OFF
   },
 };
 
+// ============================================
+// SERVICES — Real catalog (keep as-is)
+// ============================================
 export const initialServices: ServiceItem[] = [
-  // Cyber Cafe / VLE Core Tools
   {
     id: 'tool_passport_sheet',
     name: 'Passport Photo Sheet Maker',
@@ -128,8 +133,6 @@ export const initialServices: ServiceItem[] = [
     iconName: 'Sparkles',
     enabled: true,
   },
-
-  // Assisted Online Services (VLE / User Orders)
   {
     id: 'srv_pan_new',
     name: 'New PAN Card Application (NSDL/UTI)',
@@ -238,105 +241,23 @@ export const initialServices: ServiceItem[] = [
   },
 ];
 
-// ✅ VLE accounts ab khaali hain - sirf Owner Panel se approved VLEs hi yahan aayenge
+// ============================================
+// 🧹 DEMO DATA — ALL CLEARED
+// ============================================
+// Saara demo data hata diya. Ab ye arrays empty hain.
+// Real data Firebase se aayega (owner panel se add hote hi).
+
 export const initialVles: VleOperator[] = [];
 
-export const initialOrders: CustomerOrder[] = [
-  {
-    id: 'ord_1',
-    tokenNumber: '999-2026-8801',
-    customerName: 'Aakash Verma',
-    customerMobile: '9123456780',
-    serviceId: 'srv_pan_new',
-    serviceName: 'New PAN Card Application (NSDL/UTI)',
-    amount: 150,
-    vleId: 'VLE-999-1001',
-    vleCenterName: 'Shiv Digital Cyber Cafe & CSC Center',
-    status: 'completed',
-    date: '2026-09-09',
-    notes: 'NSDL ACK: 88102938472910, Aadhaar e-Sign verified.',
-    outputDocUrl: 'https://example.com/pan-ack.pdf',
-  },
-  {
-    id: 'ord_2',
-    tokenNumber: '999-2026-8802',
-    customerName: 'Pooja Kumari',
-    customerMobile: '9876512345',
-    serviceId: 'srv_income_cert',
-    serviceName: 'Income Certificate (Aay Praman Patra)',
-    amount: 120,
-    vleId: 'VLE-999-1002',
-    vleCenterName: 'Balaji Jan Seva Kendra',
-    status: 'processing',
-    date: '2026-09-10',
-    notes: 'Submitted on e-District portal. Lekhpal verification in progress.',
-  },
-  {
-    id: 'ord_3',
-    tokenNumber: '999-2026-8803',
-    customerName: 'Rohit Raj',
-    customerMobile: '9555112233',
-    serviceId: 'srv_pan_correction',
-    serviceName: 'PAN Card Name / DOB / Father Name Correction',
-    amount: 160,
-    vleId: 'VLE-999-1003',
-    vleCenterName: 'Guru Nanak Cyber Zone & Form Hub',
-    status: 'pending',
-    date: '2026-09-11',
-    notes: 'Requires supporting matriculation certificate for father name update.',
-  },
-  {
-    id: 'ord_4',
-    tokenNumber: '999-2026-8804',
-    customerName: 'Vikram Singh',
-    customerMobile: '9444332211',
-    serviceId: 'srv_driving_lic',
-    serviceName: 'Learner / Driving License Application (Sarathi)',
-    amount: 250,
-    vleId: 'VLE-999-1001',
-    vleCenterName: 'Shiv Digital Cyber Cafe & CSC Center',
-    status: 'approved',
-    date: '2026-09-11',
-    notes: 'RTO Lucknow slot booked for 18th Sept 10:30 AM.',
-  },
-];
+export const initialOrders: CustomerOrder[] = [];
 
-export const initialTransactions: WalletTransaction[] = [
-  {
-    id: 'tx_1',
-    vleId: 'VLE-999-1001',
-    vleName: 'Shiv Digital Cyber Cafe & CSC Center',
-    type: 'credit',
-    amount: 2000,
-    reason: 'Instant UPI Top-up via PhonePe (UTR: 5291039482)',
-    timestamp: '2026-09-10 11:20 AM',
-    balanceAfter: 2450,
-    status: 'completed',
-  },
-  {
-    id: 'tx_2',
-    vleId: 'VLE-999-1002',
-    vleName: 'Balaji Jan Seva Kendra',
-    type: 'debit',
-    amount: 60,
-    reason: 'Fee deducted for Order #999-2026-8802 (Income Certificate)',
-    timestamp: '2026-09-10 03:45 PM',
-    balanceAfter: 1280,
-    status: 'completed',
-  },
-  {
-    id: 'tx_3',
-    vleId: 'VLE-999-1003',
-    vleName: 'Guru Nanak Cyber Zone & Form Hub',
-    type: 'credit',
-    amount: 5000,
-    reason: 'QR Code Wallet Recharge (UTR: 6639201948)',
-    timestamp: '2026-09-08 09:15 AM',
-    balanceAfter: 4820,
-    status: 'completed',
-  },
-];
+export const initialTransactions: WalletTransaction[] = [];
 
+export const initialVleApplications: VleApplication[] = [];
+
+// ============================================
+// GOVT EXAM PRESETS — Real reference data (keep)
+// ============================================
 export const govtExamPresets: GovtExamPreset[] = [
   {
     id: 'ssc_cgl_chsl_gd',
@@ -425,6 +346,9 @@ export const govtExamPresets: GovtExamPreset[] = [
   },
 ];
 
+// ============================================
+// IMPORTANT LINKS — Real govt links (keep)
+// ============================================
 export const initialImportantLinks: ImportantLink[] = [
   {
     id: 'link_uidai',
@@ -502,35 +426,3 @@ export const initialImportantLinks: ImportantLink[] = [
 
 // Fallback alias for existing code
 export const quickGovtLinks = initialImportantLinks;
-
-export const initialVleApplications: VleApplication[] = [
-  {
-    id: 'app_vle_01',
-    operatorName: 'Vijay Prajapati',
-    centerName: 'Prajapati Cyber Point & Common Service',
-    mobile: '9891234567',
-    email: 'vijay.prajapati88@gmail.com',
-    state: 'Uttar Pradesh',
-    district: 'Varanasi',
-    address: 'Near BHU Gate, Lanka, Varanasi',
-    cscId: 'CSC-UP-54219',
-    paymentUtr: 'UTR202609110014298',
-    paymentAmount: 299,
-    status: 'pending',
-    appliedDate: '2026-09-11 11:30 AM',
-  },
-  {
-    id: 'app_vle_02',
-    operatorName: 'Deepak Kumar Sahu',
-    centerName: 'Maa Vaishno Digital Seva',
-    mobile: '9435012345',
-    email: 'deepak.sahu99@gmail.com',
-    state: 'Madhya Pradesh',
-    district: 'Bhopal',
-    address: 'Shop No. 4, Main Market, MP Nagar, Bhopal',
-    paymentUtr: 'UTR202609109823411',
-    paymentAmount: 299,
-    status: 'pending',
-    appliedDate: '2026-09-10 04:15 PM',
-  },
-];
