@@ -64,16 +64,13 @@ import {
 interface AppContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
-  
   siteConfig: SiteConfig;
   updateSiteConfig: (updates: Partial<SiteConfig>) => void;
-  
   services: ServiceItem[];
   toggleService: (id: string) => void;
   updateService: (service: ServiceItem) => void;
   addService: (service: Omit<ServiceItem, 'id'>) => void;
   deleteService: (id: string) => void;
-  
   vles: VleOperator[];
   activeVle: VleOperator | null;
   setActiveVle: (vle: VleOperator | null) => void;
@@ -81,40 +78,33 @@ interface AppContextType {
   toggleVleStatus: (vleId: string) => void;
   addVle: (vle: Omit<VleOperator, 'id' | 'vleId' | 'totalOrdersCompleted' | 'joinedDate'>) => void;
   updateVleProfile: (vleId: string, updates: Partial<VleOperator>) => void;
-  
   vleApplications: VleApplication[];
   submitVleApplication: (app: Omit<VleApplication, 'id' | 'status' | 'appliedDate'>) => string;
   approveVleApplication: (appId: string, customVleId?: string, customPassword?: string) => Promise<{ vleId: string; password: string } | null>;
   rejectVleApplication: (appId: string, reason: string) => void;
-  
   vleLoggedIn: boolean;
   vleLogin: (vleId: string, password?: string) => Promise<boolean>;
   vleLogout: () => Promise<void>;
-
   ownerAuthenticated: boolean;
   ownerEmail: string | null;
   ownerLockedUntil: number | null;
   verifyOwnerAuth: (input: string) => boolean;
   lockOwnerSession: () => void;
   changeOwnerCredentials: (newPin: string, newPassword?: string) => void;
-
   importantLinks: ImportantLink[];
   addImportantLink: (link: Omit<ImportantLink, 'id'>) => void;
   updateImportantLink: (link: ImportantLink) => void;
   deleteImportantLink: (id: string) => void;
   resetImportantLinks: () => void;
-
   allTools: ToolDefinition[];
   customTools: ToolDefinition[];
   addCustomTool: (tool: Omit<ToolDefinition, 'id' | 'isCustom'>) => void;
   updateTool: (tool: ToolDefinition) => void;
   deleteCustomTool: (id: string) => void;
-
   orders: CustomerOrder[];
   addCustomerOrder: (order: Omit<CustomerOrder, 'id' | 'tokenNumber' | 'date'>) => CustomerOrder;
   updateOrderStatus: (orderId: string, status: CustomerOrder['status'], notes?: string, rejectionReason?: string) => void;
   transactions: WalletTransaction[];
-  
   activeTool: string | null;
   setActiveTool: (toolId: string | null) => void;
   resetToDefaultData: () => void;
@@ -122,7 +112,6 @@ interface AppContextType {
   notification: string | null;
   showNotification: (msg: string) => void;
   firebaseReady: boolean;
-
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   userAccountLoading: boolean;
@@ -131,15 +120,12 @@ interface AppContextType {
   recordUsage: (toolId: string) => Promise<void>;
   isUserPremium: () => boolean;
   showAdsForCurrentUser: () => boolean;
-
   paymentRequests: PaymentRequest[];
   submitPaymentRequest: (data: Omit<PaymentRequest, 'id' | 'status' | 'requestedAt'>) => Promise<PaymentRequest | null>;
   approvePaymentRequest: (paymentId: string, validUntil: Date) => Promise<boolean>;
   rejectPaymentRequest: (paymentId: string, reason: string) => Promise<boolean>;
-
   premiumToolIds: string[];
   togglePremiumTool: (toolId: string) => void;
-
   ledgerEntries: LedgerEntry[];
   ledgerLoading: boolean;
   addLedgerEntry: (entry: Omit<LedgerEntry, 'id' | 'createdAt' | 'timestamp' | 'date'>) => Promise<LedgerEntry | null>;
@@ -188,7 +174,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.ROLE, newRole);
   };
 
-  // SITE CONFIG
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SITE_CONFIG);
     if (saved) {
@@ -197,7 +182,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialSiteConfig;
   });
 
-  // SERVICES
   const [services, setServices] = useState<ServiceItem[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SERVICES);
     if (saved) {
@@ -210,7 +194,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
   }, [services]);
 
-  // VLEs
   const [vles, setVles] = useState<VleOperator[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.VLES);
     if (saved) {
@@ -219,7 +202,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialVles;
   });
 
-  // ORDERS
   const [orders, setOrders] = useState<CustomerOrder[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
     if (saved) {
@@ -228,7 +210,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialOrders;
   });
 
-  // TRANSACTIONS
   const [transactions, setTransactions] = useState<WalletTransaction[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
     if (saved) {
@@ -241,7 +222,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
   }, [transactions]);
 
-  // IMPORTANT LINKS
   const [importantLinks, setImportantLinks] = useState<ImportantLink[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.IMPORTANT_LINKS);
     if (saved) {
@@ -250,7 +230,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialImportantLinks;
   });
 
-  // VLE APPLICATIONS
   const [vleApplications, setVleApplications] = useState<VleApplication[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.VLE_APPLICATIONS);
     if (saved) {
@@ -259,7 +238,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialVleApplications;
   });
 
-  // CUSTOM TOOLS
   const [customTools, setCustomTools] = useState<ToolDefinition[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CUSTOM_TOOLS);
     if (saved) {
@@ -268,10 +246,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   });
 
-  // ============================================
-  // ✅ FIXED: PREMIUM TOOLS — Always use registry IDs
-  // (localStorage gets stale when premium IDs change)
-  // ============================================
+  // ✅ FIXED: Always use registry premium IDs
   const [premiumToolIds, setPremiumToolIds] = useState<string[]>(() => {
     return DEFAULT_PREMIUM_TOOL_IDS;
   });
@@ -289,18 +264,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Premium tool list updated');
   };
 
-  // CURRENT USER
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [userAccountLoading, setUserAccountLoading] = useState(false);
-
-  // PAYMENT REQUESTS
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
-
-  // KHATABOOK LEDGER
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
-  // FIREBASE — Initial Load
   useEffect(() => {
     const loadFromFirebase = async () => {
       const fbConfig = await loadSiteConfigFromFirebase();
@@ -348,7 +317,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadFromFirebase();
   }, []);
 
-  // FIREBASE — Real-time listeners
   useEffect(() => {
     if (!firebaseReady) return;
     
@@ -368,7 +336,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [firebaseReady]);
 
-  // AUTO-SYNC TO FIREBASE
   useEffect(() => {
     if (!firebaseReady) return;
     localStorage.setItem(STORAGE_KEYS.VLES, JSON.stringify(vles));
@@ -399,7 +366,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     saveLinksToFirebase(importantLinks);
   }, [importantLinks, firebaseReady]);
 
-  // UPDATE FUNCTIONS
   const updateSiteConfig = async (updates: Partial<SiteConfig>) => {
     const next = { ...siteConfig, ...updates };
     setSiteConfig(next);
@@ -429,7 +395,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Service deleted.');
   };
 
-  // ACTIVE VLE
   const [activeVleId, setActiveVleId] = useState<string>(() => {
     return localStorage.getItem(STORAGE_KEYS.ACTIVE_VLE_ID) || '';
   });
@@ -446,7 +411,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // IMPORTANT LINKS FUNCTIONS
   const addImportantLink = (linkData: Omit<ImportantLink, 'id'>) => {
     const newLink: ImportantLink = { ...linkData, id: 'link_' + Date.now().toString(36) };
     setImportantLinks((prev) => [newLink, ...prev]);
@@ -468,7 +432,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Default links restored.');
   };
 
-  // VLE APPLICATIONS — Direct Firebase save
   const submitVleApplication = (appData: Omit<VleApplication, 'id' | 'status' | 'appliedDate'>): string => {
     const appId = 'app_vle_' + Date.now().toString(36);
     const newApp: VleApplication = {
@@ -501,7 +464,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return appId;
   };
 
-  // APPROVE VLE APPLICATION — Unified System
   const approveVleApplication = async (appId: string, customVleId?: string, customPassword?: string): Promise<{ vleId: string; password: string } | null> => {
     const targetApp = vleApplications.find((a) => a.id === appId);
     if (!targetApp) return null;
@@ -515,7 +477,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showNotification(`❌ VLE Auth fail: ${authResult.error}`);
       return null;
     }
-    console.log('✅ Firebase Auth account created:', authResult.uid);
 
     const vleData: VleData = {
       vleId: generatedVleId,
@@ -533,7 +494,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       shopUpiId: siteConfig.upiId,
     };
 
-    console.log('📝 Creating unified user account for VLE...');
     const userResult = await createOrUpdateVleUser(
       targetApp.email,
       targetApp.operatorName,
@@ -546,8 +506,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!userResult.success) {
       console.error('⚠️ User account creation failed:', userResult.error);
       showNotification('⚠️ VLE created but user account sync pending');
-    } else {
-      console.log('✅ Unified VLE user account created:', userResult.userId);
     }
 
     const newVle: VleOperator = {
@@ -598,7 +556,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Application rejected.');
   };
 
-  // VLE AUTH — Unified Login
   const [vleLoggedIn, setVleLoggedIn] = useState<boolean>(false);
 
   const vleLogin = async (emailOrVleId: string, password?: string): Promise<boolean> => {
@@ -613,11 +570,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ) || null;
 
     if (!found) {
-      console.log('🔍 VLE not in legacy list, checking user accounts...');
       const userAccount = await getUserByEmail(input);
 
       if (userAccount && userAccount.plan === 'vle' && userAccount.vleData) {
-        console.log('✅ Found VLE user in userAccounts:', userAccount.email);
         found = {
           id: userAccount.id,
           vleId: userAccount.vleData.vleId,
@@ -638,7 +593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    if (!found) { showNotification('VLE account nahi mila. Pehle register karein.'); return false; }
+    if (!found) { showNotification('VLE account not found. Please register first.'); return false; }
     if (found.status === 'suspended') { showNotification('Account suspended.'); return false; }
 
     const result = await loginVle(found.email, password);
@@ -653,7 +608,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (userAcc) {
       setCurrentUser(userAcc);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, userAcc.id);
-      console.log('✅ VLE logged in with unified account:', userAcc.email);
     }
 
     showNotification(`Welcome, ${found.operatorName}!`);
@@ -691,7 +645,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, [vles]);
 
-  // OWNER AUTH
   const [ownerAuthenticated, setOwnerAuthenticated] = useState<boolean>(false);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerLockedUntil, setOwnerLockedUntil] = useState<number | null>(null);
@@ -721,7 +674,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Credentials updated!');
   };
 
-  // TOOLS
   const allTools: ToolDefinition[] = [...TOOLS_REGISTRY, ...customTools];
 
   const addCustomTool = (toolData: Omit<ToolDefinition, 'id' | 'isCustom'>) => {
@@ -743,7 +695,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Tool removed.');
   };
 
-  // WALLET
   const updateVleWallet = (vleId: string, amount: number, type: 'credit' | 'debit', reason: string): boolean => {
     const targetVle = vles.find((v) => v.id === vleId);
     if (!targetVle) return false;
@@ -795,7 +746,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('New VLE registered!');
   };
 
-  // ORDERS
   const addCustomerOrder = (orderData: Omit<CustomerOrder, 'id' | 'tokenNumber' | 'date'>): CustomerOrder => {
     const randomToken = '999-2026-' + Math.floor(1000 + Math.random() * 9000);
     const newOrder: CustomerOrder = {
@@ -843,7 +793,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // SUBSCRIPTION FUNCTIONS
   const createOrUpdateUserAccount = async (userData: Partial<UserAccount> & { id: string; email: string; name: string }): Promise<boolean> => {
     setUserAccountLoading(true);
     try {
@@ -876,18 +825,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // ============================================
-  // ✅ FIXED: Use registry premium IDs directly
-  // ============================================
   const checkToolAccess = async (toolId: string) => {
     const { canUserUseTool } = await import('../services/toolUsageService');
     return canUserUseTool(currentUser, toolId, DEFAULT_PREMIUM_TOOL_IDS);
   };
 
+  // ✅ FIXED: Allow guest usage tracking (null userId)
   const recordUsage = async (toolId: string) => {
-    if (!currentUser) return;
     const { recordToolUsage } = await import('../services/toolUsageService');
-    await recordToolUsage(currentUser.id, toolId);
+    await recordToolUsage(currentUser?.id || null, toolId);
   };
 
   const isUserPremium = (): boolean => {
@@ -908,7 +854,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  // REAL-TIME CURRENT USER LISTENER
   useEffect(() => {
     if (!currentUser?.id) return;
     
@@ -939,7 +884,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
 
-  // PAYMENT FUNCTIONS
   const submitPaymentRequest = async (data: Omit<PaymentRequest, 'id' | 'status' | 'requestedAt'>): Promise<PaymentRequest | null> => {
     const { createPaymentRequest } = await import('../services/paymentService');
     const result = await createPaymentRequest(data);
@@ -974,7 +918,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return success;
   };
 
-  // KHATABOOK FUNCTIONS
   const addLedgerEntry = async (entryData: Omit<LedgerEntry, 'id' | 'createdAt' | 'timestamp' | 'date'>) => {
     const { createLedgerEntry } = await import('../services/khatabookService');
     const result = await createLedgerEntry(entryData);
@@ -1110,7 +1053,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // SUBSCRIBE TO PAYMENTS
   useEffect(() => {
     if (!ownerAuthenticated) return;
     const loadPayments = async () => {
@@ -1124,7 +1066,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => { unsubPromise.then(unsub => unsub && unsub()); };
   }, [ownerAuthenticated]);
 
-  // SUBSCRIBE TO LEDGER
   useEffect(() => {
     if (!activeVle) return;
     const loadLedger = async () => {
