@@ -153,7 +153,37 @@ const STORAGE_KEYS = {
   CURRENT_USER_ID: '999tools_current_user_id_v1',
 };
 
+// ============================================
+// STORAGE VERSIONING — Bump this to force-clear old localStorage
+// ============================================
+const STORAGE_VERSION = '2.0.0';
+const STORAGE_VERSION_KEY = '999tools_storage_version';
+
+const clearOldStorageIfNeeded = () => {
+  try {
+    const currentVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+    if (currentVersion !== STORAGE_VERSION) {
+      console.log(`🧹 Clearing old localStorage (was ${currentVersion}, now ${STORAGE_VERSION})`);
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('999tools_') || key.startsWith('vle_'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
+      console.log(`✅ Cleared ${keysToRemove.length} old localStorage keys`);
+    }
+  } catch (e) {
+    console.error('Storage cleanup error:', e);
+  }
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // ✅ Force-clean old localStorage on version bump
+  clearOldStorageIfNeeded();
+
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
 
@@ -786,7 +816,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTool, setActiveTool] = useState<string | null>(null);
 
   const resetToDefaultData = () => {
-    if (confirm('Reset all data?')) {
+    if (confirm('Reset all data? This will clear localStorage and reload.')) {
       localStorage.clear();
       sessionStorage.clear();
       location.reload();
