@@ -7,8 +7,8 @@ export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; 
   {
     id: 'photo_exam',
     label: '📸 Photo & Image',
-    count: 20,
-    description: 'Passport photo, resize, compress, convert, background remove',
+    count: 35,
+    description: 'Passport photo, resize, compress, convert, background remove, filters',
     icon: 'Camera',
   },
   {
@@ -77,7 +77,7 @@ export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; 
 ];
 
 // ============================================
-// TOOLS REGISTRY — 20 Tools (Batch 1 + 2)
+// TOOLS REGISTRY — 35 Tools (Batch 1 + 2 + 3)
 // ============================================
 export const TOOLS_REGISTRY: ToolDefinition[] = [
   // ============================================
@@ -386,6 +386,229 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PassportTemplateTool',
     active: true,
   },
+
+  // ============================================
+  // 📸 BATCH 3: PHOTO ADVANCED (#021 - #035)
+  // ============================================
+  {
+    num: 21,
+    id: 'photo_bg_remover',
+    name: 'Background Remover (Smart)',
+    shortName: 'BG Remove',
+    category: 'photo_exam',
+    description: 'Remove solid color backgrounds from photos & signatures — perfect for ID photos with clean white/transparent output',
+    badge: 'PREMIUM',
+    tags: ['background', 'remove', 'transparent', 'bg', 'id photo'],
+    popular: true,
+    vleEssential: true,
+    isPremium: true,
+    iconName: 'Eraser',
+    componentKey: 'ImageBackgroundRemoverTool',
+    active: true,
+  },
+  {
+    num: 22,
+    id: 'photo_auto_enhancer',
+    name: 'Photo Auto Enhancer (Smart)',
+    shortName: 'Auto Enhance',
+    category: 'photo_exam',
+    description: 'One-click enhancement — auto contrast, white balance, and color boost for dull photos',
+    badge: 'PREMIUM',
+    tags: ['enhance', 'auto', 'contrast', 'brightness', 'improve'],
+    popular: true,
+    vleEssential: true,
+    isPremium: true,
+    iconName: 'Sparkles',
+    componentKey: 'PhotoAutoEnhancerTool',
+    active: true,
+  },
+  {
+    num: 23,
+    id: 'photo_old_restorer',
+    name: 'Old Photo Restorer',
+    shortName: 'Restore',
+    category: 'photo_exam',
+    description: 'Revive faded old photos with denoise, color correction, and contrast repair',
+    badge: 'PREMIUM',
+    tags: ['restore', 'old', 'denoise', 'repair', 'faded'],
+    vleEssential: false,
+    isPremium: true,
+    iconName: 'History',
+    componentKey: 'OldPhotoRestorerTool',
+    active: true,
+  },
+  {
+    num: 24,
+    id: 'photo_bg_colorizer',
+    name: 'Background Colorizer',
+    shortName: 'BG Color',
+    category: 'photo_exam',
+    description: 'Replace photo background with any solid color — White, Blue, Grey, Red for passport/ID standards',
+    tags: ['background', 'color', 'replace', 'passport', 'blue', 'white'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Palette',
+    componentKey: 'PhotoBackgroundColorizerTool',
+    active: true,
+  },
+  {
+    num: 25,
+    id: 'photo_color_inverter',
+    name: 'Photo Color Inverter (Negative)',
+    shortName: 'Invert',
+    category: 'photo_exam',
+    description: 'Convert photo to negative — invert all colors instantly for artistic effect',
+    tags: ['invert', 'negative', 'reverse', 'color'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'RefreshCw',
+    componentKey: 'PhotoColorInverterTool',
+    active: true,
+  },
+  {
+    num: 26,
+    id: 'photo_saturation_booster',
+    name: 'Photo Saturation Booster',
+    shortName: 'Saturate',
+    category: 'photo_exam',
+    description: 'Boost or reduce color intensity with live saturation slider (0% to 300%)',
+    tags: ['saturation', 'vibrant', 'color', 'boost'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Droplets',
+    componentKey: 'PhotoSaturationBoosterTool',
+    active: true,
+  },
+  {
+    num: 27,
+    id: 'photo_sepia',
+    name: 'Photo Sepia Effect',
+    shortName: 'Sepia',
+    category: 'photo_exam',
+    description: 'Classic sepia tone with adjustable intensity for vintage look',
+    tags: ['sepia', 'vintage', 'old', 'tone'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Coffee',
+    componentKey: 'PhotoSepiaTool',
+    active: true,
+  },
+  {
+    num: 28,
+    id: 'photo_vintage',
+    name: 'Photo Vintage Filter',
+    shortName: 'Vintage',
+    category: 'photo_exam',
+    description: 'Retro film look with warm tint, faded tones, and vignette',
+    tags: ['vintage', 'retro', 'filter', 'vignette', 'film'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Camera',
+    componentKey: 'PhotoVintageTool',
+    active: true,
+  },
+  {
+    num: 29,
+    id: 'photo_watermark',
+    name: 'Photo Watermark Adder',
+    shortName: 'Watermark',
+    category: 'photo_exam',
+    description: 'Add text watermark with customizable position, size, opacity, and rotation',
+    tags: ['watermark', 'text', 'copyright', 'brand'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Stamp',
+    componentKey: 'PhotoWatermarkTool',
+    active: true,
+  },
+  {
+    num: 30,
+    id: 'photo_text_overlay',
+    name: 'Photo Text Overlay',
+    shortName: 'Text Overlay',
+    category: 'photo_exam',
+    description: 'Add stylized text on photos with font, size, color, and stroke options',
+    tags: ['text', 'overlay', 'caption', 'font'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Type',
+    componentKey: 'PhotoTextOverlayTool',
+    active: true,
+  },
+  {
+    num: 31,
+    id: 'photo_metadata_viewer',
+    name: 'Photo Metadata Viewer',
+    shortName: 'Metadata',
+    category: 'photo_exam',
+    description: 'View image details — dimensions, file size, aspect ratio, DPI estimation',
+    tags: ['metadata', 'exif', 'info', 'details'],
+    vleEssential: false,
+    isPremium: false,
+    iconName: 'Info',
+    componentKey: 'PhotoMetadataViewerTool',
+    active: true,
+  },
+  {
+    num: 32,
+    id: 'photo_dpi_converter',
+    name: 'Photo DPI Converter',
+    shortName: 'DPI',
+    category: 'photo_exam',
+    description: 'Set or convert DPI metadata (72, 96, 150, 300) for print-ready output',
+    tags: ['dpi', 'ppi', 'print', 'resolution'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Printer',
+    componentKey: 'PhotoDpiConverterTool',
+    active: true,
+  },
+  {
+    num: 33,
+    id: 'photo_bulk_resizer',
+    name: 'Bulk Image Resizer',
+    shortName: 'Bulk Resize',
+    category: 'photo_exam',
+    description: 'Resize multiple images at once to same dimensions — download all as ZIP',
+    badge: 'PREMIUM',
+    tags: ['bulk', 'batch', 'multiple', 'resize', 'zip'],
+    popular: true,
+    vleEssential: true,
+    isPremium: true,
+    iconName: 'Layers',
+    componentKey: 'BulkImageResizerTool',
+    active: true,
+  },
+  {
+    num: 34,
+    id: 'photo_bulk_compressor',
+    name: 'Bulk Image Compressor',
+    shortName: 'Bulk Compress',
+    category: 'photo_exam',
+    description: 'Compress multiple images to target quality — download all as ZIP',
+    badge: 'PREMIUM',
+    tags: ['bulk', 'batch', 'compress', 'zip'],
+    popular: true,
+    vleEssential: true,
+    isPremium: true,
+    iconName: 'Archive',
+    componentKey: 'BulkImageCompressorTool',
+    active: true,
+  },
+  {
+    num: 35,
+    id: 'image_to_base64',
+    name: 'Image to Base64 Converter',
+    shortName: 'To Base64',
+    category: 'photo_exam',
+    description: 'Convert image to Base64 data URL — perfect for embedding in HTML/CSS',
+    tags: ['base64', 'encode', 'data url', 'embed'],
+    vleEssential: false,
+    isPremium: false,
+    iconName: 'Code',
+    componentKey: 'ImageToBase64Tool',
+    active: true,
+  },
 ];
 
 // ============================================
@@ -395,6 +618,11 @@ export const PREMIUM_TOOL_IDS: string[] = [
   'photo_target_kb_compressor',  // #002
   'photo_sharpener',              // #009
   'govt_exam_resizer',            // #012
+  'photo_bg_remover',             // #021
+  'photo_auto_enhancer',          // #022
+  'photo_old_restorer',           // #023
+  'photo_bulk_resizer',           // #033
+  'photo_bulk_compressor',        // #034
 ];
 
 // ============================================
@@ -416,6 +644,19 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'face_center_crop',
   'photo_grid_maker',
   'passport_template_india',
+  // 🆕 Batch 3
+  'photo_bg_remover',
+  'photo_auto_enhancer',
+  'photo_bg_colorizer',
+  'photo_color_inverter',
+  'photo_saturation_booster',
+  'photo_sepia',
+  'photo_vintage',
+  'photo_watermark',
+  'photo_text_overlay',
+  'photo_dpi_converter',
+  'photo_bulk_resizer',
+  'photo_bulk_compressor',
 ];
 
 // ============================================
@@ -467,37 +708,6 @@ export const getFreeToolCount = (): number => {
 };
 
 // ============================================
-// TOOL REQUESTS
+// TOOL REQUESTS — Clean slate (demo data hata diya)
 // ============================================
-export const INITIAL_TOOL_REQUESTS: ToolRequestItem[] = [
-  {
-    id: 'req_1',
-    toolName: 'Video Compressor',
-    description: 'Compress large video files for WhatsApp and email sharing',
-    requestedBy: 'CSC VLE Operator',
-    votes: 12,
-    status: 'planned',
-    category: 'photo_exam',
-    createdAt: '2026-09-10',
-  },
-  {
-    id: 'req_2',
-    toolName: 'PAN Card Photo Signature Extractor',
-    description: 'Extract photo and signature from existing PAN card',
-    requestedBy: 'CSC VLE Operator',
-    votes: 8,
-    status: 'in_review',
-    category: 'pvc_print',
-    createdAt: '2026-09-11',
-  },
-  {
-    id: 'req_3',
-    toolName: 'Ayushman Card PVC Formatter',
-    description: 'Format Ayushman Bharat card for CR80 PVC printing',
-    requestedBy: 'Cyber Cafe Owner',
-    votes: 15,
-    status: 'planned',
-    category: 'pvc_print',
-    createdAt: '2026-09-12',
-  },
-];
+export const INITIAL_TOOL_REQUESTS: ToolRequestItem[] = [];
