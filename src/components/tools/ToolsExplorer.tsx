@@ -42,7 +42,7 @@ import {
   PhotoCropTool,
 } from './photo/PhotoBasics';
 
-// 🆕 Batch 2 imports
+// Batch 2 imports
 import {
   PassportPhotoSheetTool,
   GovtExamResizerTool,
@@ -55,6 +55,29 @@ import {
   PhotoCollageMakerTool,
   PassportTemplateTool,
 } from './photo/PhotoPassport';
+
+// 🆕 Batch 3 imports — PhotoAdvanced (#021-#030)
+import {
+  ImageBackgroundRemoverTool,
+  PhotoAutoEnhancerTool,
+  OldPhotoRestorerTool,
+  PhotoBackgroundColorizerTool,
+  PhotoColorInverterTool,
+  PhotoSaturationBoosterTool,
+  PhotoSepiaTool,
+  PhotoVintageTool,
+  PhotoWatermarkTool,
+  PhotoTextOverlayTool,
+} from './photo/PhotoAdvanced';
+
+// 🆕 Batch 3 imports — PhotoConvert (#031-#035)
+import {
+  PhotoMetadataViewerTool,
+  PhotoDpiConverterTool,
+  BulkImageResizerTool,
+  BulkImageCompressorTool,
+  ImageToBase64Tool,
+} from './photo/PhotoConvert';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -102,31 +125,23 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const userPremium = isUserPremium();
 
   // ============================================
-  // ✅ HELPER: Is this tool premium? (single source of truth)
+  // ✅ HELPER: Is this tool premium?
   // ============================================
   const isToolPremium = (toolId: string): boolean => {
     return PREMIUM_TOOL_IDS.includes(toolId);
   };
 
   // ============================================
-  // ✅ HELPER: Should this tool show as LOCKED for current user?
+  // ✅ HELPER: Should this tool show as LOCKED?
   // ============================================
   const isToolLocked = (toolId: string): boolean => {
-    // Free tool — never locked
     if (!isToolPremium(toolId)) return false;
-
-    // Premium/VLE user — never locked
     if (userPremium) return false;
 
     const access = toolAccessMap[toolId];
-
-    // Access not loaded yet — don't show lock (avoids flicker)
     if (!access) return false;
-
-    // Guard: service returned -1 limit (list mismatch) — don't show lock
     if (access.limit <= 0) return false;
 
-    // Locked if not allowed OR no remaining uses
     return !access.allowed || access.remaining <= 0;
   };
 
@@ -154,7 +169,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   }, []);
 
   // ============================================
-  // ✅ FIXED: Removed `activeToolId` from deps to prevent unnecessary refetch
+  // Load tool access map
   // ============================================
   useEffect(() => {
     const loadAccess = async () => {
@@ -168,7 +183,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         } else {
           try {
             const access = await checkToolAccess(tool.id);
-            // Guard: if service returns -1 limit (mismatch), fall back to default free limit
             if (!access || access.limit <= 0) {
               map[tool.id] = { 
                 allowed: true, 
@@ -203,7 +217,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   }, [activeToolId]);
 
   // ============================================
-  // ✅ FIXED: handleOpenTool — no fallthrough, explicit gate for premium tools
+  // ✅ handleOpenTool — no fallthrough
   // ============================================
   const handleOpenTool = async (toolId: string) => {
     const tool = TOOLS_REGISTRY.find(t => t.id === toolId);
@@ -221,14 +235,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       return;
     }
 
-    // ── PREMIUM TOOL + FREE/GUEST USER: check access ──
+    // ── PREMIUM TOOL + FREE/GUEST USER ──
     let access = toolAccessMap[toolId];
 
-    // If not loaded yet, fetch fresh
     if (!access) {
       try {
         access = await checkToolAccess(toolId);
-        // Guard: service mismatch
         if (!access || access.limit <= 0) {
           access = { 
             allowed: true, 
@@ -249,7 +261,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       }
     }
 
-    // Guard: still mismatch
     if (access.limit <= 0) {
       access = { 
         allowed: true, 
@@ -260,13 +271,13 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       setToolAccessMap(prev => ({ ...prev, [toolId]: access! }));
     }
 
-    // ── CHECK: Daily limit reached → BLOCK ──
+    // ── CHECK: Daily limit reached ──
     if (!access.allowed || access.remaining <= 0) {
       promptUpgrade('❌ Daily free limit reached (3/day). Upgrade to Premium.');
-      return; // 🚫 DO NOT open tool
+      return;
     }
 
-    // ── RECORD USAGE (decrement) ──
+    // ── RECORD USAGE ──
     try {
       await recordUsage(toolId);
     } catch (e) {
@@ -340,12 +351,11 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   };
 
   // ============================================
-  // ✅ FIXED: renderPremiumBadge — handles -1 limit & undefined access
+  // ✅ renderPremiumBadge
   // ============================================
   const renderPremiumBadge = (toolId: string) => {
     if (!isToolPremium(toolId)) return null;
 
-    // Premium/VLE user — show PRO badge
     if (userPremium) {
       return (
         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -356,8 +366,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
     const access = toolAccessMap[toolId];
 
-    // Access not loaded yet
-    if (!access) {
+    if (!access || access.limit <= 0) {
       return (
         <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
           <Crown className="w-2.5 h-2.5" /> {FREE_USER_DAILY_LIMIT}/{FREE_USER_DAILY_LIMIT}
@@ -365,16 +374,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
-    // Guard: -1 limit (service mismatch) — show default
-    if (access.limit <= 0) {
-      return (
-        <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-          <Crown className="w-2.5 h-2.5" /> {FREE_USER_DAILY_LIMIT}/{FREE_USER_DAILY_LIMIT}
-        </span>
-      );
-    }
-
-    // Still has remaining uses
     if (access.remaining > 0) {
       return (
         <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -383,7 +382,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       );
     }
 
-    // LOCKED
     return (
       <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1">
         <Lock className="w-2.5 h-2.5" /> LOCKED
@@ -403,13 +401,13 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   };
 
   // ============================================
-  // TOOL WORKSPACE SWITCH (20 Tools)
+  // TOOL WORKSPACE SWITCH (35 Tools)
   // ============================================
   const renderToolWorkspace = () => {
     if (!currentActiveTool) return null;
 
     switch (currentActiveTool.componentKey) {
-      // Batch 1
+      // ============ Batch 1: Photo Basics ============
       case 'ImageFormatConverterTool': return <ImageFormatConverterTool onClose={handleCloseTool} />;
       case 'ImageCompressorTool': return <ImageCompressorTool onClose={handleCloseTool} />;
       case 'ImageResizeTool': return <ImageResizeTool onClose={handleCloseTool} />;
@@ -421,7 +419,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       case 'PhotoSharpenerTool': return <PhotoSharpenerTool onClose={handleCloseTool} />;
       case 'PhotoCropTool': return <PhotoCropTool onClose={handleCloseTool} />;
 
-      // 🆕 Batch 2
+      // ============ Batch 2: Passport & ID ============
       case 'PassportPhotoSheetTool': return <PassportPhotoSheetTool onClose={handleCloseTool} />;
       case 'GovtExamResizerTool': return <GovtExamResizerTool onClose={handleCloseTool} />;
       case 'SignatureWhiteBgTool': return <SignatureWhiteBgTool onClose={handleCloseTool} />;
@@ -432,6 +430,25 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       case 'PolaroidMakerTool': return <PolaroidMakerTool onClose={handleCloseTool} />;
       case 'PhotoCollageMakerTool': return <PhotoCollageMakerTool onClose={handleCloseTool} />;
       case 'PassportTemplateTool': return <PassportTemplateTool onClose={handleCloseTool} />;
+
+      // ============ Batch 3: Photo Advanced (#021-#030) ============
+      case 'ImageBackgroundRemoverTool': return <ImageBackgroundRemoverTool onClose={handleCloseTool} />;
+      case 'PhotoAutoEnhancerTool': return <PhotoAutoEnhancerTool onClose={handleCloseTool} />;
+      case 'OldPhotoRestorerTool': return <OldPhotoRestorerTool onClose={handleCloseTool} />;
+      case 'PhotoBackgroundColorizerTool': return <PhotoBackgroundColorizerTool onClose={handleCloseTool} />;
+      case 'PhotoColorInverterTool': return <PhotoColorInverterTool onClose={handleCloseTool} />;
+      case 'PhotoSaturationBoosterTool': return <PhotoSaturationBoosterTool onClose={handleCloseTool} />;
+      case 'PhotoSepiaTool': return <PhotoSepiaTool onClose={handleCloseTool} />;
+      case 'PhotoVintageTool': return <PhotoVintageTool onClose={handleCloseTool} />;
+      case 'PhotoWatermarkTool': return <PhotoWatermarkTool onClose={handleCloseTool} />;
+      case 'PhotoTextOverlayTool': return <PhotoTextOverlayTool onClose={handleCloseTool} />;
+
+      // ============ Batch 3: Photo Convert (#031-#035) ============
+      case 'PhotoMetadataViewerTool': return <PhotoMetadataViewerTool onClose={handleCloseTool} />;
+      case 'PhotoDpiConverterTool': return <PhotoDpiConverterTool onClose={handleCloseTool} />;
+      case 'BulkImageResizerTool': return <BulkImageResizerTool onClose={handleCloseTool} />;
+      case 'BulkImageCompressorTool': return <BulkImageCompressorTool onClose={handleCloseTool} />;
+      case 'ImageToBase64Tool': return <ImageToBase64Tool onClose={handleCloseTool} />;
 
       default:
         return (
@@ -627,7 +644,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredTools.map((tool) => {
               const isVle = isVleEssential(tool.id) || tool.vleEssential;
-              // ✅ Use centralized helper
               const locked = isToolLocked(tool.id);
 
               return (
