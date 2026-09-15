@@ -10,12 +10,14 @@ import {
   Sparkles, 
   Plus, 
   ArrowUpRight, 
+  ArrowLeft,
   FileCheck2,
   Copy,
   Printer,
   Lock,
   KeyRound,
-  BookOpen
+  BookOpen,
+  Home
 } from 'lucide-react';
 import { PassportPhotoMaker } from '../tools/PassportPhotoMaker';
 import { PhotoSignResizer } from '../tools/PhotoSignResizer';
@@ -64,6 +66,13 @@ export const VlePortal: React.FC = () => {
   const isVleUser = currentUser?.plan === 'vle' && currentUser?.vleData;
   const hasVleAccess = (activeVle && vleLoggedIn) || !!isVleUser;
 
+  // ✅ BACK TO HOME — switch to user panel
+  const handleBackToHome = () => {
+    setRole('user');
+    showNotification('🏠 Back to Home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // FIXED LOGOUT
   const handleLogout = async () => {
     try {
@@ -90,7 +99,17 @@ export const VlePortal: React.FC = () => {
         <div className="max-w-lg w-full bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-8 sm:p-10 text-center shadow-2xl border border-blue-700/40 relative overflow-hidden">
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl"></div>
-          
+
+          {/* 🆕 BACK TO HOME BUTTON — top-left */}
+          <button
+            onClick={handleBackToHome}
+            className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition backdrop-blur-sm"
+            title="Back to Home"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Home</span>
+          </button>
+
           <div className="relative z-10">
             <div className="w-20 h-20 mx-auto bg-amber-400/20 border border-amber-400/40 rounded-2xl flex items-center justify-center mb-6">
               <Lock className="w-10 h-10 text-amber-400" />
@@ -129,6 +148,15 @@ export const VlePortal: React.FC = () => {
               >
                 <Plus className="w-4 h-4" />
                 <span>New VLE Registration (₹{siteConfig.vleMonthlyPrice || 199}/mo)</span>
+              </button>
+
+              {/* 🆕 Bottom Back to Home link */}
+              <button
+                onClick={handleBackToHome}
+                className="w-full flex items-center justify-center gap-2 text-blue-200 hover:text-white text-xs font-semibold py-2 transition"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>Continue as Public User →</span>
               </button>
             </div>
 
@@ -187,10 +215,17 @@ export const VlePortal: React.FC = () => {
 
   if (!currentCenter) {
     return (
-      <div className="p-8 text-center text-slate-500">
+      <div className="p-8 text-center text-slate-500 space-y-4">
         <Store className="w-12 h-12 mx-auto text-slate-300 mb-3" />
         <h3 className="text-sm font-bold text-slate-800">VLE Center not found</h3>
         <p className="text-xs mt-1">Something went wrong. Please refresh the page.</p>
+        <button
+          onClick={handleBackToHome}
+          className="mx-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Home</span>
+        </button>
       </div>
     );
   }
@@ -229,9 +264,20 @@ export const VlePortal: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-blue-700/40 relative overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-6 relative z-10">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-bold uppercase tracking-wider">
-              <Store className="w-3.5 h-3.5 text-blue-300" />
-              CSC VLE & Cyber Cafe Operator Portal
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleBackToHome}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-blue-200 hover:text-white text-[10px] font-bold uppercase tracking-wider transition"
+                title="Back to Home"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                <span>Home</span>
+              </button>
+
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-[10px] font-bold uppercase tracking-wider">
+                <Store className="w-3 h-3 text-blue-300" />
+                CSC VLE & Cyber Cafe Operator Portal
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -243,7 +289,7 @@ export const VlePortal: React.FC = () => {
               </span>
             </div>
 
-            <p className="text-xs text-blue-200 flex items-center gap-2">
+            <p className="text-xs text-blue-200 flex items-center gap-2 flex-wrap">
               <span>Operator: <strong>{currentCenter.operatorName}</strong> ({currentCenter.mobile})</span>
               <span>•</span>
               <span>{currentCenter.district}, {currentCenter.state}</span>
@@ -525,7 +571,7 @@ export const VlePortal: React.FC = () => {
         }} />
       )}
 
-      {/* 🆕 TAB: BILLING */}
+      {/* TAB: BILLING */}
       {activeTab === 'billing' && (
         <BillingManager vle={{
           id: currentCenter.id,
@@ -855,7 +901,6 @@ Verified at [City]`,
                 <label className="text-[11px] text-slate-600 font-semibold">Mobile Number:</label>
                 <input
                   type="text"
-                  required
                   value={customerMobile}
                   onChange={(e) => setCustomerMobile(e.target.value)}
                   placeholder="10-digit mobile"
