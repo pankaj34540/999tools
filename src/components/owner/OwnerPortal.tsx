@@ -32,7 +32,8 @@ import {
   Wrench,
   ShieldCheck,
   CreditCard,
-  LifeBuoy
+  LifeBuoy,
+  Smartphone,
 } from 'lucide-react';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
@@ -42,6 +43,7 @@ import { ImportantLinksManager } from './ImportantLinksManager';
 import { ToolsManager } from './ToolsManager';
 import { PaymentApprovalsManager } from './PaymentApprovalsManager';
 import { OwnerSupportManager } from './OwnerSupportManager';
+import { OwnerRechargeQueue } from './OwnerRechargeQueue';
 
 export const OwnerPortal: React.FC = () => {
   const { 
@@ -66,14 +68,15 @@ export const OwnerPortal: React.FC = () => {
     vleApplications,
     importantLinks,
     allTools,
-    paymentRequests
+    paymentRequests,
+    rechargeOrders,
   } = useApp();
 
   if (!ownerAuthenticated) {
     return <OwnerSecurityGate />;
   }
 
-  const [activeTab, setActiveTab] = useState<'analytics' | 'vle_approvals' | 'payment_approvals' | 'support' | 'services' | 'tools_hub' | 'links' | 'vles' | 'orders' | 'settings' | 'monetization'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'vle_approvals' | 'payment_approvals' | 'recharge_queue' | 'support' | 'services' | 'tools_hub' | 'links' | 'vles' | 'orders' | 'settings' | 'monetization'>('analytics');
 
   // Service modal
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -123,6 +126,11 @@ export const OwnerPortal: React.FC = () => {
   const pendingOrders = orders.filter((o) => o.status === 'pending').length;
   const activeVleCount = vles.filter((v) => v.status === 'active').length;
   const paymentPendingCount = paymentRequests.filter((p) => p.status === 'pending').length;
+
+  // 🆕 Recharge pending count for badge
+  const rechargePendingCount = rechargeOrders.filter(
+    (r) => r.status === 'payment_submitted' || r.status === 'payment_verified'
+  ).length;
 
   const handleCreateService = (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,6 +225,7 @@ export const OwnerPortal: React.FC = () => {
             { id: 'analytics', label: 'Overview & Stats', icon: TrendingUp },
             { id: 'vle_approvals', label: `VLE Applications`, icon: UserCheck, badge: pendingVleAppsCount },
             { id: 'payment_approvals', label: `Payments`, icon: CreditCard, badge: paymentPendingCount },
+            { id: 'recharge_queue', label: `📱 Recharge Orders`, icon: Smartphone, badge: rechargePendingCount },
             { id: 'support', label: `🎧 Support`, icon: LifeBuoy },
             { id: 'tools_hub', label: `50+ Tools Registry`, icon: Wrench },
             { id: 'links', label: `Govt Links (${importantLinks.length})`, icon: Link2 },
@@ -241,7 +250,7 @@ export const OwnerPortal: React.FC = () => {
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
                 {tab.badge && tab.badge > 0 ? (
-                  <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-black">
+                  <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-black animate-pulse">
                     {tab.badge}
                   </span>
                 ) : null}
@@ -886,6 +895,11 @@ export const OwnerPortal: React.FC = () => {
       {/* TAB: PAYMENT APPROVALS */}
       {activeTab === 'payment_approvals' && (
         <PaymentApprovalsManager />
+      )}
+
+      {/* 🆕 TAB: RECHARGE ORDERS QUEUE */}
+      {activeTab === 'recharge_queue' && (
+        <OwnerRechargeQueue />
       )}
 
       {/* 🆕 TAB: SUPPORT TICKETS */}
