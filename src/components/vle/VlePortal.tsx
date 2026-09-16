@@ -17,7 +17,8 @@ import {
   Lock,
   KeyRound,
   BookOpen,
-  Home
+  Home,
+  Users,
 } from 'lucide-react';
 import { PassportPhotoMaker } from '../tools/PassportPhotoMaker';
 import { PhotoSignResizer } from '../tools/PhotoSignResizer';
@@ -32,6 +33,7 @@ import { VleRegistrationModal } from './VleRegistrationModal';
 import { VleLoginModal } from './VleLoginModal';
 import { KhatabookManager } from './KhatabookManager';
 import { BillingManager } from './BillingManager';
+import { CustomerCrm } from './CustomerCrm';
 
 export const VlePortal: React.FC = () => {
   const { 
@@ -49,9 +51,10 @@ export const VlePortal: React.FC = () => {
     currentUser,
     setCurrentUser,
     setRole,
+    customers,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'tools' | 'khatabook' | 'billing' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
+  const [activeTab, setActiveTab] = useState<'tools' | 'customers' | 'khatabook' | 'billing' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
   const [toolsViewMode, setToolsViewMode] = useState<'all_50' | 'essentials'>('all_50');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -100,7 +103,6 @@ export const VlePortal: React.FC = () => {
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl"></div>
 
-          {/* 🆕 BACK TO HOME BUTTON — top-left */}
           <button
             onClick={handleBackToHome}
             className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition backdrop-blur-sm"
@@ -150,7 +152,6 @@ export const VlePortal: React.FC = () => {
                 <span>New VLE Registration (₹{siteConfig.vleMonthlyPrice || 199}/mo)</span>
               </button>
 
-              {/* 🆕 Bottom Back to Home link */}
               <button
                 onClick={handleBackToHome}
                 className="w-full flex items-center justify-center gap-2 text-blue-200 hover:text-white text-xs font-semibold py-2 transition"
@@ -326,6 +327,7 @@ export const VlePortal: React.FC = () => {
         <div className="mt-8 pt-4 border-t border-white/10 flex flex-wrap gap-2">
           {[
             { id: 'tools', label: 'Cyber Cafe Tools', icon: Camera },
+            { id: 'customers', label: '👥 Customers', icon: Users, badge: customers.length },
             { id: 'khatabook', label: '📖 Khatabook', icon: BookOpen, badge: receivableCount },
             { id: 'billing', label: '🧾 Billing', icon: Receipt },
             { id: 'apply', label: 'Customer Services', icon: Plus },
@@ -558,6 +560,19 @@ export const VlePortal: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* 🆕 TAB: CUSTOMERS (CRM) */}
+      {activeTab === 'customers' && (
+        <CustomerCrm
+          vle={{
+            id: currentCenter.id,
+            vleId: currentCenter.vleId,
+            centerName: currentCenter.centerName,
+            operatorName: currentCenter.operatorName,
+            mobile: currentCenter.mobile,
+          }}
+        />
       )}
 
       {/* TAB: KHATABOOK */}
