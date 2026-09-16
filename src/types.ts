@@ -519,20 +519,19 @@ export type CustomerTag = 'regular' | 'vip' | 'defaulter' | 'new' | 'wholesale' 
 
 export interface Customer {
   id: string;
-  vleId: string;              // VLE ID of the owner
+  vleId: string;
   name: string;
-  mobile: string;             // Unique per VLE
+  mobile: string;
   altMobile?: string;
   email?: string;
   address?: string;
-  dob?: string;               // YYYY-MM-DD for birthday reminders
-  anniversary?: string;       // YYYY-MM-DD
+  dob?: string;
+  anniversary?: string;
   
   tags: CustomerTag[];
   notes?: string;
   whatsappOptIn: boolean;
   
-  // Auto-calculated fields (updated on each order)
   totalOrders: number;
   totalSpent: number;
   firstVisitDate: string;
@@ -558,4 +557,97 @@ export interface CustomerFilterOptions {
   sortBy?: 'name' | 'recent' | 'spent' | 'orders';
   dateFrom?: string;
   dateTo?: string;
+}
+
+// ============================================
+// RECHARGE ORDERS (Phase 2)
+// ============================================
+export type RechargeType = 'mobile' | 'dth' | 'utility';
+
+export type MobileOperator = 
+  | 'Airtel' 
+  | 'Jio' 
+  | 'Vi' 
+  | 'BSNL' 
+  | 'MTNL';
+
+export type DthOperator = 
+  | 'Tata Play' 
+  | 'Airtel Digital TV' 
+  | 'Dish TV' 
+  | 'Sun Direct' 
+  | 'd2h' 
+  | 'DD Free Dish';
+
+export type UtilityType = 
+  | 'electricity' 
+  | 'water' 
+  | 'gas' 
+  | 'broadband' 
+  | 'landline';
+
+export type RechargeStatus = 
+  | 'pending_payment'
+  | 'payment_submitted'
+  | 'payment_verified'
+  | 'processing'
+  | 'completed'
+  | 'rejected'
+  | 'refunded';
+
+export interface RechargeOrder {
+  id: string;
+  tokenNumber: string;
+  
+  placedBy: 'user' | 'vle';
+  userId?: string;
+  vleId?: string;
+  vleCenterName?: string;
+  vleMobile?: string;
+  
+  type: RechargeType;
+  operator: string;
+  accountNumber: string;
+  accountName?: string;
+  amount: number;
+  commission: number;
+  
+  utilityType?: UtilityType;
+  circle?: string;
+  notes?: string;
+  
+  paymentMode: 'upi' | 'cash';
+  utr?: string;
+  screenshotUrl?: string;
+  paidAmount?: number;
+  
+  rechargeRefNumber?: string;
+  rechargeDate?: string;
+  
+  status: RechargeStatus;
+  rejectionReason?: string;
+  
+  createdAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+}
+
+export interface RechargeOrderStats {
+  total: number;
+  pending: number;
+  processing: number;
+  completed: number;
+  rejected: number;
+  totalRevenue: number;
+  totalCommission: number;
+  todayCount: number;
+  todayAmount: number;
+}
+
+export interface RechargeOperatorPreset {
+  id: string;
+  type: RechargeType;
+  name: string;
+  logo?: string;
+  popular?: boolean;
 }
