@@ -19,6 +19,7 @@ import {
   BookOpen,
   Home,
   Users,
+  Smartphone,
 } from 'lucide-react';
 import { PassportPhotoMaker } from '../tools/PassportPhotoMaker';
 import { PhotoSignResizer } from '../tools/PhotoSignResizer';
@@ -34,6 +35,7 @@ import { VleLoginModal } from './VleLoginModal';
 import { KhatabookManager } from './KhatabookManager';
 import { BillingManager } from './BillingManager';
 import { CustomerCrm } from './CustomerCrm';
+import { RechargeOrderForm } from './RechargeOrderForm';
 
 export const VlePortal: React.FC = () => {
   const { 
@@ -54,7 +56,7 @@ export const VlePortal: React.FC = () => {
     customers,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'tools' | 'customers' | 'khatabook' | 'billing' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
+  const [activeTab, setActiveTab] = useState<'tools' | 'customers' | 'recharge' | 'khatabook' | 'billing' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
   const [toolsViewMode, setToolsViewMode] = useState<'all_50' | 'essentials'>('all_50');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -328,6 +330,7 @@ export const VlePortal: React.FC = () => {
           {[
             { id: 'tools', label: 'Cyber Cafe Tools', icon: Camera },
             { id: 'customers', label: '👥 Customers', icon: Users, badge: customers.length },
+            { id: 'recharge', label: '📱 Recharge', icon: Smartphone },
             { id: 'khatabook', label: '📖 Khatabook', icon: BookOpen, badge: receivableCount },
             { id: 'billing', label: '🧾 Billing', icon: Receipt },
             { id: 'apply', label: 'Customer Services', icon: Plus },
@@ -562,7 +565,7 @@ export const VlePortal: React.FC = () => {
         </div>
       )}
 
-      {/* 🆕 TAB: CUSTOMERS (CRM) */}
+      {/* TAB: CUSTOMERS (CRM) */}
       {activeTab === 'customers' && (
         <CustomerCrm
           vle={{
@@ -573,6 +576,21 @@ export const VlePortal: React.FC = () => {
             mobile: currentCenter.mobile,
           }}
         />
+      )}
+
+      {/* 🆕 TAB: RECHARGE */}
+      {activeTab === 'recharge' && (
+        <div className="max-w-2xl mx-auto">
+          <RechargeOrderForm
+            vle={{
+              id: currentCenter.id,
+              vleId: currentCenter.vleId,
+              centerName: currentCenter.centerName,
+              operatorName: currentCenter.operatorName,
+              mobile: currentCenter.mobile,
+            }}
+          />
+        </div>
       )}
 
       {/* TAB: KHATABOOK */}
