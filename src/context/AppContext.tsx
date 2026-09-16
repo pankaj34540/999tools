@@ -17,7 +17,8 @@ import {
   LedgerEntry,
   KhatabookStats,
   CustomerLedgerSummary,
-  VleData
+  VleData,
+  Customer,
 } from '../types';
 import { 
   initialSiteConfig, 
@@ -60,6 +61,13 @@ import {
   convertUserToVle,
   getUserByEmail
 } from '../services/subscriptionService';
+// 🆕 Customer CRM imports
+import {
+  createCustomer,
+  updateCustomer,
+  deleteCustomer,
+  subscribeToVleCustomers,
+} from '../services/customerService';
 
 interface AppContextType {
   role: UserRole;
@@ -133,6 +141,12 @@ interface AppContextType {
   removeLedgerEntry: (id: string) => Promise<boolean>;
   getKhatabookStats: () => KhatabookStats;
   getCustomerSummaries: () => CustomerLedgerSummary[];
+  // 🆕 Customer CRM
+  customers: Customer[];
+  customersLoading: boolean;
+  addCustomer: (data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'totalOrders' | 'totalSpent' | 'firstVisitDate'>) => Promise<Customer | null>;
+  updateCustomerById: (id: string, updates: Partial<Customer>) => Promise<boolean>;
+  deleteCustomerById: (id: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -153,11 +167,7 @@ const STORAGE_KEYS = {
   CURRENT_USER_ID: '999tools_current_user_id_v1',
 };
 
-// ============================================
-// STORAGE VERSIONING + FIREBASE FORCE RESET
-// Bump this to force-clear localStorage AND Firebase
-// ============================================
-const STORAGE_VERSION = '3.0.0';   // ⬅️ bumped from 2.0.0 → 3.0.0
+const STORAGE_VERSION = '3.0.0';
 const STORAGE_VERSION_KEY = '999tools_storage_version';
 const FORCE_RESET_FLAG = '999tools_force_firebase_reset';
 
@@ -166,8 +176,6 @@ const clearOldStorageIfNeeded = (): boolean => {
     const currentVersion = localStorage.getItem(STORAGE_VERSION_KEY);
     if (currentVersion !== STORAGE_VERSION) {
       console.log(`🧹 Version mismatch: was ${currentVersion}, now ${STORAGE_VERSION}`);
-      
-      // Clear all old localStorage keys
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -176,8 +184,6 @@ const clearOldStorageIfNeeded = (): boolean => {
         }
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
-      
-      // Mark for Firebase reset
       localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
       localStorage.setItem(FORCE_RESET_FLAG, 'true');
       console.log(`✅ Cleared ${keysToRemove.length} localStorage keys. Firebase reset pending...`);
@@ -190,23 +196,18 @@ const clearOldStorageIfNeeded = (): boolean => {
   }
 };
 
-// ============================================
-// FIREBASE FORCE RESET — overwrites Firestore with clean initialData
-// ============================================
 const forceResetFirebaseIfNeeded = async () => {
   try {
     const shouldReset = localStorage.getItem(FORCE_RESET_FLAG);
     if (shouldReset !== 'true') return false;
 
     console.log('🔥 Force resetting Firebase with clean data...');
-
     await saveSiteConfigToFirebase(initialSiteConfig);
     await saveVlesToFirebase([]);
     await saveApplicationsToFirebase([]);
     await saveOrdersToFirebase([]);
     await saveCustomToolsToFirebase([]);
     await saveLinksToFirebase(initialImportantLinks);
-
     localStorage.removeItem(FORCE_RESET_FLAG);
     console.log('✅ Firebase force reset complete');
     return true;
@@ -217,7 +218,6 @@ const forceResetFirebaseIfNeeded = async () => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // ✅ Force-clean old localStorage + set Firebase reset flag
   clearOldStorageIfNeeded();
 
   const [firebaseReady, setFirebaseReady] = useState(false);
@@ -335,16 +335,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
-  // ============================================
-  // ✅ FIREBASE LOAD — with auto-reset check
-  // ============================================
+  // 🆕 Customer CRM state
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+
   useEffect(() => {
     const loadFromFirebase = async () => {
-      // 🔥 First: check if we need to force-reset Firebase
       const didReset = await forceResetFirebaseIfNeeded();
       
       if (didReset) {
-        // After reset, use clean initial data
         setSiteConfig(initialSiteConfig);
         setVles([]);
         setOrders([]);
@@ -356,7 +355,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      // Normal load flow
       const fbConfig = await loadSiteConfigFromFirebase();
       if (fbConfig) {
         setSiteConfig(fbConfig);
@@ -874,7 +872,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (confirm('Reset all data? This will clear localStorage, Firebase, and reload.')) {
       localStorage.clear();
       sessionStorage.clear();
-      // Set flag to force Firebase reset on next load
       localStorage.setItem(FORCE_RESET_FLAG, 'true');
       location.reload();
     }
@@ -1167,6 +1164,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => { unsubPromise.then(unsub => unsub && unsub()); };
   }, [activeVle]);
 
+  // 🆕 CUSTOMERS SUBSCRIPTION — Load when VLE is active
+  useEffect(() => {
+    if (!activeVle?.vleId) {
+      setCustomers([]);
+      return;
+    }
+
+    setCustomersLoading(true);
+    console.log('📥 Subscribing to customers for VLE:', activeVle.vleId);
+
+    const unsub = subscribeToVleCustomers(activeVle.vleId, (list) => {
+      setCustomers(list);
+      setCustomersLoading(false);
+    });
+
+    return () => {
+      console.log('📤 Unsubscribing customers');
+      unsub();
+    };
+  }, [activeVle?.vleId]);
+
+  // 🆕 CUSTOMER FUNCTIONS
+  const addCustomer = async (data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'totalOrders' | 'totalSpent' | 'firstVisitDate'>) => {
+    // Check for duplicate mobile
+    const existing = customers.find(c => c.mobile === data.mobile);
+    if (existing) {
+      showNotification(`⚠️ Customer already exists: ${existing.name}`);
+      return null;
+    }
+    const result = await createCustomer(data);
+    return result;
+  };
+
+  const updateCustomerById = async (id: string, updates: Partial<Customer>) => {
+    const success = await updateCustomer(id, updates);
+    return success;
+  };
+
+  const deleteCustomerById = async (id: string) => {
+    const success = await deleteCustomer(id);
+    return success;
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1190,6 +1230,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ledgerEntries, ledgerLoading,
         addLedgerEntry, updateLedgerEntryById, removeLedgerEntry,
         getKhatabookStats, getCustomerSummaries,
+        // 🆕 Customer CRM
+        customers, customersLoading,
+        addCustomer, updateCustomerById, deleteCustomerById,
       }}
     >
       {children}
