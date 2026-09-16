@@ -1,73 +1,39 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
-  UserRole, 
-  SiteConfig, 
-  ServiceItem, 
-  VleOperator, 
-  CustomerOrder, 
-  WalletTransaction,
-  ImportantLink,
-  VleApplication,
-  ToolDefinition,
-  UserAccount,
-  UserPlan,
-  SubscriptionStatus,
-  BillingCycle,
-  PaymentRequest,
-  LedgerEntry,
-  KhatabookStats,
-  CustomerLedgerSummary,
-  VleData,
-  Customer,
+  UserRole, SiteConfig, ServiceItem, VleOperator, CustomerOrder, WalletTransaction,
+  ImportantLink, VleApplication, ToolDefinition, UserAccount, UserPlan, SubscriptionStatus,
+  BillingCycle, PaymentRequest, LedgerEntry, KhatabookStats, CustomerLedgerSummary,
+  VleData, Customer, RechargeOrder,
 } from '../types';
 import { 
-  initialSiteConfig, 
-  initialServices, 
-  initialVles, 
-  initialOrders, 
-  initialTransactions,
-  initialImportantLinks,
-  initialVleApplications 
+  initialSiteConfig, initialServices, initialVles, initialOrders, initialTransactions,
+  initialImportantLinks, initialVleApplications 
 } from '../data/initialData';
 import { TOOLS_REGISTRY, PREMIUM_TOOL_IDS } from '../data/toolsRegistry';
 import { DEFAULT_PREMIUM_TOOL_IDS, FREE_USER_DAILY_LIMIT } from '../data/premiumTools';
 import {
-  saveSiteConfigToFirebase,
-  loadSiteConfigFromFirebase,
-  subscribeToSiteConfig,
-  saveVlesToFirebase,
-  loadVlesFromFirebase,
-  subscribeToVles,
-  saveApplicationsToFirebase,
-  loadApplicationsFromFirebase,
-  saveOrdersToFirebase,
-  loadOrdersFromFirebase,
-  saveCustomToolsToFirebase,
-  loadCustomToolsFromFirebase,
-  saveLinksToFirebase,
-  loadLinksFromFirebase,
+  saveSiteConfigToFirebase, loadSiteConfigFromFirebase, subscribeToSiteConfig,
+  saveVlesToFirebase, loadVlesFromFirebase, subscribeToVles,
+  saveApplicationsToFirebase, loadApplicationsFromFirebase,
+  saveOrdersToFirebase, loadOrdersFromFirebase,
+  saveCustomToolsToFirebase, loadCustomToolsFromFirebase,
+  saveLinksToFirebase, loadLinksFromFirebase,
 } from '../services/firebaseSync';
 import { 
-  subscribeToAuth, 
-  logoutOwner, 
-  loginVle, 
-  logoutVle, 
-  subscribeToVleAuth,
-  createVleAuthAccount,
-  generateVlePassword
+  subscribeToAuth, logoutOwner, loginVle, logoutVle, subscribeToVleAuth,
+  createVleAuthAccount, generateVlePassword
 } from '../services/firebaseAuth';
 import { 
-  createOrUpdateVleUser, 
-  convertUserToVle,
-  getUserByEmail
+  createOrUpdateVleUser, convertUserToVle, getUserByEmail
 } from '../services/subscriptionService';
-// 🆕 Customer CRM imports
 import {
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
-  subscribeToVleCustomers,
+  createCustomer, updateCustomer, deleteCustomer, subscribeToVleCustomers,
 } from '../services/customerService';
+import {
+  createRechargeOrder, updateRechargeOrder, deleteRechargeOrder,
+  subscribeToAllRechargeOrders, subscribeToVleRechargeOrders,
+  completeRechargeOrder,
+} from '../services/rechargeService';
 
 interface AppContextType {
   role: UserRole;
@@ -141,12 +107,19 @@ interface AppContextType {
   removeLedgerEntry: (id: string) => Promise<boolean>;
   getKhatabookStats: () => KhatabookStats;
   getCustomerSummaries: () => CustomerLedgerSummary[];
-  // 🆕 Customer CRM
+  // Customer CRM
   customers: Customer[];
   customersLoading: boolean;
   addCustomer: (data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'totalOrders' | 'totalSpent' | 'firstVisitDate'>) => Promise<Customer | null>;
   updateCustomerById: (id: string, updates: Partial<Customer>) => Promise<boolean>;
   deleteCustomerById: (id: string) => Promise<boolean>;
+  // 🆕 Recharge Orders (Phase 2)
+  rechargeOrders: RechargeOrder[];
+  rechargeOrdersLoading: boolean;
+  addRechargeOrder: (data: Omit<RechargeOrder, 'id' | 'tokenNumber' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<RechargeOrder | null>;
+  updateRechargeOrderById: (id: string, updates: Partial<RechargeOrder>) => Promise<boolean>;
+  completeRechargeOrderById: (id: string, refNumber: string) => Promise<boolean>;
+  deleteRechargeOrderById: (id: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -200,7 +173,6 @@ const forceResetFirebaseIfNeeded = async () => {
   try {
     const shouldReset = localStorage.getItem(FORCE_RESET_FLAG);
     if (shouldReset !== 'true') return false;
-
     console.log('🔥 Force resetting Firebase with clean data...');
     await saveSiteConfigToFirebase(initialSiteConfig);
     await saveVlesToFirebase([]);
@@ -242,17 +214,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SITE_CONFIG);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
+    if (saved) { try { return JSON.parse(saved); } catch (e) { console.error(e); } }
     return initialSiteConfig;
   });
 
   const [services, setServices] = useState<ServiceItem[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SERVICES);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
+    if (saved) { try { return JSON.parse(saved); } catch (e) { console.error(e); } }
     return initialServices;
   });
 
@@ -262,25 +230,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [vles, setVles] = useState<VleOperator[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.VLES);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
+    if (saved) { try { return JSON.parse(saved); } catch (e) { console.error(e); } }
     return initialVles;
   });
 
   const [orders, setOrders] = useState<CustomerOrder[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
+    if (saved) { try { return JSON.parse(saved); } catch (e) { console.error(e); } }
     return initialOrders;
   });
 
   const [transactions, setTransactions] = useState<WalletTransaction[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
+    if (saved) { try { return JSON.parse(saved); } catch (e) { console.error(e); } }
     return initialTransactions;
   });
 
@@ -290,31 +252,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [importantLinks, setImportantLinks] = useState<ImportantLink[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.IMPORTANT_LINKS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
+    if (saved) { try { return JSON.parse(saved); } catch (e) { console.error(e); } }
     return initialImportantLinks;
   });
 
   const [vleApplications, setVleApplications] = useState<VleApplication[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.VLE_APPLICATIONS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
+    if (saved) { try { return JSON.parse(saved); } catch (e) { console.error(e); } }
     return initialVleApplications;
   });
 
   const [customTools, setCustomTools] = useState<ToolDefinition[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CUSTOM_TOOLS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
+    if (saved) { try { return JSON.parse(saved); } catch (e) { console.error(e); } }
     return [];
   });
 
-  const [premiumToolIds, setPremiumToolIds] = useState<string[]>(() => {
-    return DEFAULT_PREMIUM_TOOL_IDS;
-  });
+  const [premiumToolIds, setPremiumToolIds] = useState<string[]>(() => DEFAULT_PREMIUM_TOOL_IDS);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PREMIUM_TOOLS, JSON.stringify(premiumToolIds));
@@ -322,9 +276,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const togglePremiumTool = (toolId: string) => {
     setPremiumToolIds((prev) => 
-      prev.includes(toolId) 
-        ? prev.filter((id) => id !== toolId)
-        : [...prev, toolId]
+      prev.includes(toolId) ? prev.filter((id) => id !== toolId) : [...prev, toolId]
     );
     showNotification('Premium tool list updated');
   };
@@ -335,14 +287,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
-  // 🆕 Customer CRM state
+  // Customer CRM state
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customersLoading, setCustomersLoading] = useState(false);
+
+  // 🆕 Recharge Orders state
+  const [rechargeOrders, setRechargeOrders] = useState<RechargeOrder[]>([]);
+  const [rechargeOrdersLoading, setRechargeOrdersLoading] = useState(false);
 
   useEffect(() => {
     const loadFromFirebase = async () => {
       const didReset = await forceResetFirebaseIfNeeded();
-      
       if (didReset) {
         setSiteConfig(initialSiteConfig);
         setVles([]);
@@ -402,21 +357,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (!firebaseReady) return;
-    
     const unsubConfig = subscribeToSiteConfig((config) => {
       setSiteConfig(config);
       localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, JSON.stringify(config));
     });
-
     const unsubVles = subscribeToVles((fbVles) => {
       setVles(fbVles);
       localStorage.setItem(STORAGE_KEYS.VLES, JSON.stringify(fbVles));
     });
-
-    return () => {
-      unsubConfig();
-      unsubVles();
-    };
+    return () => { unsubConfig(); unsubVles(); };
   }, [firebaseReady]);
 
   useEffect(() => {
@@ -523,7 +472,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'pending',
       appliedDate: new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
     };
-    
     const updatedList = [newApp, ...vleApplications];
     setVleApplications(updatedList);
     
@@ -543,7 +491,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showNotification('⚠️ Sync issue — Owner will verify soon');
       }
     })();
-    
     return appId;
   };
 
@@ -578,12 +525,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const userResult = await createOrUpdateVleUser(
-      targetApp.email,
-      targetApp.operatorName,
-      targetApp.mobile,
-      vleData,
-      1,
-      authResult.uid
+      targetApp.email, targetApp.operatorName, targetApp.mobile, vleData, 1, authResult.uid
     );
 
     if (!userResult.success) {
@@ -613,17 +555,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setVles((prev) => [newVle, ...prev]);
-
     setVleApplications((prev) =>
       prev.map((a) =>
         a.id === appId
-          ? {
-              ...a,
-              status: 'approved',
-              generatedVleId,
-              generatedPassword,
-              approvedDate: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }),
-            }
+          ? { ...a, status: 'approved', generatedVleId, generatedPassword,
+              approvedDate: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) }
           : a
       )
     );
@@ -643,35 +579,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const vleLogin = async (emailOrVleId: string, password?: string): Promise<boolean> => {
     if (!password) { showNotification('Password required'); return false; }
-
     const input = emailOrVleId.trim().toLowerCase();
-
     let found: VleOperator | null = vles.find(
-      (v) =>
-        v.email.toLowerCase() === input ||
-        v.vleId.toLowerCase() === input
+      (v) => v.email.toLowerCase() === input || v.vleId.toLowerCase() === input
     ) || null;
 
     if (!found) {
       const userAccount = await getUserByEmail(input);
-
       if (userAccount && userAccount.plan === 'vle' && userAccount.vleData) {
         found = {
-          id: userAccount.id,
-          vleId: userAccount.vleData.vleId,
-          email: userAccount.email,
-          centerName: userAccount.vleData.centerName,
-          operatorName: userAccount.vleData.operatorName,
-          mobile: userAccount.vleData.mobile,
-          state: userAccount.vleData.state,
-          district: userAccount.vleData.district,
-          address: userAccount.vleData.address,
-          walletBalance: 0,
-          status: userAccount.vleData.status,
+          id: userAccount.id, vleId: userAccount.vleData.vleId, email: userAccount.email,
+          centerName: userAccount.vleData.centerName, operatorName: userAccount.vleData.operatorName,
+          mobile: userAccount.vleData.mobile, state: userAccount.vleData.state,
+          district: userAccount.vleData.district, address: userAccount.vleData.address,
+          walletBalance: 0, status: userAccount.vleData.status,
           kycVerified: userAccount.vleData.kycVerified,
           totalOrdersCompleted: userAccount.vleData.totalOrdersCompleted,
-          joinedDate: userAccount.vleData.joinedDate,
-          shopUpiId: userAccount.vleData.shopUpiId,
+          joinedDate: userAccount.vleData.joinedDate, shopUpiId: userAccount.vleData.shopUpiId,
         };
       }
     }
@@ -692,7 +616,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(userAcc);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, userAcc.id);
     }
-
     showNotification(`Welcome, ${found.operatorName}!`);
     return true;
   };
@@ -790,14 +713,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newTx: WalletTransaction = {
       id: 'tx_' + Date.now().toString(36),
-      vleId: targetVle.vleId,
-      vleName: targetVle.centerName,
-      type,
-      amount,
-      reason,
+      vleId: targetVle.vleId, vleName: targetVle.centerName,
+      type, amount, reason,
       timestamp: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }),
-      balanceAfter: newBalance,
-      status: 'completed',
+      balanceAfter: newBalance, status: 'completed',
     };
     setTransactions((prev) => [newTx, ...prev]);
     showNotification(`₹${amount} ${type === 'credit' ? 'credited' : 'debited'}`);
@@ -805,14 +724,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleVleStatus = (vleId: string) => {
-    setVles((prev) =>
-      prev.map((v) => {
-        if (v.id === vleId) {
-          return { ...v, status: v.status === 'active' ? 'suspended' : 'active' };
-        }
-        return v;
-      })
-    );
+    setVles((prev) => prev.map((v) => {
+      if (v.id === vleId) return { ...v, status: v.status === 'active' ? 'suspended' : 'active' };
+      return v;
+    }));
     showNotification('Status updated.');
   };
 
@@ -837,32 +752,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tokenNumber: randomToken,
       date: new Date().toISOString().split('T')[0],
     };
-
     setOrders((prev) => [newOrder, ...prev]);
 
     if (newOrder.vleId) {
-      setVles((prev) =>
-        prev.map((v) =>
-          v.vleId === newOrder.vleId
-            ? { ...v, totalOrdersCompleted: v.totalOrdersCompleted + 1 }
-            : v
-        )
-      );
+      setVles((prev) => prev.map((v) =>
+        v.vleId === newOrder.vleId ? { ...v, totalOrdersCompleted: v.totalOrdersCompleted + 1 } : v
+      ));
     }
-
     showNotification(`Token: ${randomToken}`);
     return newOrder;
   };
 
   const updateOrderStatus = (orderId: string, status: CustomerOrder['status'], notes?: string, rejectionReason?: string) => {
-    setOrders((prev) =>
-      prev.map((o) => {
-        if (o.id === orderId) {
-          return { ...o, status, ...(notes ? { notes } : {}), ...(rejectionReason ? { rejectionReason } : {}) };
-        }
-        return o;
-      })
-    );
+    setOrders((prev) => prev.map((o) => {
+      if (o.id === orderId) {
+        return { ...o, status, ...(notes ? { notes } : {}), ...(rejectionReason ? { rejectionReason } : {}) };
+      }
+      return o;
+    }));
     showNotification(`Status: ${status.toUpperCase()}`);
   };
 
@@ -881,7 +788,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserAccountLoading(true);
     try {
       const existing = currentUser?.id === userData.id ? currentUser : null;
-      
       const newUser: UserAccount = {
         id: userData.id,
         email: userData.email.toLowerCase(),
@@ -895,7 +801,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastLoginAt: new Date().toISOString(),
         vleData: userData.vleData || existing?.vleData,
       };
-
       const { saveUserAccount } = await import('../services/subscriptionService');
       await saveUserAccount(newUser);
       setCurrentUser(newUser);
@@ -939,9 +844,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (!currentUser?.id) return;
-    
     let unsubscribe: (() => void) | undefined;
-    
     const setupListener = async () => {
       const { subscribeToUserAccount } = await import('../services/subscriptionService');
       unsubscribe = subscribeToUserAccount(currentUser.id, (updatedUser) => {
@@ -958,33 +861,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
     };
-    
     setupListener();
-    
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    return () => { if (unsubscribe) unsubscribe(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
 
   const submitPaymentRequest = async (data: Omit<PaymentRequest, 'id' | 'status' | 'requestedAt'>): Promise<PaymentRequest | null> => {
     const { createPaymentRequest } = await import('../services/paymentService');
     const result = await createPaymentRequest(data);
-    if (result) {
-      showNotification('✅ Payment request submitted! Verification pending.');
-    } else {
-      showNotification('❌ Failed to submit payment request');
-    }
+    if (result) showNotification('✅ Payment request submitted! Verification pending.');
+    else showNotification('❌ Failed to submit payment request');
     return result;
   };
 
   const approvePaymentRequest = async (paymentId: string, validUntil: Date): Promise<boolean> => {
     const { approvePayment } = await import('../services/paymentService');
     const { activateSubscription } = await import('../services/subscriptionService');
-    
     const payment = paymentRequests.find(p => p.id === paymentId);
     if (!payment) return false;
-
     const success = await approvePayment(paymentId, ownerEmail || 'pdas966846@gmail.com', validUntil);
     if (success) {
       await activateSubscription(payment.userId, payment.plan, payment.billingCycle);
@@ -1033,9 +927,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const getKhatabookStats = (): KhatabookStats => {
     const totalCustomers = new Set(ledgerEntries.map(e => e.customerMobile)).size;
-    let totalReceivable = 0;
-    let totalPayable = 0;
-    
+    let totalReceivable = 0, totalPayable = 0;
     const customerBalance: Record<string, any> = {};
     ledgerEntries.forEach(e => {
       if (!customerBalance[e.customerMobile]) {
@@ -1051,13 +943,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       else if (e.type === 'credit' || e.type === 'payment_in') cb.credit += e.amount;
       else if (e.type === 'sale') { cb.debit += e.amount; cb.credit += e.amount; }
       else if (e.type === 'payment_out') cb.debit += e.amount;
-      
       if (new Date(e.timestamp).getTime() > new Date(cb.lastTimestamp).getTime()) {
         cb.lastDate = e.date; cb.lastType = e.type; cb.lastAmount = e.amount;
         cb.lastTimestamp = e.timestamp; cb.name = e.customerName;
       }
     });
-    
     const summaries: CustomerLedgerSummary[] = Object.values(customerBalance).map((cb: any) => {
       const balance = cb.debit - cb.credit;
       return {
@@ -1069,17 +959,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         firstTransactionDate: cb.firstDate,
       };
     });
-    
     summaries.forEach(s => {
       if (s.balanceType === 'receivable') totalReceivable += s.balance;
       if (s.balanceType === 'payable') totalPayable += s.balance;
     });
-    
     const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
     const month = today.substring(0, 7);
     const todayEntries = ledgerEntries.filter(e => e.date === today);
     const monthEntries = ledgerEntries.filter(e => e.date.startsWith(month));
-    
     return {
       vleId: activeVle?.vleId || '',
       totalCustomers, totalReceivable, totalPayable,
@@ -1110,13 +997,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       else if (e.type === 'credit' || e.type === 'payment_in') cb.credit += e.amount;
       else if (e.type === 'sale') { cb.debit += e.amount; cb.credit += e.amount; }
       else if (e.type === 'payment_out') cb.debit += e.amount;
-      
       if (new Date(e.timestamp).getTime() > new Date(cb.lastTimestamp).getTime()) {
         cb.lastDate = e.date; cb.lastType = e.type; cb.lastAmount = e.amount;
         cb.lastTimestamp = e.timestamp; cb.name = e.customerName; cb.address = e.customerAddress;
       }
     });
-    
     const summaries: CustomerLedgerSummary[] = Object.values(customerBalance).map((cb: any) => {
       const balance = cb.debit - cb.credit;
       return {
@@ -1128,7 +1013,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         firstTransactionDate: cb.firstDate,
       };
     });
-    
     return summaries.sort((a, b) => {
       if (a.balanceType === 'receivable' && b.balanceType !== 'receivable') return -1;
       if (a.balanceType !== 'receivable' && b.balanceType === 'receivable') return 1;
@@ -1140,9 +1024,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!ownerAuthenticated) return;
     const loadPayments = async () => {
       const { subscribeToAllPayments } = await import('../services/paymentService');
-      const unsub = subscribeToAllPayments((payments) => {
-        setPaymentRequests(payments);
-      });
+      const unsub = subscribeToAllPayments((payments) => setPaymentRequests(payments));
       return unsub;
     };
     const unsubPromise = loadPayments();
@@ -1164,47 +1046,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => { unsubPromise.then(unsub => unsub && unsub()); };
   }, [activeVle]);
 
-  // 🆕 CUSTOMERS SUBSCRIPTION — Load when VLE is active
+  // CUSTOMERS SUBSCRIPTION
   useEffect(() => {
     if (!activeVle?.vleId) {
       setCustomers([]);
       return;
     }
-
     setCustomersLoading(true);
-    console.log('📥 Subscribing to customers for VLE:', activeVle.vleId);
-
     const unsub = subscribeToVleCustomers(activeVle.vleId, (list) => {
       setCustomers(list);
       setCustomersLoading(false);
     });
-
-    return () => {
-      console.log('📤 Unsubscribing customers');
-      unsub();
-    };
+    return () => unsub();
   }, [activeVle?.vleId]);
 
-  // 🆕 CUSTOMER FUNCTIONS
   const addCustomer = async (data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'totalOrders' | 'totalSpent' | 'firstVisitDate'>) => {
-    // Check for duplicate mobile
     const existing = customers.find(c => c.mobile === data.mobile);
     if (existing) {
       showNotification(`⚠️ Customer already exists: ${existing.name}`);
       return null;
     }
-    const result = await createCustomer(data);
-    return result;
+    return await createCustomer(data);
   };
 
   const updateCustomerById = async (id: string, updates: Partial<Customer>) => {
-    const success = await updateCustomer(id, updates);
-    return success;
+    return await updateCustomer(id, updates);
   };
 
   const deleteCustomerById = async (id: string) => {
-    const success = await deleteCustomer(id);
-    return success;
+    return await deleteCustomer(id);
+  };
+
+  // 🆕 RECHARGE ORDERS SUBSCRIPTION
+  // - Owner: subscribe to ALL orders
+  // - VLE: subscribe to their own orders
+  useEffect(() => {
+    // Owner case
+    if (ownerAuthenticated) {
+      setRechargeOrdersLoading(true);
+      const unsub = subscribeToAllRechargeOrders((list) => {
+        setRechargeOrders(list);
+        setRechargeOrdersLoading(false);
+      });
+      return () => unsub();
+    }
+    // VLE case
+    if (activeVle?.vleId) {
+      setRechargeOrdersLoading(true);
+      const unsub = subscribeToVleRechargeOrders(activeVle.vleId, (list) => {
+        setRechargeOrders(list);
+        setRechargeOrdersLoading(false);
+      });
+      return () => unsub();
+    }
+    // No context
+    setRechargeOrders([]);
+  }, [ownerAuthenticated, activeVle?.vleId]);
+
+  const addRechargeOrder = async (data: Omit<RechargeOrder, 'id' | 'tokenNumber' | 'createdAt' | 'updatedAt' | 'status'>) => {
+    return await createRechargeOrder(data);
+  };
+
+  const updateRechargeOrderById = async (id: string, updates: Partial<RechargeOrder>) => {
+    return await updateRechargeOrder(id, updates);
+  };
+
+  const completeRechargeOrderById = async (id: string, refNumber: string) => {
+    return await completeRechargeOrder(id, refNumber);
+  };
+
+  const deleteRechargeOrderById = async (id: string) => {
+    return await deleteRechargeOrder(id);
   };
 
   return (
@@ -1230,9 +1142,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ledgerEntries, ledgerLoading,
         addLedgerEntry, updateLedgerEntryById, removeLedgerEntry,
         getKhatabookStats, getCustomerSummaries,
-        // 🆕 Customer CRM
         customers, customersLoading,
         addCustomer, updateCustomerById, deleteCustomerById,
+        // 🆕 Recharge
+        rechargeOrders, rechargeOrdersLoading,
+        addRechargeOrder, updateRechargeOrderById, completeRechargeOrderById, deleteRechargeOrderById,
       }}
     >
       {children}
