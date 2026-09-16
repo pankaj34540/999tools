@@ -345,7 +345,11 @@ export type ToolCategory =
   | 'pdf_doc'
   | 'calculators'
   | 'cyber_business'
-  | 'generators_daily';
+  | 'generators_daily'
+  | 'social_media'
+  | 'text_dev'
+  | 'qr_gen'
+  | 'security_util';
 
 export interface ToolDefinition {
   num: number;
@@ -506,4 +510,52 @@ export interface GovtExamPreset {
   signMaxKb: number;
   bgColor?: string;
   notes: string;
+}
+
+// ============================================
+// CUSTOMER CRM TYPES (Phase 1)
+// ============================================
+export type CustomerTag = 'regular' | 'vip' | 'defaulter' | 'new' | 'wholesale' | 'followup';
+
+export interface Customer {
+  id: string;
+  vleId: string;              // VLE ID of the owner
+  name: string;
+  mobile: string;             // Unique per VLE
+  altMobile?: string;
+  email?: string;
+  address?: string;
+  dob?: string;               // YYYY-MM-DD for birthday reminders
+  anniversary?: string;       // YYYY-MM-DD
+  
+  tags: CustomerTag[];
+  notes?: string;
+  whatsappOptIn: boolean;
+  
+  // Auto-calculated fields (updated on each order)
+  totalOrders: number;
+  totalSpent: number;
+  firstVisitDate: string;
+  lastVisitDate?: string;
+  
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CustomerStats {
+  vleId: string;
+  totalCustomers: number;
+  newThisMonth: number;
+  activeThisMonth: number;
+  topCustomers: Customer[];
+  birthdaysThisWeek: Customer[];
+  followups: Customer[];
+}
+
+export interface CustomerFilterOptions {
+  searchQuery?: string;
+  tag?: CustomerTag | 'all';
+  sortBy?: 'name' | 'recent' | 'spent' | 'orders';
+  dateFrom?: string;
+  dateTo?: string;
 }
