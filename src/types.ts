@@ -473,7 +473,7 @@ export interface SupportResponse {
   ticketId: string;
   responderId: string;
   responderName: string;
-  responderRole: 'owner' | 'user';
+  responderRole: 'owner' | 'user' | 'staff';
   message: string;
   createdAt: string;
 }
@@ -651,3 +651,87 @@ export interface RechargeOperatorPreset {
   logo?: string;
   popular?: boolean;
 }
+
+// ============================================
+// STAFF MANAGEMENT (Phase 2 — Admin Panel)
+// ============================================
+export type StaffRole = 'support' | 'vle' | 'payment' | 'recharge' | 'content';
+
+export type StaffPermission = 
+  // Support
+  | 'tickets_view' | 'tickets_reply' | 'tickets_close'
+  // VLE
+  | 'vle_view' | 'vle_approve' | 'vle_reject' | 'vle_suspend'
+  // Payment
+  | 'payments_view' | 'payments_approve' | 'payments_reject'
+  // Recharge
+  | 'recharge_view' | 'recharge_verify' | 'recharge_process' | 'recharge_complete'
+  // Content
+  | 'tools_view' | 'tools_edit'
+  | 'links_view' | 'links_edit'
+  | 'services_view' | 'services_edit'
+  // Customers (all roles can view)
+  | 'customers_view'
+  // Analytics (limited for staff)
+  | 'analytics_view';
+
+export interface Staff {
+  id: string;
+  uid: string;
+  email: string;
+  name: string;
+  mobile?: string;
+  role: StaffRole;
+  permissions: StaffPermission[];
+  active: boolean;
+  createdBy: string;
+  createdAt: string;
+  lastLoginAt?: string;
+  notes?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  staffId: string;
+  staffName: string;
+  staffEmail: string;
+  staffRole: StaffRole;
+  action: string;
+  targetType: 'payment' | 'vle' | 'recharge' | 'ticket' | 'content' | 'staff' | 'other';
+  targetId?: string;
+  targetName?: string;
+  details?: string;
+  timestamp: string;
+}
+
+export const STAFF_ROLE_PERMISSIONS: Record<StaffRole, StaffPermission[]> = {
+  support: [
+    'tickets_view', 'tickets_reply', 'tickets_close',
+    'customers_view',
+  ],
+  vle: [
+    'vle_view', 'vle_approve', 'vle_reject', 'vle_suspend',
+    'customers_view',
+  ],
+  payment: [
+    'payments_view', 'payments_approve', 'payments_reject',
+    'customers_view',
+  ],
+  recharge: [
+    'recharge_view', 'recharge_verify', 'recharge_process', 'recharge_complete',
+    'customers_view',
+  ],
+  content: [
+    'tools_view', 'tools_edit',
+    'links_view', 'links_edit',
+    'services_view', 'services_edit',
+  ],
+};
+
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  support: '🎧 Support Admin',
+  vle: '🏪 VLE Admin',
+  payment: '💳 Payment Admin',
+  recharge: '📱 Recharge Admin',
+  content: '📝 Content Admin',
+};
