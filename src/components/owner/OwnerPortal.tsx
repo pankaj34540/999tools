@@ -35,6 +35,7 @@ import {
   LifeBuoy,
   Smartphone,
   BarChart3,
+  UserCog,
 } from 'lucide-react';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
@@ -46,6 +47,7 @@ import { PaymentApprovalsManager } from './PaymentApprovalsManager';
 import { OwnerSupportManager } from './OwnerSupportManager';
 import { OwnerRechargeQueue } from './OwnerRechargeQueue';
 import { OwnerAnalytics } from './OwnerAnalytics';
+import { StaffManager } from './StaffManager';
 
 export const OwnerPortal: React.FC = () => {
   const { 
@@ -78,7 +80,7 @@ export const OwnerPortal: React.FC = () => {
     return <OwnerSecurityGate />;
   }
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'vle_approvals' | 'payment_approvals' | 'recharge_queue' | 'support' | 'services' | 'tools_hub' | 'links' | 'vles' | 'orders' | 'settings' | 'monetization'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'vle_approvals' | 'payment_approvals' | 'recharge_queue' | 'support' | 'services' | 'tools_hub' | 'links' | 'vles' | 'staff' | 'orders' | 'settings' | 'monetization'>('overview');
 
   // Service modal
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -191,7 +193,7 @@ export const OwnerPortal: React.FC = () => {
               {siteConfig.siteName} Master Command Center
             </h1>
             <p className="text-sm text-slate-300 max-w-2xl">
-              Manage tools, links, VLE registrations, payments, support tickets, and site security.
+              Manage tools, links, VLE registrations, payments, staff, and site security.
             </p>
           </div>
 
@@ -234,6 +236,7 @@ export const OwnerPortal: React.FC = () => {
             { id: 'links', label: `Govt Links (${importantLinks.length})`, icon: Link2 },
             { id: 'services', label: `Form Services (${services.length})`, icon: Layers },
             { id: 'vles', label: `VLE Operators (${vles.length})`, icon: Store },
+            { id: 'staff', label: `👥 Staff Management`, icon: UserCog },
             { id: 'orders', label: `Customer Orders (${orders.length})`, icon: FileText, badge: pendingOrders },
             { id: 'monetization', label: 'Adsterra Ads', icon: Megaphone },
             { id: 'settings', label: 'Security & Settings', icon: Settings },
@@ -264,7 +267,7 @@ export const OwnerPortal: React.FC = () => {
       </div>
 
       {/* ═══════════════════════════════════════════ */}
-      {/* TAB: OVERVIEW & STATS (Purana) */}
+      {/* TAB: OVERVIEW & STATS */}
       {/* ═══════════════════════════════════════════ */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
@@ -379,7 +382,7 @@ export const OwnerPortal: React.FC = () => {
       )}
 
       {/* ═══════════════════════════════════════════ */}
-      {/* 🆕 TAB: ANALYTICS DASHBOARD */}
+      {/* TAB: ANALYTICS DASHBOARD */}
       {/* ═══════════════════════════════════════════ */}
       {activeTab === 'analytics' && (
         <OwnerAnalytics />
@@ -920,6 +923,11 @@ export const OwnerPortal: React.FC = () => {
       {/* TAB: RECHARGE ORDERS QUEUE */}
       {activeTab === 'recharge_queue' && (
         <OwnerRechargeQueue />
+      )}
+
+      {/* 🆕 TAB: STAFF MANAGEMENT */}
+      {activeTab === 'staff' && (
+        <StaffManager />
       )}
 
       {/* TAB: SUPPORT TICKETS */}
