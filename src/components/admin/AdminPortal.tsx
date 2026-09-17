@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import {
-  Shield, User, LogOut, ArrowLeft, Clock, Activity,
-  LifeBuoy, Store, CreditCard, Smartphone, Wrench, BarChart3,
+  Shield, LogOut, Clock, Activity,
+  LifeBuoy, Store, CreditCard, Smartphone, Wrench,
   Mail, Phone, CheckCircle2, Lock,
 } from 'lucide-react';
 import { Staff, STAFF_ROLE_LABELS, StaffPermission } from '../../types';
@@ -50,45 +49,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ staff, onLogout }) => 
   // ============================================
   // TAB CONFIG — Show only allowed tabs
   // ============================================
-  const allTabs: { id: TabId; label: string; icon: any; show: boolean; badge?: number }[] = [
+  const allTabs: { id: TabId; label: string; icon: any; show: boolean }[] = [
     { id: 'overview', label: 'Overview', icon: Activity, show: true },
-    { 
-      id: 'tickets', 
-      label: '🎧 Support', 
-      icon: LifeBuoy, 
-      show: has('tickets_view'),
-    },
-    { 
-      id: 'vle_approvals', 
-      label: '🏪 VLE Approvals', 
-      icon: Store, 
-      show: has('vle_view'),
-    },
-    { 
-      id: 'payment_approvals', 
-      label: '💳 Payments', 
-      icon: CreditCard, 
-      show: has('payments_view'),
-    },
-    { 
-      id: 'recharge_queue', 
-      label: '📱 Recharge Orders', 
-      icon: Smartphone, 
-      show: has('recharge_view'),
-    },
-    { 
-      id: 'tools', 
-      label: '🔧 Tools & Content', 
-      icon: Wrench, 
-      show: has('tools_view') || has('links_view'),
-    },
+    { id: 'tickets', label: '🎧 Support', icon: LifeBuoy, show: has('tickets_view') },
+    { id: 'vle_approvals', label: '🏪 VLE Approvals', icon: Store, show: has('vle_view') },
+    { id: 'payment_approvals', label: '💳 Payments', icon: CreditCard, show: has('payments_view') },
+    { id: 'recharge_queue', label: '📱 Recharge Orders', icon: Smartphone, show: has('recharge_view') },
+    { id: 'tools', label: '🔧 Tools & Content', icon: Wrench, show: has('tools_view') || has('links_view') },
   ];
 
   const visibleTabs = allTabs.filter((t) => t.show);
 
-  // ============================================
-  // RENDER
-  // ============================================
   return (
     <div className="min-h-screen bg-slate-100">
       {/* ═══ HEADER ═══ */}
@@ -156,7 +127,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ staff, onLogout }) => 
         {/* TAB: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* Welcome Card */}
             <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -185,7 +155,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ staff, onLogout }) => 
               </div>
             </div>
 
-            {/* Info Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
@@ -220,7 +189,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ staff, onLogout }) => 
               </div>
             </div>
 
-            {/* Permissions List */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Lock className="w-4 h-4 text-amber-600" />
@@ -240,7 +208,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ staff, onLogout }) => 
               </div>
             </div>
 
-            {/* Work Tip */}
             <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
@@ -263,22 +230,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ staff, onLogout }) => 
 
         {/* TAB: SUPPORT TICKETS */}
         {activeTab === 'tickets' && has('tickets_view') && (
-          <OwnerSupportManager />
+          <OwnerSupportManager staff={staff} />
         )}
 
         {/* TAB: VLE APPROVALS */}
         {activeTab === 'vle_approvals' && has('vle_view') && (
-          <VleApprovalsManager />
+          <VleApprovalsManager staff={staff} />
         )}
 
         {/* TAB: PAYMENT APPROVALS */}
         {activeTab === 'payment_approvals' && has('payments_view') && (
-          <PaymentApprovalsManager />
+          <PaymentApprovalsManager staff={staff} />
         )}
 
         {/* TAB: RECHARGE QUEUE */}
         {activeTab === 'recharge_queue' && has('recharge_view') && (
-          <OwnerRechargeQueue />
+          <OwnerRechargeQueue staff={staff} />
         )}
 
         {/* TAB: TOOLS & CONTENT */}
