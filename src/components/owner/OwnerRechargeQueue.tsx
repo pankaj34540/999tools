@@ -5,7 +5,8 @@ import {
   Volume2, VolumeX, Search, Filter, ChevronDown, Copy,
   MessageCircle, Play, IndianRupee, Bell,
 } from 'lucide-react';
-import { RechargeOrder, RechargeStatus } from '../../types';
+import { RechargeOrder, RechargeStatus, Staff } from '../../types';
+import { useAuditLog } from '../../hooks/useAuditLog';
 import {
   subscribeToAllRechargeOrders,
   updateRechargeOrder,
@@ -66,8 +67,13 @@ const FILTER_TABS: { id: 'all' | RechargeStatus; label: string }[] = [
   { id: 'rejected', label: 'Rejected' },
 ];
 
-export const OwnerRechargeQueue: React.FC = () => {
+interface OwnerRechargeQueueProps {
+  staff?: Staff | null;
+}
+
+export const OwnerRechargeQueue: React.FC<OwnerRechargeQueueProps> = ({ staff }) => {
   const { showNotification, siteConfig } = useApp();
+  const { log } = useAuditLog(staff);
 
   const [orders, setOrders] = useState<RechargeOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,11 +124,23 @@ export const OwnerRechargeQueue: React.FC = () => {
     return list;
   }, [orders, filter, searchQuery]);
 
+  // ============================================
+  // HANDLERS with AUDIT LOG
+  // ============================================
   const handleVerifyPayment = async (order: RechargeOrder) => {
     setBusy(true);
     try {
       const success = await updateRechargeOrder(order.id, { status: 'payment_verified' });
       showNotification(success ? '✅ Payment verified' : '❌ Failed');
+      if (success) {
+        await log(
+          'recharge_verified',
+          'recharge',
+          order.id,
+          `${order.operator} - ${order.accountNumber} (₹${order.amount})`,
+          `Token: ${order.tokenNumber} — UTR: ${order.utr || 'N/A'}`
+        );
+      }
     } finally { setBusy(false); }
   };
 
@@ -130,7 +148,16 @@ export const OwnerRechargeQueue: React.FC = () => {
     setBusy(true);
     try {
       const success = await updateRechargeOrder(order.id, { status: 'processing' });
-      if (success) showNotification('⚙️ Order processing');
+      if (success) {
+        showNotification('⚙️ Order processing');
+        await log(
+          'recharge_processing',
+          'recharge',
+          order.id,
+          `${order.operator} - ${order.accountNumber} (₹${order.amount})`,
+          `Token: ${order.tokenNumber}`
+        );
+      }
     } finally { setBusy(false); }
   };
 
@@ -144,6 +171,13 @@ export const OwnerRechargeQueue: React.FC = () => {
       const success = await completeRechargeOrder(actionOrder.id, refNumber.trim());
       if (success) {
         showNotification('✅ Order completed!');
+        await log(
+          'recharge_completed',
+          'recharge',
+          actionOrder.id,
+          `${actionOrder.operator} - ${actionOrder.accountNumber} (₹${actionOrder.amount})`,
+          `Token: ${actionOrder.tokenNumber} — Ref: ${refNumber.trim()}`
+        );
         setActionOrder(null);
         setActionType(null);
         setRefNumber('');
@@ -164,6 +198,13 @@ export const OwnerRechargeQueue: React.FC = () => {
       });
       if (success) {
         showNotification('❌ Order rejected');
+        await log(
+          'recharge_rejected',
+          'recharge',
+          actionOrder.id,
+          `${actionOrder.operator} - ${actionOrder.accountNumber} (₹${actionOrder.amount})`,
+          `Token: ${actionOrder.tokenNumber} — Reason: ${rejectReason.trim()}`
+        );
         setActionOrder(null);
         setActionType(null);
         setRejectReason('');
