@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { PaymentRequest } from '../../types';
+import { PaymentRequest, Staff } from '../../types';
+import { useAuditLog } from '../../hooks/useAuditLog';
 import { 
   Users, 
   CheckCircle2, 
@@ -23,13 +24,19 @@ import {
   User
 } from 'lucide-react';
 
-export const PaymentApprovalsManager: React.FC = () => {
+interface PaymentApprovalsManagerProps {
+  staff?: Staff | null;
+}
+
+export const PaymentApprovalsManager: React.FC<PaymentApprovalsManagerProps> = ({ staff }) => {
   const { 
     paymentRequests, 
     approvePaymentRequest, 
     rejectPaymentRequest,
     showNotification 
   } = useApp();
+
+  const { log } = useAuditLog(staff);
 
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,7 +83,6 @@ export const PaymentApprovalsManager: React.FC = () => {
 
     setApprovingId(payment.id);
     try {
-      // Calculate valid until date
       const validUntil = new Date();
       const days = payment.billingCycle === 'monthly' ? 30 : 365;
       validUntil.setDate(validUntil.getDate() + days);
@@ -85,6 +91,14 @@ export const PaymentApprovalsManager: React.FC = () => {
       
       if (success) {
         showNotification(`✅ ${payment.userName} ka ${payment.plan} plan activate ho gaya!`);
+        // 🆕 AUDIT LOG
+        await log(
+          'payment_approved',
+          'payment',
+          payment.id,
+          `${payment.userName} (₹${payment.amount})`,
+          `${payment.plan.toUpperCase()} ${payment.billingCycle} — UTR: ${payment.utr}`
+        );
       } else {
         showNotification('❌ Approval failed. Try again.');
       }
@@ -109,6 +123,14 @@ export const PaymentApprovalsManager: React.FC = () => {
     const success = await rejectPaymentRequest(rejectingPayment.id, rejectReason.trim());
     if (success) {
       showNotification('Payment request rejected');
+      // 🆕 AUDIT LOG
+      await log(
+        'payment_rejected',
+        'payment',
+        rejectingPayment.id,
+        `${rejectingPayment.userName} (₹${rejectingPayment.amount})`,
+        `Reason: ${rejectReason.trim()}`
+      );
       setRejectingPayment(null);
       setRejectReason('');
     }
@@ -269,7 +291,6 @@ export const PaymentApprovalsManager: React.FC = () => {
                 {/* LEFT: User Info + Details */}
                 <div className="flex-1 space-y-3">
                   
-                  {/* Header Row */}
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                       payment.plan === 'premium'
@@ -299,7 +320,6 @@ export const PaymentApprovalsManager: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Amount */}
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-black text-emerald-700 font-mono">
                       ₹{payment.amount}
@@ -309,7 +329,6 @@ export const PaymentApprovalsManager: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* User Info Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center gap-2">
                       <User className="w-3.5 h-3.5 text-slate-400" />
@@ -330,7 +349,6 @@ export const PaymentApprovalsManager: React.FC = () => {
                     )}
                   </div>
 
-                  {/* UTR Section */}
                   <div className="flex flex-wrap items-center gap-3 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
                     <div className="flex items-center gap-2">
                       <CreditCard className="w-3.5 h-3.5 text-blue-600" />
@@ -360,7 +378,6 @@ export const PaymentApprovalsManager: React.FC = () => {
                     </a>
                   </div>
 
-                  {/* Approved / Rejected Info */}
                   {payment.status === 'approved' && payment.verifiedAt && (
                     <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs">
                       <div className="flex items-center gap-2 text-emerald-800">
@@ -394,7 +411,6 @@ export const PaymentApprovalsManager: React.FC = () => {
                   )}
                 </div>
 
-                {/* RIGHT: Actions */}
                 {payment.status === 'pending' && (
                   <div className="lg:w-52 flex flex-col gap-2 shrink-0">
                     <button
