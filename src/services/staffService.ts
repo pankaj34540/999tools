@@ -7,7 +7,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  updatePassword,
   sendPasswordResetEmail,
   onAuthStateChanged,
   User,
@@ -18,7 +17,6 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -35,7 +33,7 @@ import {
 } from '../types';
 
 // ============================================
-// DEEP CLEAN
+// DEEP CLEAN — remove undefined
 // ============================================
 const deepClean = (obj: any): any => {
   if (obj === null || obj === undefined) return obj;
@@ -94,7 +92,7 @@ export const createStaffAccount = async (
       serverCreatedAt: serverTimestamp(),
     });
 
-    // Sign out from secondary app
+    // Sign out from secondary app and cleanup
     await signOut(secondaryAuth);
     await deleteApp(secondaryApp);
 
@@ -258,7 +256,11 @@ export const staffLogin = async (
   } catch (error: any) {
     console.error('❌ staffLogin error:', error);
     let msg = 'Login failed';
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+    if (
+      error.code === 'auth/user-not-found' ||
+      error.code === 'auth/wrong-password' ||
+      error.code === 'auth/invalid-credential'
+    ) {
       msg = 'Invalid email or password';
     } else if (error.code === 'auth/too-many-requests') {
       msg = 'Too many attempts. Try again later.';
