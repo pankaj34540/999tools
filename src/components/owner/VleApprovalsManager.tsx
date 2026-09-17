@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { VleApplication } from '../../types';
+import { VleApplication, Staff } from '../../types';
+import { useAuditLog } from '../../hooks/useAuditLog';
 import { 
   Users, 
   CheckCircle2, 
@@ -17,7 +18,11 @@ import {
   Loader2
 } from 'lucide-react';
 
-export const VleApprovalsManager: React.FC = () => {
+interface VleApprovalsManagerProps {
+  staff?: Staff | null;
+}
+
+export const VleApprovalsManager: React.FC<VleApprovalsManagerProps> = ({ staff }) => {
   const { 
     vleApplications, 
     approveVleApplication, 
@@ -25,6 +30,8 @@ export const VleApprovalsManager: React.FC = () => {
     siteConfig, 
     showNotification 
   } = useApp();
+
+  const { log } = useAuditLog(staff);
 
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,6 +80,15 @@ export const VleApprovalsManager: React.FC = () => {
     try {
       const result = await approveVleApplication(selectedApp.id, customVleId, customPassword);
       if (result) {
+        // 🆕 AUDIT LOG
+        await log(
+          'vle_approved',
+          'vle',
+          selectedApp.id,
+          `${selectedApp.centerName} (${selectedApp.operatorName})`,
+          `VLE ID: ${result.vleId} — UTR: ${selectedApp.paymentUtr}`
+        );
+
         setDispatchModalApp({
           app: selectedApp,
           vleId: result.vleId,
@@ -90,9 +106,21 @@ export const VleApprovalsManager: React.FC = () => {
     }
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (!rejectApp) return;
-    rejectVleApplication(rejectApp.id, rejectReason || 'Payment UTR verification failed or incomplete details.');
+    
+    const reason = rejectReason || 'Payment UTR verification failed or incomplete details.';
+    rejectVleApplication(rejectApp.id, reason);
+
+    // 🆕 AUDIT LOG
+    await log(
+      'vle_rejected',
+      'vle',
+      rejectApp.id,
+      `${rejectApp.centerName} (${rejectApp.operatorName})`,
+      `Reason: ${reason}`
+    );
+
     setRejectApp(null);
     setRejectReason('');
   };
