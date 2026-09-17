@@ -22,14 +22,21 @@ import {
   RefreshCw,
   Flag
 } from 'lucide-react';
-import { SupportTicket, SupportTicketStatus, SupportTicketPriority } from '../../types';
+import { SupportTicket, SupportTicketStatus, SupportTicketPriority, Staff } from '../../types';
+import { useAuditLog } from '../../hooks/useAuditLog';
 
-export const OwnerSupportManager: React.FC = () => {
+interface OwnerSupportManagerProps {
+  staff?: Staff | null;
+}
+
+export const OwnerSupportManager: React.FC<OwnerSupportManagerProps> = ({ staff }) => {
   const { 
     currentUser,
     showNotification,
     ownerEmail,
   } = useApp();
+
+  const { log } = useAuditLog(staff);
 
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,22 +100,39 @@ export const OwnerSupportManager: React.FC = () => {
     });
   }, [tickets, filterStatus, filterPriority, searchQuery]);
 
-  // Handle response
+  // ============================================
+  // HANDLE RESPONSE (with audit log)
+  // ============================================
   const handleSendResponse = async () => {
     if (!selectedTicket || !responseText.trim()) return;
 
     setSendingResponse(true);
     try {
       const { addTicketResponse } = await import('../../services/supportService');
+      
+      // Determine responder identity
+      const responderName = staff ? staff.name : 'Owner Support';
+      const responderRole: 'owner' | 'staff' = staff ? 'staff' : 'owner';
+      
       const success = await addTicketResponse(selectedTicket.id, {
-        responderId: 'owner',
-        responderName: 'Owner Support',
-        responderRole: 'owner',
+        responderId: staff ? staff.id : 'owner',
+        responderName,
+        responderRole,
         message: responseText.trim(),
       });
 
       if (success) {
         showNotification('✅ Response sent!');
+        
+        // 🆕 AUDIT LOG
+        await log(
+          'ticket_replied',
+          'ticket',
+          selectedTicket.id,
+          `${selectedTicket.ticketNumber} - ${selectedTicket.subject}`,
+          `Reply: ${responseText.trim().slice(0, 80)}${responseText.length > 80 ? '...' : ''}`
+        );
+
         setResponseText('');
         
         // Update local selected ticket
@@ -119,9 +143,9 @@ export const OwnerSupportManager: React.FC = () => {
             {
               id: 'temp_' + Date.now(),
               ticketId: selectedTicket.id,
-              responderId: 'owner',
-              responderName: 'Owner Support',
-              responderRole: 'owner',
+              responderId: staff ? staff.id : 'owner',
+              responderName,
+              responderRole,
               message: responseText.trim(),
               createdAt: new Date().toISOString(),
             },
@@ -137,13 +161,28 @@ export const OwnerSupportManager: React.FC = () => {
     }
   };
 
-  // Change status
+  // ============================================
+  // CHANGE STATUS (with audit log)
+  // ============================================
   const handleStatusChange = async (ticketId: string, status: SupportTicketStatus) => {
     try {
       const { updateTicketStatus } = await import('../../services/supportService');
       const success = await updateTicketStatus(ticketId, status);
       if (success) {
         showNotification(`✅ Status changed to ${status.replace('_', ' ')}`);
+        
+        // 🆕 AUDIT LOG
+        const ticket = tickets.find(t => t.id === ticketId);
+        if (ticket) {
+          await log(
+            `ticket_${status}`,
+            'ticket',
+            ticketId,
+            `${ticket.ticketNumber} - ${ticket.subject}`,
+            `Status changed to ${status.replace('_', ' ')}`
+          );
+        }
+
         if (selectedTicket?.id === ticketId) {
           setSelectedTicket({ ...selectedTicket, status });
         }
@@ -153,14 +192,29 @@ export const OwnerSupportManager: React.FC = () => {
     }
   };
 
-  // Delete ticket
+  // ============================================
+  // DELETE TICKET (with audit log)
+  // ============================================
   const handleDeleteTicket = async (ticketId: string) => {
     if (!confirm('Delete this ticket permanently?')) return;
     try {
+      const ticket = tickets.find(t => t.id === ticketId);
       const { deleteTicket } = await import('../../services/supportService');
       const success = await deleteTicket(ticketId);
       if (success) {
         showNotification('✅ Ticket deleted');
+        
+        // 🆕 AUDIT LOG
+        if (ticket) {
+          await log(
+            'ticket_deleted',
+            'ticket',
+            ticketId,
+            `${ticket.ticketNumber} - ${ticket.subject}`,
+            `Permanently deleted`
+          );
+        }
+
         setSelectedTicket(null);
       }
     } catch (error) {
@@ -348,7 +402,6 @@ export const OwnerSupportManager: React.FC = () => {
             >
               <div className="flex flex-wrap items-start gap-4">
                 
-                {/* Priority indicator */}
                 <div className={`w-1 h-16 rounded-full shrink-0 ${
                   ticket.priority === 'urgent' ? 'bg-rose-500' :
                   ticket.priority === 'high' ? 'bg-orange-500' :
@@ -356,7 +409,6 @@ export const OwnerSupportManager: React.FC = () => {
                   'bg-emerald-500'
                 }`} />
 
-                {/* Ticket Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
                     <span className="text-[10px] font-black font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700">
@@ -396,7 +448,6 @@ export const OwnerSupportManager: React.FC = () => {
                   </div>
                 </div>
 
-                {/* View Button */}
                 <div className="shrink-0">
                   <button
                     onClick={(e) => {
@@ -420,7 +471,6 @@ export const OwnerSupportManager: React.FC = () => {
         <div className="fixed inset-0 z-[95] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-200 my-8 max-h-[90vh] flex flex-col">
             
-            {/* Header */}
             <div className="flex items-start justify-between p-5 border-b border-slate-100">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -454,7 +504,6 @@ export const OwnerSupportManager: React.FC = () => {
               </button>
             </div>
 
-            {/* Status Changer */}
             <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                 Change Status:
@@ -475,10 +524,8 @@ export const OwnerSupportManager: React.FC = () => {
               ))}
             </div>
 
-            {/* Content */}
             <div className="p-5 overflow-y-auto flex-1 space-y-3">
               
-              {/* Original Message */}
               <div className="bg-slate-50 rounded-2xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-black text-xs">
@@ -501,7 +548,6 @@ export const OwnerSupportManager: React.FC = () => {
                 </p>
               </div>
 
-              {/* Responses */}
               {selectedTicket.responses.length > 0 && (
                 <div className="space-y-2">
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -511,14 +557,14 @@ export const OwnerSupportManager: React.FC = () => {
                     <div
                       key={response.id}
                       className={`rounded-2xl p-4 ${
-                        response.responderRole === 'owner'
+                        response.responderRole === 'owner' || response.responderRole === 'staff'
                           ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200'
                           : 'bg-slate-50'
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${
-                          response.responderRole === 'owner'
+                          response.responderRole === 'owner' || response.responderRole === 'staff'
                             ? 'bg-emerald-600 text-white'
                             : 'bg-slate-300 text-slate-700'
                         }`}>
@@ -527,9 +573,11 @@ export const OwnerSupportManager: React.FC = () => {
                         <div>
                           <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                             {response.responderName}
-                            {response.responderRole === 'owner' && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-600 text-white uppercase">
-                                Owner
+                            {(response.responderRole === 'owner' || response.responderRole === 'staff') && (
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-black text-white uppercase ${
+                                response.responderRole === 'owner' ? 'bg-emerald-600' : 'bg-blue-600'
+                              }`}>
+                                {response.responderRole === 'owner' ? 'Owner' : 'Staff'}
                               </span>
                             )}
                           </div>
@@ -546,7 +594,6 @@ export const OwnerSupportManager: React.FC = () => {
                 </div>
               )}
 
-              {/* Reply Box */}
               <div className="bg-white rounded-2xl border-2 border-blue-200 p-4">
                 <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
                   <MessageCircle className="w-3.5 h-3.5" />
