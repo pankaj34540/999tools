@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Camera, Printer, Download, RefreshCw, Sliders, Type, 
-  Check, AlertCircle, Eye, EyeOff, Crosshair, User, Info
+  Check, AlertCircle, Crosshair, Info
 } from 'lucide-react';
 
 interface PassportPhotoMakerProps {
@@ -69,7 +69,7 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
     if (paperSize === '4x6') {
       if (photoCount !== 6 && photoCount !== 8) setPhotoCount(6);
     } else {
-      if (photoCount !== 16 && photoCount !== 32) setPhotoCount(16);
+      if (photoCount !== 16 && photoCount !== 24 && photoCount !== 32) setPhotoCount(16);
     }
   }, [paperSize]);
 
@@ -109,16 +109,16 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
       let rows = 2;
 
       if (paperSize === '4x6') {
-        sheetW = 1800;  // 6" @ 300 DPI
-        sheetH = 1200;  // 4" @ 300 DPI
+        sheetW = 1800;
+        sheetH = 1200;
         if (photoCount === 8) { cols = 4; rows = 2; }
         else { cols = 3; rows = 2; }
       } else {
-        sheetW = 2480;  // A4 = 8.27" @ 300 DPI
-        sheetH = 3508;  // A4 = 11.69" @ 300 DPI
+        sheetW = 2480;
+        sheetH = 3508;
         if (photoCount === 32) { cols = 4; rows = 8; }
         else if (photoCount === 24) { cols = 4; rows = 6; }
-        else { cols = 4; rows = 4; } // 16
+        else { cols = 4; rows = 4; }
       }
 
       canvas.width = sheetW;
@@ -126,11 +126,9 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // White background
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, sheetW, sheetH);
 
-      // Grid layout with balanced margins
       const marginX = Math.round(sheetW * 0.04);
       const marginY = Math.round(sheetH * 0.04);
       const availableW = sheetW - marginX * 2;
@@ -139,14 +137,12 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
       const cellW = availableW / cols;
       const cellH = availableH / rows;
 
-      // Passport photo aspect ratio = 35:45 = 1:1.286
       const PASSPORT_RATIO = 1.286;
 
       const photoPadding = Math.round(Math.min(cellW, cellH) * 0.04);
       const maxPhotoW = cellW - photoPadding * 2;
       const maxPhotoH = cellH - photoPadding * 2;
 
-      // Fit 35x45 aspect inside cell
       let finalPhotoW = maxPhotoW;
       let finalPhotoH = finalPhotoW * PASSPORT_RATIO;
       if (finalPhotoH > maxPhotoH) {
@@ -154,13 +150,11 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
         finalPhotoW = finalPhotoH / PASSPORT_RATIO;
       }
 
-      // Render each photo
       let count = 0;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           if (count >= photoCount) break;
 
-          // Center-align each photo in its cell
           const cellCenterX = marginX + c * cellW + cellW / 2;
           const cellCenterY = marginY + r * cellH + cellH / 2;
           const photoX = Math.round(cellCenterX - finalPhotoW / 2);
@@ -168,15 +162,12 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
 
           ctx.save();
 
-          // Clip to photo area
           ctx.beginPath();
           ctx.rect(photoX, photoY, finalPhotoW, finalPhotoH);
           ctx.clip();
 
-          // Apply brightness/contrast
           ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
 
-          // Fit source image into photo cell
           const imgAspect = img.width / img.height;
           const photoAspect = finalPhotoW / finalPhotoH;
           let drawW, drawH;
@@ -189,20 +180,17 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
             drawH = drawW / imgAspect;
           }
 
-          // Center draw position + user pan offset
           const drawX = photoX + (finalPhotoW - drawW) / 2 + panX;
           const drawY = photoY + (finalPhotoH - drawH) / 2 + panY;
 
           ctx.drawImage(img, drawX, drawY, drawW, drawH);
           ctx.filter = 'none';
 
-          // Name & date strip
           if (includeNameDate) {
             const stripH = Math.round(finalPhotoH * 0.22);
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(photoX, photoY + finalPhotoH - stripH, finalPhotoW, stripH);
 
-            // Border line above text
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -229,28 +217,21 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
 
           ctx.restore();
 
-          // Border
           if (borderWidth > 0) {
             ctx.strokeStyle = '#1e293b';
             ctx.lineWidth = borderWidth;
             ctx.strokeRect(photoX, photoY, finalPhotoW, finalPhotoH);
           }
 
-          // Corner cut marks
-          const markLen = 12;
           ctx.strokeStyle = '#94a3b8';
           ctx.lineWidth = 1;
           ctx.beginPath();
-          // Top-left
           ctx.moveTo(photoX - 8, photoY); ctx.lineTo(photoX - 2, photoY);
           ctx.moveTo(photoX, photoY - 8); ctx.lineTo(photoX, photoY - 2);
-          // Top-right
           ctx.moveTo(photoX + finalPhotoW + 8, photoY); ctx.lineTo(photoX + finalPhotoW + 2, photoY);
           ctx.moveTo(photoX + finalPhotoW, photoY - 8); ctx.lineTo(photoX + finalPhotoW, photoY - 2);
-          // Bottom-left
           ctx.moveTo(photoX - 8, photoY + finalPhotoH); ctx.lineTo(photoX - 2, photoY + finalPhotoH);
           ctx.moveTo(photoX, photoY + finalPhotoH + 8); ctx.lineTo(photoX, photoY + finalPhotoH + 2);
-          // Bottom-right
           ctx.moveTo(photoX + finalPhotoW + 8, photoY + finalPhotoH); ctx.lineTo(photoX + finalPhotoW + 2, photoY + finalPhotoH);
           ctx.moveTo(photoX + finalPhotoW, photoY + finalPhotoH + 8); ctx.lineTo(photoX + finalPhotoW, photoY + finalPhotoH + 2);
           ctx.stroke();
@@ -259,7 +240,6 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
         }
       }
 
-      // Footer watermark
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '18px Arial';
       ctx.textAlign = 'right';
@@ -283,9 +263,6 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
 
   const handleMouseUp = () => setIsDragging(false);
 
-  // ============================================
-  // TOUCH HANDLERS (Mobile support)
-  // ============================================
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
       setIsDragging(true);
@@ -316,7 +293,7 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
   };
 
   // ============================================
-  // PRINT — Fixed for 100% scale
+  // PRINT
   // ============================================
   const handlePrint = () => {
     const canvas = canvasRef.current;
@@ -329,8 +306,8 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
     }
 
     const pageSize = paperSize === '4x6'
-      ? '152.4mm 101.6mm'  // 6" x 4" landscape
-      : '210mm 297mm';      // A4 portrait
+      ? '152.4mm 101.6mm'
+      : '210mm 297mm';
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -339,10 +316,7 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
           <title>Print Passport Photo Sheet — 999tools</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            @page {
-              size: ${pageSize};
-              margin: 0;
-            }
+            @page { size: ${pageSize}; margin: 0; }
             body {
               margin: 0;
               padding: 0;
@@ -359,10 +333,6 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
               object-fit: contain;
               display: block;
             }
-            @media print {
-              body { width: 100%; height: 100%; }
-              img { width: 100%; height: 100%; }
-            }
           </style>
         </head>
         <body>
@@ -374,17 +344,17 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
   };
 
   // ============================================
-  // PREVIEW WRAPPER DIMENSIONS
+  // PREVIEW DIMENSIONS
   // ============================================
   const previewStyle: React.CSSProperties = paperSize === '4x6'
     ? {
-        aspectRatio: '3 / 2',       // landscape
+        aspectRatio: '3 / 2',
         width: '100%',
         maxWidth: '720px',
         maxHeight: '65vh',
       }
     : {
-        aspectRatio: '210 / 297',   // portrait A4
+        aspectRatio: '210 / 297',
         maxWidth: 'min(55%, 480px)',
         maxHeight: '65vh',
       };
@@ -403,7 +373,7 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
           <div>
             <h2 className="text-xl font-bold tracking-tight">Passport Photo Sheet Maker</h2>
             <p className="text-xs text-blue-100">
-              4x6 & A4 multi-photo grid with face guide, exact cut borders & date stamp
+              4x6 & A4 grid with face guide, cut borders & date stamp
             </p>
           </div>
         </div>
@@ -436,7 +406,7 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
 
       {/* Body */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
-        {/* ═══ SIDEBAR ═══ */}
+        {/* SIDEBAR */}
         <div className="lg:col-span-4 p-5 bg-slate-50 border-r border-slate-200 space-y-5 overflow-y-auto max-h-[85vh]">
 
           {/* 1. Upload */}
@@ -549,7 +519,7 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
               </span>
             </label>
             <p className="text-[10px] text-amber-700 mt-1.5 leading-relaxed">
-              👁️ <strong>Eyes</strong> — top 45-55% · 👑 <strong>Crown</strong> — top 12% · 🎯 <strong>Chin</strong> — 70-75%
+              👑 <strong>Crown</strong> top 12% · 👁️ <strong>Eyes</strong> 45-55% · 🎯 <strong>Chin</strong> 70-75%
             </p>
           </div>
 
@@ -681,21 +651,18 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
           </div>
         </div>
 
-        {/* ═══ PREVIEW AREA ═══ */}
+        {/* PREVIEW AREA */}
         <div className="lg:col-span-8 p-6 bg-slate-100 flex flex-col items-center justify-center min-h-[500px]">
 
-          {/* Info Bar */}
           <div className="w-full flex flex-wrap items-center justify-between mb-3 text-xs text-slate-500 gap-2">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Live Preview: {paperSize === '4x6' ? '4×6" Lab Paper' : 'A4 Sheet'} · {photoCount} Photos
             </span>
-            <span className="flex items-center gap-1">
-              🖱️ Drag to reposition
-            </span>
+            <span>🖱️ Drag to reposition</span>
           </div>
 
-          {/* ✅ FIXED: Preview Wrapper with Proper Aspect Ratio & Scaling */}
+          {/* Preview Wrapper with Face Guide */}
           <div
             className="relative border-4 border-slate-300 rounded-lg bg-white shadow-2xl overflow-hidden cursor-move select-none"
             style={previewStyle}
@@ -712,7 +679,6 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
               style={{ width: '100%', height: '100%', display: 'block' }}
             />
 
-            {/* ✅ Face Position Guide Overlay */}
             {showFaceGuide && (
               <div className="absolute inset-0 pointer-events-none">
                 <svg
@@ -720,39 +686,10 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
                   viewBox="0 0 100 100"
                   preserveAspectRatio="none"
                 >
-                  {/* Crown Line (top ~12%) */}
-                  <line
-                    x1="0" y1="12" x2="100" y2="12"
-                    stroke="#f59e0b"
-                    strokeWidth="0.4"
-                    strokeDasharray="2 1"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                  {/* Eye Line (~48%) */}
-                  <line
-                    x1="0" y1="48" x2="100" y2="48"
-                    stroke="#3b82f6"
-                    strokeWidth="0.5"
-                    strokeDasharray="2 1"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                  {/* Chin Line (~75%) */}
-                  <line
-                    x1="0" y1="75" x2="100" y2="75"
-                    stroke="#8b5cf6"
-                    strokeWidth="0.4"
-                    strokeDasharray="2 1"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                  {/* Center vertical line */}
-                  <line
-                    x1="50" y1="0" x2="50" y2="100"
-                    stroke="#10b981"
-                    strokeWidth="0.3"
-                    strokeDasharray="1 2"
-                    vectorEffect="non-scaling-stroke"
-                    opacity="0.5"
-                  />
+                  <line x1="0" y1="12" x2="100" y2="12" stroke="#f59e0b" strokeWidth="0.4" strokeDasharray="2 1" vectorEffect="non-scaling-stroke" />
+                  <line x1="0" y1="48" x2="100" y2="48" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="2 1" vectorEffect="non-scaling-stroke" />
+                  <line x1="0" y1="75" x2="100" y2="75" stroke="#8b5cf6" strokeWidth="0.4" strokeDasharray="2 1" vectorEffect="non-scaling-stroke" />
+                  <line x1="50" y1="0" x2="50" y2="100" stroke="#10b981" strokeWidth="0.3" strokeDasharray="1 2" vectorEffect="non-scaling-stroke" opacity="0.5" />
                 </svg>
                 <div className="absolute left-1 top-2 text-[8px] font-bold text-amber-600 bg-white/90 px-1 rounded">
                   👑 Crown
@@ -767,7 +704,6 @@ export const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose 
             )}
           </div>
 
-          {/* Print Tips */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600 bg-white/80 backdrop-blur px-4 py-2 rounded-xl border border-slate-200">
             <span className="font-semibold text-slate-700">Printer Settings:</span>
             <span>• Glossy Photo Paper</span>
