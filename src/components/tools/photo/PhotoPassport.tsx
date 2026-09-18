@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, Upload, Download, Camera, Maximize2, CreditCard, FileText,
   Grid3x3, Layers, Image as ImageIcon, Stamp, Sparkles, Type,
-  User, Printer, Loader2, Check, Crop, RefreshCw
+  User, Printer, Loader2, Check, Crop, RefreshCw, Crosshair, Info, Sliders
 } from 'lucide-react';
 
 // ============================================
@@ -84,29 +84,54 @@ const ToolWrapper: React.FC<{ title: string; icon: React.ReactNode; onClose: () 
 };
 
 // ============================================
-// TOOL 11: Passport Photo Sheet Maker (4x6 & A4)
+// TOOL 11: Passport Photo Sheet Maker (4x6 & A4) - UPGRADED
 // ============================================
 export const PassportPhotoSheetTool: React.FC<ToolProps> = ({ onClose }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [paperSize, setPaperSize] = useState<'4x6' | 'a4'>('4x6');
-  const [photoCount, setPhotoCount] = useState(8);
+  const [photoCount, setPhotoCount] = useState(6);
   const [showCutLines, setShowCutLines] = useState(true);
   const [showBorder, setShowBorder] = useState(true);
+  const [showFaceGuide, setShowFaceGuide] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [brightness, setBrightness] = useState(100);
+  const [contrast, setContrast] = useState(100);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [includeNameDate, setIncludeNameDate] = useState(false);
+  const [candidateName, setCandidateName] = useState('RAHUL KUMAR');
+  const [photoDate, setPhotoDate] = useState(new Date().toLocaleDateString('en-GB'));
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // 300 DPI dimensions
   const PAPER = {
-    '4x6': { w: 1200, h: 1800, label: '4x6 inch (Standard Photo Lab)' },
+    '4x6': { w: 1800, h: 1200, label: '4×6 inch (Standard Photo Lab)' },
     'a4': { w: 2480, h: 3508, label: 'A4 (Regular Printer Paper)' },
   };
 
-  // Passport photo: 35mm x 45mm at 300 DPI = 413 x 531 px
+  // Passport photo: 35mm × 45mm at 300 DPI = 413 × 531 px
   const PHOTO_W = 413;
   const PHOTO_H = 531;
+  const PHOTO_RATIO = PHOTO_H / PHOTO_W;
 
   const COUNTS = {
-    '4x6': [4, 6, 8, 10, 12],
-    'a4': [8, 12, 16, 24, 32],
+    '4x6': [6, 8],
+    'a4': [8, 16, 24, 32],
+  };
+
+  // Grid layouts (cols × rows) per count
+  const getGrid = (): { cols: number; rows: number } => {
+    if (paperSize === '4x6') {
+      if (photoCount === 8) return { cols: 4, rows: 2 };
+      return { cols: 3, rows: 2 }; // 6 photos
+    } else {
+      if (photoCount === 32) return { cols: 4, rows: 8 };
+      if (photoCount === 24) return { cols: 4, rows: 6 };
+      if (photoCount === 16) return { cols: 4, rows: 4 };
+      return { cols: 4, rows: 2 }; // 8 photos
+    }
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,8 +139,20 @@ export const PassportPhotoSheetTool: React.FC<ToolProps> = ({ onClose }) => {
     if (!file) return;
     const img = await loadImage(file);
     setImage(img);
+    setZoom(1);
+    setPanX(0);
+    setPanY(0);
   };
 
+  // Reset count when paper size changes
+  useEffect(() => {
+    if (paperSize === '4x6') setPhotoCount(6);
+    else setPhotoCount(16);
+  }, [paperSize]);
+
+  // ============================================
+  // RENDER CANVAS
+  // ============================================
   useEffect(() => {
     if (!image || !canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -128,86 +165,240 @@ export const PassportPhotoSheetTool: React.FC<ToolProps> = ({ onClose }) => {
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Calculate grid layout
-    const cols = paperSize === '4x6' ? 2 : 4;
-    const rows = Math.ceil(photoCount / cols);
-    const totalW = cols * PHOTO_W;
-    const totalH = rows * PHOTO_H;
-    const offsetX = (canvas.width - totalW) / 2;
-    const offsetY = (canvas.height - totalH) / 2;
+    const { cols, rows } = getGrid();
 
+    // Balanced margins
+    const marginX = Math.round(canvas.width * 0.04);
+    const marginY = Math.round(canvas.height * 0.04);
+    const availableW = canvas.width - marginX * 2;
+    const availableH = canvas.height - marginY * 2;
+
+    const cellW = availableW / cols;
+    const cellH = availableH / rows;
+
+    // Photo size — fit 35×45mm ratio inside cell
+    const cellPadding = Math.round(Math.min(cellW, cellH) * 0.06);
+    const maxPhotoW = cellW - cellPadding * 2;
+    const maxPhotoH = cellH - cellPadding * 2;
+
+    let finalPhotoW = maxPhotoW;
+    let finalPhotoH = finalPhotoW * PHOTO_RATIO;
+    if (finalPhotoH > maxPhotoH) {
+      finalPhotoH = maxPhotoH;
+      finalPhotoW = finalPhotoH / PHOTO_RATIO;
+    }
+
+    // Draw each photo
     let drawn = 0;
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         if (drawn >= photoCount) break;
-        const x = offsetX + col * PHOTO_W;
-        const y = offsetY + row * PHOTO_H;
-        ctx.drawImage(image, x, y, PHOTO_W, PHOTO_H);
+
+        const cellCenterX = marginX + col * cellW + cellW / 2;
+        const cellCenterY = marginY + row * cellH + cellH / 2;
+        const photoX = Math.round(cellCenterX - finalPhotoW / 2);
+        const photoY = Math.round(cellCenterY - finalPhotoH / 2);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(photoX, photoY, finalPhotoW, finalPhotoH);
+        ctx.clip();
+
+        // Brightness + contrast filter
+        ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+
+        // Fit source image (aspect ratio preserving)
+        const imgAspect = image.width / image.height;
+        const photoAspect = finalPhotoW / finalPhotoH;
+        let drawW, drawH;
+        if (imgAspect > photoAspect) {
+          drawH = finalPhotoH * zoom;
+          drawW = drawH * imgAspect;
+        } else {
+          drawW = finalPhotoW * zoom;
+          drawH = drawW / imgAspect;
+        }
+        const drawX = photoX + (finalPhotoW - drawW) / 2 + panX;
+        const drawY = photoY + (finalPhotoH - drawH) / 2 + panY;
+        ctx.drawImage(image, drawX, drawY, drawW, drawH);
+        ctx.filter = 'none';
+
+        // Name & Date strip
+        if (includeNameDate) {
+          const stripH = Math.round(finalPhotoH * 0.22);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(photoX, photoY + finalPhotoH - stripH, finalPhotoW, stripH);
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(photoX, photoY + finalPhotoH - stripH);
+          ctx.lineTo(photoX + finalPhotoW, photoY + finalPhotoH - stripH);
+          ctx.stroke();
+
+          ctx.fillStyle = '#000000';
+          ctx.textAlign = 'center';
+          ctx.font = `bold ${Math.round(stripH * 0.38)}px Arial`;
+          ctx.fillText(
+            candidateName.toUpperCase(),
+            photoX + finalPhotoW / 2,
+            photoY + finalPhotoH - stripH * 0.52
+          );
+          ctx.font = `${Math.round(stripH * 0.32)}px Arial`;
+          ctx.fillText(
+            photoDate,
+            photoX + finalPhotoW / 2,
+            photoY + finalPhotoH - stripH * 0.16
+          );
+        }
+
+        ctx.restore();
+
+        // Border
+        if (showBorder) {
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(photoX, photoY, finalPhotoW, finalPhotoH);
+        }
+
         drawn++;
       }
     }
 
-    // Cut lines
+    // Cut lines (full grid — dotted)
     if (showCutLines) {
-      ctx.strokeStyle = '#CCCCCC';
+      ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = 1;
-      ctx.setLineDash([5, 5]);
-      for (let i = 0; i <= cols; i++) {
-        const x = offsetX + i * PHOTO_W;
-        ctx.beginPath();
-        ctx.moveTo(x, offsetY);
-        ctx.lineTo(x, offsetY + totalH);
-        ctx.stroke();
+      ctx.setLineDash([8, 8]);
+
+      for (let c = 0; c <= cols; c++) {
+        const x = marginX + c * cellW;
+        if (x < canvas.width - marginX + 2) {
+          ctx.beginPath();
+          ctx.moveTo(x, marginY);
+          ctx.lineTo(x, canvas.height - marginY);
+          ctx.stroke();
+        }
       }
-      for (let i = 0; i <= rows; i++) {
-        const y = offsetY + i * PHOTO_H;
-        ctx.beginPath();
-        ctx.moveTo(offsetX, y);
-        ctx.lineTo(offsetX + totalW, y);
-        ctx.stroke();
+      for (let r = 0; r <= rows; r++) {
+        const y = marginY + r * cellH;
+        if (y < canvas.height - marginY + 2) {
+          ctx.beginPath();
+          ctx.moveTo(marginX, y);
+          ctx.lineTo(canvas.width - marginX, y);
+          ctx.stroke();
+        }
       }
       ctx.setLineDash([]);
     }
 
-    // Border
-    if (showBorder) {
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 1;
-      drawn = 0;
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          if (drawn >= photoCount) break;
-          const x = offsetX + col * PHOTO_W;
-          const y = offsetY + row * PHOTO_H;
-          ctx.strokeRect(x, y, PHOTO_W, PHOTO_H);
-          drawn++;
-        }
+    // Corner cut marks
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 2;
+    drawn = 0;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (drawn >= photoCount) break;
+        const cellCenterX = marginX + col * cellW + cellW / 2;
+        const cellCenterY = marginY + row * cellH + cellH / 2;
+        const photoX = Math.round(cellCenterX - finalPhotoW / 2);
+        const photoY = Math.round(cellCenterY - finalPhotoH / 2);
+        const markLen = 14;
+
+        ctx.beginPath();
+        ctx.moveTo(photoX - markLen, photoY); ctx.lineTo(photoX - 3, photoY);
+        ctx.moveTo(photoX, photoY - markLen); ctx.lineTo(photoX, photoY - 3);
+        ctx.moveTo(photoX + finalPhotoW + markLen, photoY); ctx.lineTo(photoX + finalPhotoW + 3, photoY);
+        ctx.moveTo(photoX + finalPhotoW, photoY - markLen); ctx.lineTo(photoX + finalPhotoW, photoY - 3);
+        ctx.moveTo(photoX - markLen, photoY + finalPhotoH); ctx.lineTo(photoX - 3, photoY + finalPhotoH);
+        ctx.moveTo(photoX, photoY + finalPhotoH + markLen); ctx.lineTo(photoX, photoY + finalPhotoH + 3);
+        ctx.moveTo(photoX + finalPhotoW + markLen, photoY + finalPhotoH); ctx.lineTo(photoX + finalPhotoW + 3, photoY + finalPhotoH);
+        ctx.moveTo(photoX + finalPhotoW, photoY + finalPhotoH + markLen); ctx.lineTo(photoX + finalPhotoW, photoY + finalPhotoH + 3);
+        ctx.stroke();
+
+        drawn++;
       }
     }
-  }, [image, paperSize, photoCount, showCutLines, showBorder]);
 
+    // Footer
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '18px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText('999tools.store', canvas.width - 30, canvas.height - 20);
+  }, [image, paperSize, photoCount, showCutLines, showBorder, zoom, panX, panY, brightness, contrast, includeNameDate, candidateName, photoDate]);
+
+  // ============================================
+  // MOUSE / TOUCH HANDLERS
+  // ============================================
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - panX, y: e.clientY - panY });
+  };
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setPanX(e.clientX - dragStart.x);
+    setPanY(e.clientY - dragStart.y);
+  };
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX - panX, y: e.touches[0].clientY - panY });
+    }
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    e.preventDefault();
+    setPanX(e.touches[0].clientX - dragStart.x);
+    setPanY(e.touches[0].clientY - dragStart.y);
+  };
+
+  // ============================================
+  // DOWNLOAD
+  // ============================================
   const handleDownload = () => {
     if (!canvasRef.current) return;
     downloadCanvas(canvasRef.current, `passport_sheet_${paperSize}_${photoCount}photos.jpg`, 'image/jpeg', 0.95);
   };
 
+  // ============================================
+  // PRINT
+  // ============================================
   const handlePrint = () => {
     if (!canvasRef.current) return;
     const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.95);
     const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(`
-        <html><head><title>Passport Photo Sheet</title>
-        <style>
-          @page { size: ${paperSize === '4x6' ? '4in 6in' : 'A4'}; margin: 0; }
-          body { margin: 0; display: flex; align-items: center; justify-content: center; }
-          img { max-width: 100%; max-height: 100vh; }
-        </style></head>
-        <body><img src="${dataUrl}" onload="window.print();" /></body></html>
-      `);
-      win.document.close();
+    if (!win) {
+      alert('Please allow popups for printing');
+      return;
     }
+    const pageSize = paperSize === '4x6' ? '6in 4in' : '210mm 297mm';
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print Passport Sheet — 999tools</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            @page { size: ${pageSize}; margin: 0; }
+            body { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: #fff; }
+            img { width: 100%; height: 100%; object-fit: contain; }
+          </style>
+        </head>
+        <body>
+          <img src="${dataUrl}" onload="setTimeout(function(){ window.print(); window.close(); }, 400);" />
+        </body>
+      </html>
+    `);
+    win.document.close();
   };
+
+  // ============================================
+  // PREVIEW DIMENSIONS
+  // ============================================
+  const previewStyle: React.CSSProperties = paperSize === '4x6'
+    ? { aspectRatio: '3 / 2', width: '100%', maxWidth: '760px', maxHeight: '65vh' }
+    : { aspectRatio: '210 / 297', maxWidth: 'min(55%, 500px)', maxHeight: '65vh' };
 
   return (
     <ToolWrapper title="Passport Photo Sheet Maker" icon={<Camera className="w-5 h-5" />} onClose={onClose}>
@@ -220,22 +411,24 @@ export const PassportPhotoSheetTool: React.FC<ToolProps> = ({ onClose }) => {
         </label>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-          <div className="lg:col-span-2 space-y-4">
+          {/* SIDEBAR */}
+          <div className="lg:col-span-2 space-y-4 max-h-[80vh] overflow-y-auto pr-1">
+            {/* Paper Size */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Paper Size:</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => { setPaperSize('4x6'); setPhotoCount(8); }}
+                    onClick={() => setPaperSize('4x6')}
                     className={`p-3 rounded-xl border-2 text-xs font-bold transition ${
                       paperSize === '4x6' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'
                     }`}
                   >
-                    4x6 inch
+                    4×6 inch
                     <div className="text-[10px] text-slate-500 mt-0.5">Photo Lab Paper</div>
                   </button>
                   <button
-                    onClick={() => { setPaperSize('a4'); setPhotoCount(16); }}
+                    onClick={() => setPaperSize('a4')}
                     className={`p-3 rounded-xl border-2 text-xs font-bold transition ${
                       paperSize === 'a4' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'
                     }`}
@@ -272,8 +465,83 @@ export const PassportPhotoSheetTool: React.FC<ToolProps> = ({ onClose }) => {
                 <input type="checkbox" checked={showBorder} onChange={(e) => setShowBorder(e.target.checked)} className="w-4 h-4 accent-indigo-600" />
                 <span className="text-xs font-bold text-slate-700">Show 1px Black Border</span>
               </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={showFaceGuide} onChange={(e) => setShowFaceGuide(e.target.checked)} className="w-4 h-4 accent-amber-600" />
+                <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                  <Crosshair className="w-3.5 h-3.5" />
+                  Show Face Position Guide
+                </span>
+              </label>
             </div>
 
+            {/* Zoom & Adjust */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+                  Zoom & Position
+                </span>
+                <button
+                  onClick={() => { setZoom(1); setPanX(0); setPanY(0); }}
+                  className="text-[11px] text-indigo-600 hover:underline flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3 h-3" /> Reset
+                </button>
+              </div>
+              <div>
+                <div className="flex justify-between text-xs text-slate-500 mb-1">
+                  <span>Zoom</span>
+                  <span className="font-bold text-slate-700">{Math.round(zoom * 100)}%</span>
+                </div>
+                <input type="range" min="0.5" max="3" step="0.05" value={zoom} onChange={(e) => setZoom(parseFloat(e.target.value))} className="w-full accent-indigo-600" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-[11px] text-slate-500">Brightness: {brightness}%</span>
+                  <input type="range" min="50" max="150" value={brightness} onChange={(e) => setBrightness(parseInt(e.target.value))} className="w-full accent-indigo-600" />
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-500">Contrast: {contrast}%</span>
+                  <input type="range" min="50" max="150" value={contrast} onChange={(e) => setContrast(parseInt(e.target.value))} className="w-full accent-indigo-600" />
+                </div>
+              </div>
+              <div className="text-[10px] text-slate-500 flex items-start gap-1.5 bg-slate-50 p-2 rounded-lg">
+                <Info className="w-3 h-3 mt-0.5 shrink-0 text-indigo-500" />
+                <span>Preview pe mouse/touch se drag karke photo position adjust karo</span>
+              </div>
+            </div>
+
+            {/* Name & Date */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={includeNameDate} onChange={(e) => setIncludeNameDate(e.target.checked)} className="w-4 h-4 accent-indigo-600" />
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-indigo-600" />
+                  Add Name & Date (Govt Exam Req.)
+                </span>
+              </label>
+              {includeNameDate && (
+                <>
+                  <input
+                    type="text"
+                    value={candidateName}
+                    onChange={(e) => setCandidateName(e.target.value)}
+                    placeholder="Candidate Name"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold uppercase focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <input
+                    type="text"
+                    value={photoDate}
+                    onChange={(e) => setPhotoDate(e.target.value)}
+                    placeholder="DD/MM/YYYY"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-indigo-500"
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Info */}
             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
               <div className="text-[11px] text-slate-600 leading-relaxed">
                 <strong className="text-slate-800">📐 Standard Sizes:</strong><br />
@@ -282,6 +550,7 @@ export const PassportPhotoSheetTool: React.FC<ToolProps> = ({ onClose }) => {
               </div>
             </div>
 
+            {/* Buttons */}
             <div className="flex gap-2">
               <button onClick={() => setImage(null)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold">Change</button>
               <button onClick={handlePrint} className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2">
@@ -293,8 +562,51 @@ export const PassportPhotoSheetTool: React.FC<ToolProps> = ({ onClose }) => {
             </div>
           </div>
 
-          <div className="lg:col-span-3 bg-slate-100 rounded-2xl border border-slate-200 flex items-center justify-center min-h-[400px] lg:min-h-[600px] p-4 overflow-auto">
-            <canvas ref={canvasRef} className="max-w-full h-auto shadow-lg bg-white" />
+          {/* PREVIEW */}
+          <div className="lg:col-span-3 bg-slate-100 rounded-2xl border border-slate-200 flex flex-col items-center justify-center min-h-[400px] lg:min-h-[600px] p-4">
+            <div className="w-full flex flex-wrap items-center justify-between mb-3 text-xs text-slate-500 gap-2 px-2">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live Preview: {PAPER[paperSize].label} · {photoCount} Photos
+              </span>
+              <span>🖱️ Drag to reposition</span>
+            </div>
+
+            <div
+              className="relative border-4 border-slate-300 rounded-lg bg-white shadow-2xl overflow-hidden cursor-move select-none"
+              style={previewStyle}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleMouseUp}
+            >
+              <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+
+              {showFaceGuide && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <line x1="0" y1="12" x2="100" y2="12" stroke="#f59e0b" strokeWidth="0.4" strokeDasharray="2 1" vectorEffect="non-scaling-stroke" />
+                    <line x1="0" y1="48" x2="100" y2="48" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="2 1" vectorEffect="non-scaling-stroke" />
+                    <line x1="0" y1="75" x2="100" y2="75" stroke="#8b5cf6" strokeWidth="0.4" strokeDasharray="2 1" vectorEffect="non-scaling-stroke" />
+                    <line x1="50" y1="0" x2="50" y2="100" stroke="#10b981" strokeWidth="0.3" strokeDasharray="1 2" vectorEffect="non-scaling-stroke" opacity="0.5" />
+                  </svg>
+                  <div className="absolute left-1 top-2 text-[8px] font-bold text-amber-600 bg-white/90 px-1 rounded">👑 Crown</div>
+                  <div className="absolute left-1 text-[8px] font-bold text-blue-600 bg-white/90 px-1 rounded" style={{ top: '46%' }}>👁️ Eyes</div>
+                  <div className="absolute left-1 text-[8px] font-bold text-purple-600 bg-white/90 px-1 rounded" style={{ top: '73%' }}>🎯 Chin</div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600 bg-white/80 backdrop-blur px-4 py-2 rounded-xl border border-slate-200">
+              <span className="font-semibold text-slate-700">Printer Settings:</span>
+              <span>• Glossy Photo Paper</span>
+              <span>• Quality: High</span>
+              <span>• <strong className="text-rose-600">Scale: 100%</strong></span>
+              <span>• Borderless: Off</span>
+            </div>
           </div>
         </div>
       )}
@@ -338,7 +650,6 @@ export const GovtExamResizerTool: React.FC<ToolProps> = ({ onClose }) => {
     const canvas = canvasRef.current;
 
     const applyCompression = async () => {
-      // Scale image to target dimensions
       let targetW = currentType.w;
       let targetH = currentType.h;
       let sourceX = 0, sourceY = 0, sourceW = image.width, sourceH = image.height;
@@ -354,13 +665,11 @@ export const GovtExamResizerTool: React.FC<ToolProps> = ({ onClose }) => {
         sourceY = (image.height - sourceH) / 2;
       }
 
-      // Binary search for quality
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = targetW;
       tempCanvas.height = targetH;
       const tempCtx = tempCanvas.getContext('2d')!;
 
-      // White background for JPEG
       tempCtx.fillStyle = '#FFFFFF';
       tempCtx.fillRect(0, 0, targetW, targetH);
       tempCtx.drawImage(image, sourceX, sourceY, sourceW, sourceH, 0, 0, targetW, targetH);
@@ -511,7 +820,6 @@ export const SignatureWhiteBgTool: React.FC<ToolProps> = ({ onClose }) => {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // Threshold filter: pixels above threshold become pure white
     for (let i = 0; i < data.length; i += 4) {
       const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
       if (avg > threshold) {
@@ -519,7 +827,6 @@ export const SignatureWhiteBgTool: React.FC<ToolProps> = ({ onClose }) => {
         data[i + 1] = 255;
         data[i + 2] = 255;
       } else {
-        // Darken darker pixels for crisp signature
         data[i] = Math.max(0, data[i] - 30);
         data[i + 1] = Math.max(0, data[i + 1] - 30);
         data[i + 2] = Math.max(0, data[i + 2] - 30);
@@ -595,14 +902,11 @@ export const PhotoNameDateStampTool: React.FC<ToolProps> = ({ onClose }) => {
     canvas.height = image.height + stripH;
     const ctx = canvas.getContext('2d')!;
 
-    // Draw original photo
     ctx.drawImage(image, 0, 0);
 
-    // Draw strip
     ctx.fillStyle = bgColor === 'black' ? '#000000' : '#FFFFFF';
     ctx.fillRect(0, image.height, canvas.width, stripH);
 
-    // Draw text
     ctx.fillStyle = bgColor === 'black' ? '#FFFFFF' : '#000000';
     const fontSize = Math.max(14, Math.round(canvas.width * 0.05));
     ctx.font = `bold ${fontSize}px Arial, sans-serif`;
@@ -841,13 +1145,11 @@ export const PhotoGridMakerTool: React.FC<ToolProps> = ({ onClose }) => {
       const x = col * cellSize;
       const y = row * cellSize;
 
-      // Crop to square
       const min = Math.min(img.width, img.height);
       const sx = (img.width - min) / 2;
       const sy = (img.height - min) / 2;
       ctx.drawImage(img, sx, sy, min, min, x, y, cellSize, cellSize);
 
-      // Border
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 4;
       ctx.strokeRect(x, y, cellSize, cellSize);
@@ -932,17 +1234,14 @@ export const PolaroidMakerTool: React.FC<ToolProps> = ({ onClose }) => {
     canvas.height = photoSize + bottomStrip + 60;
     const ctx = canvas.getContext('2d')!;
 
-    // Frame
     ctx.fillStyle = frameColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Photo
     const min = Math.min(image.width, image.height);
     const sx = (image.width - min) / 2;
     const sy = (image.height - min) / 2;
     ctx.drawImage(image, sx, sy, min, min, 30, 30, photoSize, photoSize);
 
-    // Caption
     if (caption) {
       ctx.fillStyle = '#1e293b';
       ctx.font = 'bold 42px "Brush Script MT", cursive, Arial';
@@ -1136,7 +1435,7 @@ export const PhotoCollageMakerTool: React.FC<ToolProps> = ({ onClose }) => {
 // ============================================
 export const FaceCenterCropTool: React.FC<ToolProps> = ({ onClose }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [cropSize, setCropSize] = useState(531); // Passport height
+  const [cropSize, setCropSize] = useState(531);
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1159,8 +1458,8 @@ export const FaceCenterCropTool: React.FC<ToolProps> = ({ onClose }) => {
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const maxOffsetX = image.width - canvas.width;
-    const maxOffsetY = image.height - canvas.height;
+    const maxOffsetX = Math.max(0, image.width - canvas.width);
+    const maxOffsetY = Math.max(0, image.height - canvas.height);
     const sx = Math.max(0, Math.min(maxOffsetX, offsetX));
     const sy = Math.max(0, Math.min(maxOffsetY, offsetY));
 
@@ -1261,11 +1560,9 @@ export const PassportTemplateTool: React.FC<ToolProps> = ({ onClose }) => {
     canvas.height = H;
     const ctx = canvas.getContext('2d')!;
 
-    // Background
     ctx.fillStyle = COLORS[bgColor];
     ctx.fillRect(0, 0, W, H);
 
-    // Scale photo to fit
     const ratio = Math.max(W / image.width, H / image.height);
     const newW = image.width * ratio;
     const newH = image.height * ratio;
