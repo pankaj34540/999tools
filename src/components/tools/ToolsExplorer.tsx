@@ -11,7 +11,8 @@ import {
   Zap,
   Crown,
   Lock,
-  Star
+  Star,
+  Construction,
 } from 'lucide-react';
 import { ToolDefinition } from '../../types';
 import { 
@@ -28,79 +29,8 @@ import { useApp } from '../../context/AppContext';
 import { PricingModal } from '../user/PricingModal';
 import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 
-// Batch 1 imports
-import {
-  ImageFormatConverterTool,
-  ImageCompressorTool,
-  ImageResizeTool,
-  PhotoRotatorTool,
-  PhotoFlipTool,
-  BrightnessContrastTool,
-  BlackWhiteTool,
-  PhotoBlurTool,
-  PhotoSharpenerTool,
-  PhotoCropTool,
-} from './photo/PhotoBasics';
-
-// Batch 2 imports
-import {
-  PassportPhotoSheetTool,
-  GovtExamResizerTool,
-  SignatureWhiteBgTool,
-  PhotoNameDateStampTool,
-  FaceCenterCropTool,
-  MultiplePhotoStitcherTool,
-  PhotoGridMakerTool,
-  PolaroidMakerTool,
-  PhotoCollageMakerTool,
-  PassportTemplateTool,
-} from './photo/PhotoPassport';
-
-// Batch 3A imports — PhotoAdvanced (#021-#030)
-import {
-  ImageBackgroundRemoverTool,
-  PhotoAutoEnhancerTool,
-  OldPhotoRestorerTool,
-  PhotoBackgroundColorizerTool,
-  PhotoColorInverterTool,
-  PhotoSaturationBoosterTool,
-  PhotoSepiaTool,
-  PhotoVintageTool,
-  PhotoWatermarkTool,
-  PhotoTextOverlayTool,
-} from './photo/PhotoAdvanced';
-
-// Batch 3A imports — PhotoConvert (#031-#035)
-import {
-  PhotoMetadataViewerTool,
-  PhotoDpiConverterTool,
-  BulkImageResizerTool,
-  BulkImageCompressorTool,
-  ImageToBase64Tool,
-} from './photo/PhotoConvert';
-
-// 🆕 Batch 3B imports — PhotoConvert (#036-#040)
-import {
-  Base64ToImageTool,
-  HeicToJpgTool,
-  PngToJpgTool,
-  WebpToJpgTool,
-  RawToJpgTool,
-} from './photo/PhotoConvert';
-
-// 🆕 Batch 3B imports — PhotoEffects (#041-#050)
-import {
-  GifFrameExtractorTool,
-  ImageColorPickerTool,
-  ImageBorderAdderTool,
-  ImageRoundedCornersTool,
-  ImageShadowEffectTool,
-  ImageReflectionTool,
-  ImagePixelateTool,
-  ImageNoiseAdderTool,
-  ImageNoiseRemoverTool,
-  ImageCartoonizerTool,
-} from './photo/PhotoEffects';
+// 🆕 Tool components will be imported here as they are built
+// Example: import { ImageConverterTool } from './photo/ImageConverterTool';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -122,7 +52,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     recordUsage,
     isUserPremium,
     showNotification,
-    setRole
   } = useApp();
 
   const [activeToolId, setActiveToolId] = useState<string | null>(initialToolId || null);
@@ -147,6 +76,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
   const userPremium = isUserPremium();
 
+  // ============================================
+  // HELPERS
+  // ============================================
   const isToolPremium = (toolId: string): boolean => {
     return PREMIUM_TOOL_IDS.includes(toolId);
   };
@@ -154,11 +86,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const isToolLocked = (toolId: string): boolean => {
     if (!isToolPremium(toolId)) return false;
     if (userPremium) return false;
-
     const access = toolAccessMap[toolId];
     if (!access) return false;
     if (access.limit <= 0) return false;
-
     return !access.allowed || access.remaining <= 0;
   };
 
@@ -179,42 +109,29 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     return () => window.removeEventListener('openPricingModal', handler);
   }, []);
 
+  // Load tool access map
   useEffect(() => {
     const loadAccess = async () => {
       const map: Record<string, ToolAccess> = {};
-      
       for (const tool of TOOLS_REGISTRY) {
         const isPremium = PREMIUM_TOOL_IDS.includes(tool.id);
-        
         if (!isPremium) {
           map[tool.id] = { allowed: true, remaining: -1, isPremium: false, limit: -1 };
         } else {
           try {
             const access = await checkToolAccess(tool.id);
             if (!access || access.limit <= 0) {
-              map[tool.id] = { 
-                allowed: true, 
-                remaining: FREE_USER_DAILY_LIMIT, 
-                isPremium: true, 
-                limit: FREE_USER_DAILY_LIMIT 
-              };
+              map[tool.id] = { allowed: true, remaining: FREE_USER_DAILY_LIMIT, isPremium: true, limit: FREE_USER_DAILY_LIMIT };
             } else {
               map[tool.id] = access;
             }
-          } catch (error) {
-            map[tool.id] = { 
-              allowed: true, 
-              remaining: FREE_USER_DAILY_LIMIT, 
-              isPremium: true, 
-              limit: FREE_USER_DAILY_LIMIT 
-            };
+          } catch {
+            map[tool.id] = { allowed: true, remaining: FREE_USER_DAILY_LIMIT, isPremium: true, limit: FREE_USER_DAILY_LIMIT };
           }
         }
       }
-      
       setToolAccessMap(map);
     };
-    
     loadAccess();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, currentUser?.plan, currentUser?.subscriptionEnd, userPremium]);
@@ -224,6 +141,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     return TOOLS_REGISTRY.find((t) => t.id === activeToolId) || null;
   }, [activeToolId]);
 
+  // ============================================
+  // OPEN TOOL
+  // ============================================
   const handleOpenTool = async (toolId: string) => {
     const tool = TOOLS_REGISTRY.find(t => t.id === toolId);
     if (!tool) return;
@@ -239,23 +159,15 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     }
 
     let access = toolAccessMap[toolId];
-
     if (!access) {
       try {
         access = await checkToolAccess(toolId);
         if (!access || access.limit <= 0) {
           access = { allowed: true, remaining: FREE_USER_DAILY_LIMIT, isPremium: true, limit: FREE_USER_DAILY_LIMIT };
         }
-        setToolAccessMap(prev => ({ ...prev, [toolId]: access! }));
       } catch {
         access = { allowed: true, remaining: FREE_USER_DAILY_LIMIT, isPremium: true, limit: FREE_USER_DAILY_LIMIT };
-        setToolAccessMap(prev => ({ ...prev, [toolId]: access! }));
       }
-    }
-
-    if (access.limit <= 0) {
-      access = { allowed: true, remaining: FREE_USER_DAILY_LIMIT, isPremium: true, limit: FREE_USER_DAILY_LIMIT };
-      setToolAccessMap(prev => ({ ...prev, [toolId]: access! }));
     }
 
     if (!access.allowed || access.remaining <= 0) {
@@ -275,12 +187,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       [toolId]: { ...access!, remaining: newRemaining, allowed: newRemaining > 0 }
     }));
 
-    if (newRemaining === 0) {
-      showNotification(`⚡ Last free use for today! Upgrade for unlimited.`);
-    } else {
-      showNotification(`✅ ${newRemaining} free uses left today.`);
-    }
-
     openTool(toolId);
   };
 
@@ -297,11 +203,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         tool.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tool.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tool.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-
       const matchCat = selectedCategory === 'all' || tool.category === selectedCategory;
       const matchVle = !vleOnlyMode || isVleEssential(tool.id) || tool.vleEssential;
       const matchPremium = !showOnlyPremium || PREMIUM_TOOL_IDS.includes(tool.id);
-
       return matchSearch && matchCat && matchVle && matchPremium;
     });
   }, [searchQuery, selectedCategory, vleOnlyMode, showOnlyPremium]);
@@ -309,7 +213,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   const handleRequestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!reqTitle.trim()) return;
-
     const newItem = {
       id: `req_${Date.now()}`,
       toolName: reqTitle,
@@ -320,7 +223,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       category: (selectedCategory === 'all' ? 'photo_exam' : selectedCategory) as any,
       createdAt: new Date().toISOString().split('T')[0],
     };
-
     setToolRequests([newItem, ...toolRequests]);
     setReqSubmitted(true);
     setTimeout(() => {
@@ -333,7 +235,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
   const renderPremiumBadge = (toolId: string) => {
     if (!isToolPremium(toolId)) return null;
-
     if (userPremium) {
       return (
         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -341,9 +242,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         </span>
       );
     }
-
     const access = toolAccessMap[toolId];
-
     if (!access || access.limit <= 0) {
       return (
         <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -351,7 +250,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         </span>
       );
     }
-
     if (access.remaining > 0) {
       return (
         <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -359,7 +257,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
         </span>
       );
     }
-
     return (
       <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1">
         <Lock className="w-2.5 h-2.5" /> LOCKED
@@ -379,80 +276,26 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   };
 
   // ============================================
-  // TOOL WORKSPACE SWITCH (50 Tools)
+  // TOOL WORKSPACE SWITCH — Add new tools here!
   // ============================================
   const renderToolWorkspace = () => {
     if (!currentActiveTool) return null;
 
     switch (currentActiveTool.componentKey) {
-      // Batch 1
-      case 'ImageFormatConverterTool': return <ImageFormatConverterTool onClose={handleCloseTool} />;
-      case 'ImageCompressorTool': return <ImageCompressorTool onClose={handleCloseTool} />;
-      case 'ImageResizeTool': return <ImageResizeTool onClose={handleCloseTool} />;
-      case 'PhotoRotatorTool': return <PhotoRotatorTool onClose={handleCloseTool} />;
-      case 'PhotoFlipTool': return <PhotoFlipTool onClose={handleCloseTool} />;
-      case 'BrightnessContrastTool': return <BrightnessContrastTool onClose={handleCloseTool} />;
-      case 'BlackWhiteTool': return <BlackWhiteTool onClose={handleCloseTool} />;
-      case 'PhotoBlurTool': return <PhotoBlurTool onClose={handleCloseTool} />;
-      case 'PhotoSharpenerTool': return <PhotoSharpenerTool onClose={handleCloseTool} />;
-      case 'PhotoCropTool': return <PhotoCropTool onClose={handleCloseTool} />;
-
-      // Batch 2
-      case 'PassportPhotoSheetTool': return <PassportPhotoSheetTool onClose={handleCloseTool} />;
-      case 'GovtExamResizerTool': return <GovtExamResizerTool onClose={handleCloseTool} />;
-      case 'SignatureWhiteBgTool': return <SignatureWhiteBgTool onClose={handleCloseTool} />;
-      case 'PhotoNameDateStampTool': return <PhotoNameDateStampTool onClose={handleCloseTool} />;
-      case 'FaceCenterCropTool': return <FaceCenterCropTool onClose={handleCloseTool} />;
-      case 'MultiplePhotoStitcherTool': return <MultiplePhotoStitcherTool onClose={handleCloseTool} />;
-      case 'PhotoGridMakerTool': return <PhotoGridMakerTool onClose={handleCloseTool} />;
-      case 'PolaroidMakerTool': return <PolaroidMakerTool onClose={handleCloseTool} />;
-      case 'PhotoCollageMakerTool': return <PhotoCollageMakerTool onClose={handleCloseTool} />;
-      case 'PassportTemplateTool': return <PassportTemplateTool onClose={handleCloseTool} />;
-
-      // Batch 3A — PhotoAdvanced (#021-#030)
-      case 'ImageBackgroundRemoverTool': return <ImageBackgroundRemoverTool onClose={handleCloseTool} />;
-      case 'PhotoAutoEnhancerTool': return <PhotoAutoEnhancerTool onClose={handleCloseTool} />;
-      case 'OldPhotoRestorerTool': return <OldPhotoRestorerTool onClose={handleCloseTool} />;
-      case 'PhotoBackgroundColorizerTool': return <PhotoBackgroundColorizerTool onClose={handleCloseTool} />;
-      case 'PhotoColorInverterTool': return <PhotoColorInverterTool onClose={handleCloseTool} />;
-      case 'PhotoSaturationBoosterTool': return <PhotoSaturationBoosterTool onClose={handleCloseTool} />;
-      case 'PhotoSepiaTool': return <PhotoSepiaTool onClose={handleCloseTool} />;
-      case 'PhotoVintageTool': return <PhotoVintageTool onClose={handleCloseTool} />;
-      case 'PhotoWatermarkTool': return <PhotoWatermarkTool onClose={handleCloseTool} />;
-      case 'PhotoTextOverlayTool': return <PhotoTextOverlayTool onClose={handleCloseTool} />;
-
-      // Batch 3A — PhotoConvert (#031-#035)
-      case 'PhotoMetadataViewerTool': return <PhotoMetadataViewerTool onClose={handleCloseTool} />;
-      case 'PhotoDpiConverterTool': return <PhotoDpiConverterTool onClose={handleCloseTool} />;
-      case 'BulkImageResizerTool': return <BulkImageResizerTool onClose={handleCloseTool} />;
-      case 'BulkImageCompressorTool': return <BulkImageCompressorTool onClose={handleCloseTool} />;
-      case 'ImageToBase64Tool': return <ImageToBase64Tool onClose={handleCloseTool} />;
-
-      // 🆕 Batch 3B — PhotoConvert (#036-#040)
-      case 'Base64ToImageTool': return <Base64ToImageTool onClose={handleCloseTool} />;
-      case 'HeicToJpgTool': return <HeicToJpgTool onClose={handleCloseTool} />;
-      case 'PngToJpgTool': return <PngToJpgTool onClose={handleCloseTool} />;
-      case 'WebpToJpgTool': return <WebpToJpgTool onClose={handleCloseTool} />;
-      case 'RawToJpgTool': return <RawToJpgTool onClose={handleCloseTool} />;
-
-      // 🆕 Batch 3B — PhotoEffects (#041-#050)
-      case 'GifFrameExtractorTool': return <GifFrameExtractorTool onClose={handleCloseTool} />;
-      case 'ImageColorPickerTool': return <ImageColorPickerTool onClose={handleCloseTool} />;
-      case 'ImageBorderAdderTool': return <ImageBorderAdderTool onClose={handleCloseTool} />;
-      case 'ImageRoundedCornersTool': return <ImageRoundedCornersTool onClose={handleCloseTool} />;
-      case 'ImageShadowEffectTool': return <ImageShadowEffectTool onClose={handleCloseTool} />;
-      case 'ImageReflectionTool': return <ImageReflectionTool onClose={handleCloseTool} />;
-      case 'ImagePixelateTool': return <ImagePixelateTool onClose={handleCloseTool} />;
-      case 'ImageNoiseAdderTool': return <ImageNoiseAdderTool onClose={handleCloseTool} />;
-      case 'ImageNoiseRemoverTool': return <ImageNoiseRemoverTool onClose={handleCloseTool} />;
-      case 'ImageCartoonizerTool': return <ImageCartoonizerTool onClose={handleCloseTool} />;
+      // 🆕 Naye tools yahan add honge
+      // Example:
+      // case 'ImageConverterTool': return <ImageConverterTool onClose={handleCloseTool} />;
 
       default:
         return (
-          <div className="p-8 text-center text-slate-500">
-            <X className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-            <p className="text-sm font-bold text-slate-700">Tool component not found</p>
-            <p className="text-xs mt-1">Component: {currentActiveTool.componentKey}</p>
+          <div className="p-12 text-center space-y-4">
+            <Construction className="w-16 h-16 mx-auto text-slate-300" />
+            <div>
+              <p className="text-sm font-bold text-slate-700">Tool under construction</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Component: {currentActiveTool.componentKey}
+              </p>
+            </div>
           </div>
         );
     }
@@ -469,10 +312,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs uppercase tracking-wider border border-amber-500/30">
-                🚀 Phase 2 Active • {totalTools}/999 Tools Live
+                🚀 Building • {totalTools}/999 Tools Live
               </span>
               <span className="text-xs text-slate-400 font-medium">100% Free & Client-Side Safe</span>
-              
               {currentUser && (
                 <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                   userPremium 
@@ -490,7 +332,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
               India's all-in-one utility hub built for students, cyber cafe operators, and everyday users.
             </p>
           </div>
-
           <div className="flex items-center gap-3">
             {currentUser && !userPremium && (
               <button
@@ -501,7 +342,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                 <span>Upgrade Premium</span>
               </button>
             )}
-            
             <button
               onClick={() => setShowRequestModal(true)}
               className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2"
@@ -551,7 +391,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
               <span>Close Tool</span>
             </button>
           </div>
-
           <div className="min-h-[350px]">{renderToolWorkspace()}</div>
         </div>
       )}
@@ -569,7 +408,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 font-medium"
             />
           </div>
-
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 px-3.5 py-2 rounded-xl border border-amber-200">
               <input type="checkbox" checked={vleOnlyMode} onChange={(e) => setVleOnlyMode(e.target.checked)} className="rounded accent-amber-600 w-4 h-4" />
@@ -578,7 +416,6 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                 <span>VLE Mode</span>
               </div>
             </label>
-
             <label className="flex items-center gap-2 cursor-pointer select-none bg-purple-50 px-3.5 py-2 rounded-xl border border-purple-200">
               <input type="checkbox" checked={showOnlyPremium} onChange={(e) => setShowOnlyPremium(e.target.checked)} className="rounded accent-purple-600 w-4 h-4" />
               <div className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
@@ -588,14 +425,11 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
             </label>
           </div>
         </div>
-
         <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
           <button
             onClick={() => setSelectedCategory('all')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
-              selectedCategory === 'all'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              selectedCategory === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             All Tools ({totalTools})
@@ -605,9 +439,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
-                selectedCategory === cat.id
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                selectedCategory === cat.id ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
               {cat.label} ({cat.count})
@@ -624,25 +456,26 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
             Showing {filteredTools.length} of {totalTools} Available Tools
           </span>
-          {(vleOnlyMode || showOnlyPremium) && (
-            <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-              Filters Active
-            </span>
-          )}
         </div>
 
         {filteredTools.length === 0 ? (
-          <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center">
-            <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h4 className="text-sm font-bold text-slate-800">No tools found</h4>
-            <p className="text-xs text-slate-500 mt-1">Try a different search or filter</p>
+          <div className="bg-white p-12 rounded-2xl border-2 border-dashed border-slate-300 text-center">
+            <Construction className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-black text-slate-800 mb-2">
+              🚀 Tools are being built!
+            </h3>
+            <p className="text-sm text-slate-500 mb-1">
+              We're rebuilding our tools with better quality and features.
+            </p>
+            <p className="text-xs text-slate-400">
+              5 new tools will be added daily. Check back soon!
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredTools.map((tool) => {
               const isVle = isVleEssential(tool.id) || tool.vleEssential;
               const locked = isToolLocked(tool.id);
-
               return (
                 <div
                   key={tool.id}
@@ -660,16 +493,13 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                       <span className="text-[10px] font-black font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800 transition">
                         #{String(tool.num).padStart(3, '0')}
                       </span>
-                      
                       <div className="flex items-center gap-1">
                         {renderPremiumBadge(tool.id)}
-                        
                         {isVle && (
                           <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Store className="w-2.5 h-2.5" /> VLE
                           </span>
                         )}
-
                         {tool.badge === 'POPULAR' && !isToolPremium(tool.id) && (
                           <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Star className="w-2.5 h-2.5" /> Hot
@@ -677,14 +507,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                         )}
                       </div>
                     </div>
-
                     <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition">
                       {tool.name}
                     </h3>
                     <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">
                       {tool.description}
                     </p>
-
                     <div className="flex flex-wrap gap-1 mt-3">
                       {tool.tags.slice(0, 3).map((tag, i) => (
                         <span key={i} className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
@@ -693,18 +521,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                       ))}
                     </div>
                   </div>
-
                   <div className={`mt-4 pt-3 border-t flex items-center justify-between text-xs font-bold ${
-                    locked 
-                      ? 'border-rose-100 text-rose-600' 
-                      : 'border-slate-100 text-blue-600 group-hover:text-blue-700'
+                    locked ? 'border-rose-100 text-rose-600' : 'border-slate-100 text-blue-600 group-hover:text-blue-700'
                   }`}>
                     {locked ? (
                       <>
-                        <span className="flex items-center gap-1">
-                          <Lock className="w-3 h-3" />
-                          Upgrade to Unlock
-                        </span>
+                        <span className="flex items-center gap-1"><Lock className="w-3 h-3" />Upgrade to Unlock</span>
                         <Crown className="w-4 h-4" />
                       </>
                     ) : (
@@ -734,68 +556,31 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
                 <X className="w-5 h-5" />
               </button>
             </div>
-
             {reqSubmitted ? (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-center space-y-2">
                 <Check className="w-8 h-8 text-emerald-600 mx-auto" />
                 <div className="font-bold text-sm">Tool Suggestion Submitted!</div>
-                <p className="text-xs">Our team will queue this up for the upcoming release.</p>
               </div>
             ) : (
               <form onSubmit={handleRequestSubmit} className="space-y-3 text-xs">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Your Role:</label>
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setReqUserType('vle_owner')}
-                      className={`flex-1 py-2 rounded-xl font-bold border ${
-                        reqUserType === 'vle_owner' ? 'bg-amber-500 text-slate-950' : 'bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      CSC VLE / Cyber Cafe
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setReqUserType('public')}
-                      className={`flex-1 py-2 rounded-xl font-bold border ${
-                        reqUserType === 'public' ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      General User
-                    </button>
+                    <button type="button" onClick={() => setReqUserType('vle_owner')} className={`flex-1 py-2 rounded-xl font-bold border ${reqUserType === 'vle_owner' ? 'bg-amber-500 text-slate-950' : 'bg-slate-50 text-slate-700'}`}>CSC VLE / Cyber Cafe</button>
+                    <button type="button" onClick={() => setReqUserType('public')} className={`flex-1 py-2 rounded-xl font-bold border ${reqUserType === 'public' ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-700'}`}>General User</button>
                   </div>
                 </div>
-
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Tool Name or Concept:</label>
-                  <input
-                    type="text"
-                    required
-                    value={reqTitle}
-                    onChange={(e) => setReqTitle(e.target.value)}
-                    placeholder="e.g. Video Compressor"
-                    className="w-full px-3 py-2 border rounded-xl"
-                  />
+                  <label className="font-bold text-slate-700 block mb-1">Tool Name:</label>
+                  <input type="text" required value={reqTitle} onChange={(e) => setReqTitle(e.target.value)} placeholder="e.g. Video Compressor" className="w-full px-3 py-2 border rounded-xl" />
                 </div>
-
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">What should this tool do?</label>
-                  <textarea
-                    rows={3}
-                    value={reqDesc}
-                    onChange={(e) => setReqDesc(e.target.value)}
-                    placeholder="Describe how it will help..."
-                    className="w-full p-3 border rounded-xl"
-                  />
+                  <textarea rows={3} value={reqDesc} onChange={(e) => setReqDesc(e.target.value)} className="w-full p-3 border rounded-xl" />
                 </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 text-xs"
-                >
+                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 text-xs">
                   <Send className="w-4 h-4 text-amber-400" />
-                  <span>Submit to 999tools Roadmap</span>
+                  <span>Submit to Roadmap</span>
                 </button>
               </form>
             )}
