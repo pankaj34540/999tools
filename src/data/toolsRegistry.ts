@@ -1,7 +1,7 @@
 import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
-  { id: 'photo_exam', label: '📸 Photo & Image', count: 3, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
+  { id: 'photo_exam', label: '📸 Photo & Image', count: 4, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
   { id: 'pdf_doc', label: '📄 PDF & Document', count: 0, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
@@ -62,6 +62,20 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'ImageCompressor',
     active: true,
   },
+  {
+    num: 4,
+    id: 'photo_rotator',
+    name: 'Photo Rotator',
+    shortName: 'Rotate',
+    category: 'photo_exam',
+    description: 'Rotate photos 90°, 180°, or any custom angle (-180° to +180°) with automatic canvas resize and white background fill.',
+    tags: ['rotate', 'angle', 'turn', 'sideways', 'orientation'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'RotateCw',
+    componentKey: 'PhotoRotator',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
@@ -71,6 +85,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'image_format_converter',
   'image_resizer',
   'image_compressor',
+  'photo_rotator',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
