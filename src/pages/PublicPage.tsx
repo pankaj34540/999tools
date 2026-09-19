@@ -5,6 +5,7 @@ import { MarqueeNotice } from '../components/common/MarqueeNotice';
 import { UserPortal } from '../components/user/UserPortal';
 import { VlePortal } from '../components/vle/VlePortal';
 import { AdsterraBanner, SocialBarInjector } from '../components/common/AdsterraBanner';
+import { Footer } from '../components/common/Footer';
 import { User, Store } from 'lucide-react';
 
 export const PublicPage: React.FC = () => {
@@ -28,6 +29,8 @@ export const PublicPage: React.FC = () => {
       <main className="flex-1">
         {role === 'vle' ? <VlePortal /> : <UserPortal />}
       </main>
+
+      <Footer />
 
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-slate-950/95 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-full shadow-2xl flex items-center gap-1.5 sm:gap-2">
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 hidden sm:inline">
