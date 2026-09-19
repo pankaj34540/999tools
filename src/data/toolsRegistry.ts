@@ -64,7 +64,7 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
   },
 ];
 
-export const PREMIUM_TOOL_IDS: string[] = [];
+export const PREMIUM_TOOL_IDS: string[] = [
   'image_compressor',                  // ← YE ADD KARO
 ];
 export const VLE_ESSENTIAL_IDS: string[] = [
