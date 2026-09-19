@@ -53,11 +53,11 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     shortName: 'Compress',
     category: 'photo_exam',
     description: 'Compress images to exact file size (20KB, 50KB, 100KB) for govt exam forms with smart binary search algorithm. Batch compression supported.',
-    badge: 'POPULAR',
+    badge: 'PREMIUM',
     tags: ['compress', 'kb', 'size', 'ssc', 'upsc', 'railway', 'exam'],
     popular: true,
     vleEssential: true,
-    isPremium: false,
+    isPremium: true,
     iconName: 'Zap',
     componentKey: 'ImageCompressor',
     active: true,
@@ -65,7 +65,8 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [];
-
+  'image_compressor',                  // ← YE ADD KARO
+];
 export const VLE_ESSENTIAL_IDS: string[] = [
   'image_format_converter',
   'image_resizer',
