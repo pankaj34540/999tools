@@ -36,6 +36,7 @@ import { ImageFormatConverter } from './photo/ImageFormatConverter';
 import { ImageResizer } from './photo/ImageResizer';
 import { ImageCompressor } from './photo/ImageCompressor';   // ← YE ADD KARO
 import { PhotoRotator } from './photo/PhotoRotator';
+import { PhotoFlip } from './photo/PhotoFlip';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -303,6 +304,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
         //Tool #004
       case 'PhotoRotator': return <PhotoRotator onClose={handleCloseTool} />; 
+
+        //Tool #005
+      case 'PhotoFlip': return <PhotoFlip onClose={handleCloseTool} />;
       // 🆕 Add new tools here
 
       default:
