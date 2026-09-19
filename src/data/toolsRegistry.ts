@@ -1,7 +1,7 @@
 import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
-  { id: 'photo_exam', label: '📸 Photo & Image', count: 4, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
+  { id: 'photo_exam', label: '📸 Photo & Image', count: 5, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
   { id: 'pdf_doc', label: '📄 PDF & Document', count: 0, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
@@ -76,6 +76,20 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PhotoRotator',
     active: true,
   },
+  {
+    num: 5,
+    id: 'photo_flip_mirror',
+    name: 'Photo Flip & Mirror',
+    shortName: 'Flip',
+    category: 'photo_exam',
+    description: 'Mirror photos horizontally or flip vertically with one-click toggle. Perfect for correcting mirror selfies and orientation issues.',
+    tags: ['flip', 'mirror', 'reverse', 'horizontal', 'vertical'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'FlipHorizontal',
+    componentKey: 'PhotoFlip',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
@@ -86,6 +100,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'image_resizer',
   'image_compressor',
   'photo_rotator',
+  'photo_flip_mirror',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
