@@ -29,8 +29,8 @@ import { useApp } from '../../context/AppContext';
 import { PricingModal } from '../user/PricingModal';
 import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 
-// 🆕 Tool components will be imported here as they are built
-// Example: import { ImageConverterTool } from './photo/ImageConverterTool';
+// 🆕 Tool Components — Add imports here as tools are built
+import { ImageFormatConverter } from './photo/ImageFormatConverter';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -276,15 +276,16 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   };
 
   // ============================================
-  // TOOL WORKSPACE SWITCH — Add new tools here!
+  // TOOL WORKSPACE SWITCH
   // ============================================
   const renderToolWorkspace = () => {
     if (!currentActiveTool) return null;
 
     switch (currentActiveTool.componentKey) {
-      // 🆕 Naye tools yahan add honge
-      // Example:
-      // case 'ImageConverterTool': return <ImageConverterTool onClose={handleCloseTool} />;
+      // Tool #001
+      case 'ImageFormatConverter': return <ImageFormatConverter onClose={handleCloseTool} />;
+
+      // 🆕 Add new tools here as they are built
 
       default:
         return (
