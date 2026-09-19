@@ -1,10 +1,7 @@
 import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 
-// ============================================
-// CATEGORY DEFINITIONS
-// ============================================
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
-  { id: 'photo_exam', label: '📸 Photo & Image', count: 2, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
+  { id: 'photo_exam', label: '📸 Photo & Image', count: 3, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
   { id: 'pdf_doc', label: '📄 PDF & Document', count: 0, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
@@ -16,11 +13,7 @@ export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; 
   { id: 'security_util', label: '🔒 Security & Utility', count: 0, description: 'Hash, encryption, IP finder', icon: 'Shield' },
 ];
 
-// ============================================
-// TOOLS REGISTRY
-// ============================================
 export const TOOLS_REGISTRY: ToolDefinition[] = [
-  // Tool #001
   {
     num: 1,
     id: 'image_format_converter',
@@ -37,7 +30,6 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'ImageFormatConverter',
     active: true,
   },
-  // Tool #002
   {
     num: 2,
     id: 'image_resizer',
@@ -54,35 +46,40 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'ImageResizer',
     active: true,
   },
+  {
+    num: 3,
+    id: 'image_compressor',
+    name: 'Image Compressor (Target KB)',
+    shortName: 'Compress',
+    category: 'photo_exam',
+    description: 'Compress images to exact file size (20KB, 50KB, 100KB) for govt exam forms with smart binary search algorithm. Batch compression supported.',
+    badge: 'POPULAR',
+    tags: ['compress', 'kb', 'size', 'ssc', 'upsc', 'railway', 'exam'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Zap',
+    componentKey: 'ImageCompressor',
+    active: true,
+  },
 ];
 
-// ============================================
-// PREMIUM TOOLS LIST
-// ============================================
 export const PREMIUM_TOOL_IDS: string[] = [];
 
-// ============================================
-// VLE ESSENTIAL TOOLS
-// ============================================
 export const VLE_ESSENTIAL_IDS: string[] = [
   'image_format_converter',
   'image_resizer',
+  'image_compressor',
 ];
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] => {
-  return TOOLS_REGISTRY.filter((tool) => tool.category === category);
-};
+export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
+  TOOLS_REGISTRY.filter((tool) => tool.category === category);
 
-export const getToolById = (id: string): ToolDefinition | undefined => {
-  return TOOLS_REGISTRY.find((tool) => tool.id === id);
-};
+export const getToolById = (id: string): ToolDefinition | undefined =>
+  TOOLS_REGISTRY.find((tool) => tool.id === id);
 
-export const getToolByNum = (num: number): ToolDefinition | undefined => {
-  return TOOLS_REGISTRY.find((tool) => tool.num === num);
-};
+export const getToolByNum = (num: number): ToolDefinition | undefined =>
+  TOOLS_REGISTRY.find((tool) => tool.num === num);
 
 export const searchTools = (query: string): ToolDefinition[] => {
   const q = query.toLowerCase().trim();
@@ -101,7 +98,4 @@ export const getTotalToolCount = (): number => TOOLS_REGISTRY.length;
 export const getPremiumToolCount = (): number => PREMIUM_TOOL_IDS.length;
 export const getFreeToolCount = (): number => TOOLS_REGISTRY.length - PREMIUM_TOOL_IDS.length;
 
-// ============================================
-// TOOL REQUESTS
-// ============================================
 export const INITIAL_TOOL_REQUESTS: ToolRequestItem[] = [];
