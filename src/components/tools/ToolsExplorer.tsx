@@ -34,6 +34,7 @@ import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 // ============================================
 import { ImageFormatConverter } from './photo/ImageFormatConverter';
 import { ImageResizer } from './photo/ImageResizer';
+import { ImageCompressor } from './photo/ImageCompressor';   // ← YE ADD KARO
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -295,7 +296,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       
       // Tool #002
       case 'ImageResizer': return <ImageResizer onClose={handleCloseTool} />;
-
+      
+        // Tool #003
+      case 'ImageCompressor': return <ImageCompressor onClose={handleCloseTool} />;
       // 🆕 Add new tools here
 
       default:
