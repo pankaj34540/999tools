@@ -4,9 +4,9 @@ import { AppProvider } from './context/AppContext';
 import InstallPrompt from './components/common/InstallPrompt';
 import NotificationToast from './components/common/NotificationToast';
 
-import PublicPage from './pages/PublicPage';
-import OwnerPage from './pages/OwnerPage';
-import AdminPage from './pages/AdminPage';
+import { PublicPage } from './pages/PublicPage';
+import { OwnerPage } from './pages/OwnerPage';
+import { AdminPage } from './pages/AdminPage';
 import PrivacyPage from './pages/legal/PrivacyPage';
 import TermsPage from './pages/legal/TermsPage';
 import RefundPage from './pages/legal/RefundPage';
