@@ -29,8 +29,11 @@ import { useApp } from '../../context/AppContext';
 import { PricingModal } from '../user/PricingModal';
 import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 
-// 🆕 Tool Components — Add imports here as tools are built
+// ============================================
+// 🆕 TOOL IMPORTS
+// ============================================
 import { ImageFormatConverter } from './photo/ImageFormatConverter';
+import { ImageResizer } from './photo/ImageResizer';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -109,7 +112,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     return () => window.removeEventListener('openPricingModal', handler);
   }, []);
 
-  // Load tool access map
+  // ============================================
+  // LOAD TOOL ACCESS MAP
+  // ============================================
   useEffect(() => {
     const loadAccess = async () => {
       const map: Record<string, ToolAccess> = {};
@@ -195,6 +200,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     if (onSelectTool) onSelectTool(null);
   };
 
+  // ============================================
+  // FILTERED TOOLS
+  // ============================================
   const filteredTools = useMemo(() => {
     return TOOLS_REGISTRY.filter((tool) => {
       const matchSearch =
@@ -284,8 +292,11 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     switch (currentActiveTool.componentKey) {
       // Tool #001
       case 'ImageFormatConverter': return <ImageFormatConverter onClose={handleCloseTool} />;
+      
+      // Tool #002
+      case 'ImageResizer': return <ImageResizer onClose={handleCloseTool} />;
 
-      // 🆕 Add new tools here as they are built
+      // 🆕 Add new tools here
 
       default:
         return (
