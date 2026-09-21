@@ -38,6 +38,7 @@ import { ImageCompressor } from './photo/ImageCompressor';   // ← YE ADD KARO
 import { PhotoRotator } from './photo/PhotoRotator';
 import { PhotoFlip } from './photo/PhotoFlip';
 import BrightnessContrast from './photo/BrightnessContrast';
+import BlackWhiteConverter from './photo/BlackWhiteConverter';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -311,6 +312,10 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
         //Tool #006
       case 'BrightnessContrast': return <BrightnessContrast onClose={handleCloseTool} />;
+
+        //Tool #007
+              //Tool #007
+      case 'BlackWhiteConverter': return <BlackWhiteConverter onClose={handleCloseTool} />;
       // 🆕 Add new tools here
 
       default:
