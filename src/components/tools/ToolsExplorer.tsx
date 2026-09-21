@@ -36,7 +36,7 @@ import { ImageFormatConverter } from './photo/ImageFormatConverter';
 import { ImageResizer } from './photo/ImageResizer';
 import { ImageCompressor } from './photo/ImageCompressor';   // ← YE ADD KARO
 import { PhotoRotator } from './photo/PhotoRotator';
-import { PhotoFlip } from './photo/PhotoFlip';
+import PhotoFlip from './photo/PhotoFlip';
 import BrightnessContrast from './photo/BrightnessContrast';
 import BlackWhiteConverter from './photo/BlackWhiteConverter';
 
