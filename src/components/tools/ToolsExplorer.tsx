@@ -32,7 +32,7 @@ import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 // ============================================
 // 🆕 TOOL IMPORTS
 // ============================================
-import { ImageFormatConverter } from './photo/ImageFormatConverter';
+import ImageFormatConverter from './photo/ImageFormatConverter';
 import ImageResizer from './photo/ImageResizer';
 import { ImageCompressor } from './photo/ImageCompressor';   // ← YE ADD KARO
 import PhotoRotator from './photo/PhotoRotator';
