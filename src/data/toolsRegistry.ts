@@ -1,7 +1,7 @@
 import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
-  { id: 'photo_exam', label: '📸 Photo & Image', count: 6, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
+  { id: 'photo_exam', label: '📸 Photo & Image', count: 7, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
   { id: 'pdf_doc', label: '📄 PDF & Document', count: 0, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
@@ -105,6 +105,20 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'BrightnessContrast',
     active: true,
   },
+  {
+    num: 7,
+    id: 'black_white_converter',
+    name: 'Black & White Converter',
+    shortName: 'B&W',
+    category: 'photo_exam',
+    description: 'Convert photos to black and white with multiple styles: grayscale, high contrast, sepia, and inverted. Batch processing supported.',
+    tags: ['black', 'white', 'grayscale', 'sepia', 'bw', 'monochrome'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Palette',
+    componentKey: 'BlackWhiteConverter',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
@@ -117,6 +131,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'photo_rotator',
   'photo_flip_mirror',
   'brightness_contrast',
+  'black_white_converter',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
