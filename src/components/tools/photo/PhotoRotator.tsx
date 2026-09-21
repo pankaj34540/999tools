@@ -1,595 +1,541 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import JSZip from 'jszip';
 import {
-  X, Upload, Download, Image as ImageIcon, Check, Loader2,
-  Trash2, FileArchive, AlertCircle, RotateCw, RotateCcw,
-  RefreshCw, FlipVertical,
+  RotateCw, RotateCcw, Upload, Download, X, Loader2,
+  Trash2, Image as ImageIcon, Maximize2, RefreshCw,
 } from 'lucide-react';
 
-interface ToolProps {
+interface ImageItem {
+  id: string;
+  file: File;
+  originalUrl: string;
+  processedBlob: Blob | null;
+  processedUrl: string | null;
+  originalSize: number;
+  processedSize: number;
+}
+
+interface PhotoRotatorProps {
   onClose: () => void;
 }
 
-interface RotatedImage {
-  id: string;
-  originalFile: File;
-  originalPreview: string;
-  originalWidth: number;
-  originalHeight: number;
-  originalSize: number;
-  rotatedBlob: Blob | null;
-  rotatedPreview: string;
-  rotatedSize: number;
-  rotatedWidth: number;
-  rotatedHeight: number;
-  appliedAngle: number;
-  status: 'pending' | 'processing' | 'done' | 'error';
-  error?: string;
-  outputName: string;
-}
-
-export const PhotoRotator: React.FC<ToolProps> = ({ onClose }) => {
-  const [images, setImages] = useState<RotatedImage[]>([]);
-  const [angle, setAngle] = useState(90);
-  const [busy, setBusy] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
+const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [angle, setAngle] = useState(0);
+  const [isZipping, setIsZipping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ============================================
-  // HELPERS
-  // ============================================
-  const formatBytes = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-  };
+  // ── Apply rotation to canvas ──
+  const applyToCanvas = useCallback(
+    (img: HTMLImageElement, deg: number): HTMLCanvasElement => {
+      const rad = (deg * Math.PI) / 180;
+      const cos = Math.abs(Math.cos(rad));
+      const sin = Math.abs(Math.sin(rad));
 
-  const getBaseName = (filename: string): string => {
-    return filename.replace(/\.[^.]+$/, '');
-  };
-
-  const loadImage = (file: File): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      if (!file.type.startsWith('image/')) {
-        reject(new Error('Not an image file'));
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // ============================================
-  // ROTATE SINGLE IMAGE
-  // ============================================
-  const rotateImage = async (
-    imageData: RotatedImage,
-    rotationAngle: number
-  ): Promise<RotatedImage> => {
-    try {
-      const img = await loadImage(imageData.originalFile);
-      const angleRad = (rotationAngle * Math.PI) / 180;
-
-      // Calculate new bounding box dimensions
-      const cos = Math.abs(Math.cos(angleRad));
-      const sin = Math.abs(Math.sin(angleRad));
-      const newWidth = Math.round(img.width * cos + img.height * sin);
-      const newHeight = Math.round(img.width * sin + img.height * cos);
+      const newW = Math.round(img.naturalWidth * cos + img.naturalHeight * sin);
+      const newH = Math.round(img.naturalWidth * sin + img.naturalHeight * cos);
 
       const canvas = document.createElement('canvas');
-      canvas.width = newWidth;
-      canvas.height = newHeight;
+      canvas.width = newW;
+      canvas.height = newH;
       const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas not supported');
+      if (!ctx) return canvas;
 
-      // White background
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, newWidth, newHeight);
+      // White background fill
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, newW, newH);
 
-      // Move to center, rotate, then draw centered
-      ctx.translate(newWidth / 2, newHeight / 2);
-      ctx.rotate(angleRad);
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      ctx.translate(newW / 2, newH / 2);
+      ctx.rotate(rad);
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
 
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, 'image/jpeg', 0.95);
-      });
+      return canvas;
+    },
+    []
+  );
 
-      if (!blob) throw new Error('Rotation failed');
+  // ── Live preview: reprocess when angle changes ──
+  useEffect(() => {
+    if (images.length === 0) return;
 
-      const rotatedPreview = URL.createObjectURL(blob);
-      const outputName = `${getBaseName(imageData.originalFile.name)}_rotated${rotationAngle}deg.jpg`;
+    let cancelled = false;
 
-      return {
-        ...imageData,
-        rotatedBlob: blob,
-        rotatedPreview,
-        rotatedSize: blob.size,
-        rotatedWidth: newWidth,
-        rotatedHeight: newHeight,
-        appliedAngle: rotationAngle,
-        status: 'done',
-        outputName,
-      };
-    } catch (err: any) {
-      return {
-        ...imageData,
-        status: 'error',
-        error: err.message || 'Rotation failed',
-      };
-    }
-  };
+    const timer = setTimeout(async () => {
+      const updated = await Promise.all(
+        images.map(async (item) => {
+          return new Promise<ImageItem>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              if (cancelled) return resolve(item);
+              const canvas = applyToCanvas(img, angle);
 
-  // ============================================
-  // HANDLE FILES
-  // ============================================
-  const handleFiles = async (files: File[]) => {
-    const validFiles = files.filter((f) => f.type.startsWith('image/'));
+              if (item.processedUrl) URL.revokeObjectURL(item.processedUrl);
 
-    if (validFiles.length === 0) {
-      alert('Please upload valid image files');
-      return;
-    }
+              canvas.toBlob(
+                (blob) => {
+                  if (!blob || cancelled) return resolve(item);
+                  resolve({
+                    ...item,
+                    processedBlob: blob,
+                    processedUrl: URL.createObjectURL(blob),
+                    processedSize: blob.size,
+                  });
+                },
+                'image/jpeg',
+                0.95
+              );
+            };
+            img.onerror = () => resolve(item);
+            img.src = item.originalUrl;
+          });
+        })
+      );
 
-    const newImages: RotatedImage[] = [];
+      if (!cancelled) setImages(updated);
+    }, 150);
 
-    for (const file of validFiles) {
-      try {
-        const img = await loadImage(file);
-        newImages.push({
-          id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          originalFile: file,
-          originalPreview: URL.createObjectURL(file),
-          originalWidth: img.width,
-          originalHeight: img.height,
-          originalSize: file.size,
-          rotatedBlob: null,
-          rotatedPreview: '',
-          rotatedSize: 0,
-          rotatedWidth: 0,
-          rotatedHeight: 0,
-          appliedAngle: 0,
-          status: 'pending',
-          outputName: '',
-        });
-      } catch (err) {
-        console.error('Failed to load:', file.name, err);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [angle]);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setError(null);
+
+    try {
+      const validFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
+      if (validFiles.length === 0) {
+        setError('Please upload valid image files');
+        return;
       }
+
+      const newItems: ImageItem[] = validFiles.map((f) => ({
+        id: `${f.name}-${Date.now()}-${Math.random()}`,
+        file: f,
+        originalUrl: URL.createObjectURL(f),
+        processedBlob: null,
+        processedUrl: null,
+        originalSize: f.size,
+        processedSize: f.size,
+      }));
+
+      setImages((prev) => [...prev, ...newItems]);
+    } catch {
+      setError('Failed to load images');
     }
-
-    setImages((prev) => [...prev, ...newImages]);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length > 0) handleFiles(files);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const downloadSingle = (item: ImageItem) => {
+    if (!item.processedUrl) return;
+    const link = document.createElement('a');
+    link.href = item.processedUrl;
+    link.download = `rotated_${item.file.name.replace(/\.[^.]+$/, '')}.jpg`;
+    link.click();
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    const files = Array.from(e.dataTransfer.files || []);
-    if (files.length > 0) handleFiles(files);
-  };
-
-  // ============================================
-  // QUICK ANGLE BUTTONS
-  // ============================================
-  const handleRotate90Left = () => setAngle(-90);
-  const handleRotate90Right = () => setAngle(90);
-  const handleRotate180 = () => setAngle(180);
-  const handleResetAngle = () => setAngle(0);
-
-  // ============================================
-  // ROTATE ALL
-  // ============================================
-  const rotateAll = async () => {
-    if (images.length === 0 || angle === 0) return;
-    setBusy(true);
-
-    setImages((prev) => prev.map((i) => ({ ...i, status: 'processing' })));
-
-    const results: RotatedImage[] = [];
-    for (const img of images) {
-      if (img.rotatedPreview) URL.revokeObjectURL(img.rotatedPreview);
-      const result = await rotateImage(img, angle);
-      results.push(result);
+  const downloadZip = async () => {
+    const ready = images.filter((i) => i.processedBlob);
+    if (ready.length === 0) return;
+    setIsZipping(true);
+    try {
+      const zip = new JSZip();
+      ready.forEach((img, idx) => {
+        zip.file(
+          `rotated_${idx + 1}_${img.file.name.replace(/\.[^.]+$/, '')}.jpg`,
+          img.processedBlob!
+        );
+      });
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `photo_rotator_${Date.now()}.zip`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch {
+      setError('Failed to create ZIP');
+    } finally {
+      setIsZipping(false);
     }
-
-    setImages(results);
-    setBusy(false);
   };
 
-  // ============================================
-  // REMOVE / CLEAR
-  // ============================================
   const removeImage = (id: string) => {
     setImages((prev) => {
       const img = prev.find((i) => i.id === id);
       if (img) {
-        URL.revokeObjectURL(img.originalPreview);
-        if (img.rotatedPreview) URL.revokeObjectURL(img.rotatedPreview);
+        URL.revokeObjectURL(img.originalUrl);
+        if (img.processedUrl) URL.revokeObjectURL(img.processedUrl);
       }
       return prev.filter((i) => i.id !== id);
     });
   };
 
-  const clearAll = () => {
+  const resetAll = () => {
     images.forEach((img) => {
-      URL.revokeObjectURL(img.originalPreview);
-      if (img.rotatedPreview) URL.revokeObjectURL(img.rotatedPreview);
+      URL.revokeObjectURL(img.originalUrl);
+      if (img.processedUrl) URL.revokeObjectURL(img.processedUrl);
     });
     setImages([]);
+    setAngle(0);
+    setError(null);
   };
 
-  // ============================================
-  // DOWNLOADS
-  // ============================================
-  const downloadSingle = (img: RotatedImage) => {
-    if (!img.rotatedBlob) return;
-    const url = URL.createObjectURL(img.rotatedBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = img.outputName;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 500);
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  const downloadAllAsZip = async () => {
-    const done = images.filter((i) => i.status === 'done' && i.rotatedBlob);
-    if (done.length === 0) return;
+  const quickAngles = [
+    { deg: 0, label: '0°' },
+    { deg: 90, label: '90° CW' },
+    { deg: 180, label: '180°' },
+    { deg: 270, label: '270° CW' },
+  ];
 
-    setBusy(true);
-    try {
-      const JSZip = (await import('jszip')).default;
-      const zip = new JSZip();
-
-      done.forEach((img) => {
-        if (img.rotatedBlob) zip.file(img.outputName, img.rotatedBlob);
-      });
-
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `999tools_rotated_${Date.now()}.zip`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 500);
-    } catch (err) {
-      console.error('ZIP failed:', err);
-      alert('ZIP failed. Download individually.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // ============================================
-  // STATS
-  // ============================================
-  const doneCount = images.filter((i) => i.status === 'done').length;
-  const totalOriginalSize = images.reduce((s, i) => s + i.originalSize, 0);
-  const totalRotatedSize = images
-    .filter((i) => i.status === 'done')
-    .reduce((s, i) => s + i.rotatedSize, 0);
-
-  // ============================================
-  // RENDER
-  // ============================================
   return (
-    <div className="space-y-5">
-      {/* HEADER */}
-      <div className="flex items-center justify-between border-b pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-md">
-            <RotateCw className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-lg font-black text-slate-900">Photo Rotator</h2>
-            <p className="text-xs text-slate-500">
-              Rotate images 90°, 180°, or any custom angle
-            </p>
+    <>
+      <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md overflow-y-auto">
+        <div className="min-h-screen py-6 px-4">
+          <div className="max-w-6xl mx-auto bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-gradient-to-r from-slate-950 to-slate-900 sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                  <RotateCw className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    Photo Rotator
+                    <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
+                      LIVE
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Rotate photos with real-time preview</p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+
+              {/* Angle Controls */}
+              <div className="bg-slate-950 rounded-xl border border-slate-800 p-5 space-y-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white">Rotation Angle</h3>
+                  <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded-full">
+                    ⚡ Live Preview
+                  </span>
+                </div>
+
+                {/* Quick Angles */}
+                <div className="grid grid-cols-4 gap-2">
+                  {quickAngles.map((q) => (
+                    <button
+                      key={q.deg}
+                      onClick={() => setAngle(q.deg)}
+                      className={`py-2.5 px-3 rounded-lg text-xs font-bold border-2 transition ${
+                        angle === q.deg
+                          ? 'bg-emerald-500 text-slate-950 border-emerald-500'
+                          : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Fine Angle Slider */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <RefreshCw className="w-3.5 h-3.5 text-emerald-400" /> Custom Angle
+                    </label>
+                    <span className="text-xs font-mono font-bold text-emerald-400 bg-slate-900 px-2 py-0.5 rounded">
+                      {angle}°
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-180"
+                    max="180"
+                    value={angle}
+                    onChange={(e) => setAngle(Number(e.target.value))}
+                    disabled={images.length === 0}
+                    className="w-full accent-emerald-500 disabled:opacity-40"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                    <span>-180°</span>
+                    <span>0°</span>
+                    <span>+180°</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                {images.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setAngle((a) => a - 90)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> Rotate -90°
+                    </button>
+                    <button
+                      onClick={() => setAngle((a) => a + 90)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" /> Rotate +90°
+                    </button>
+                    <button
+                      onClick={() => setAngle(0)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Reset
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload */}
+              {images.length === 0 ? (
+                <div
+                  onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-12 text-center cursor-pointer transition bg-slate-950/50"
+                >
+                  <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
+                    <Upload className="w-7 h-7 text-emerald-400" />
+                  </div>
+                  <p className="text-white font-bold mb-1">Drop images here or click to upload</p>
+                  <p className="text-xs text-slate-400">JPG, PNG, WebP • Multiple files supported</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => handleFiles(e.target.files)}
+                    className="hidden"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg transition"
+                  >
+                    <Upload className="w-4 h-4" /> Add More
+                  </button>
+                  <button
+                    onClick={downloadZip}
+                    disabled={isZipping}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white text-sm font-bold rounded-lg transition"
+                  >
+                    {isZipping ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Zipping...</>
+                    ) : (
+                      <><Download className="w-4 h-4" /> Download All (ZIP)</>
+                    )}
+                  </button>
+                  <button
+                    onClick={resetAll}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-900/40 hover:bg-red-900/60 text-red-400 text-sm font-bold rounded-lg transition ml-auto"
+                  >
+                    <Trash2 className="w-4 h-4" /> Clear All
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => handleFiles(e.target.files)}
+                    className="hidden"
+                  />
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 text-sm">
+                  ⚠️ {error}
+                </div>
+              )}
+
+              {/* Images with A4 preview */}
+              {images.length > 0 && (
+                <div className="space-y-6">
+                  {images.map((img) => (
+                    <div key={img.id} className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+
+                      {/* Header bar */}
+                      <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <ImageIcon className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                          <p className="text-xs text-white font-bold truncate">{img.file.name}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400">
+                            {formatSize(img.originalSize)} → {formatSize(img.processedSize)}
+                          </span>
+                          <button
+                            onClick={() => setFullscreenImg(img)}
+                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+                            title="Fullscreen"
+                          >
+                            <Maximize2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => removeImage(img.id)}
+                            className="p-1.5 bg-red-900/40 hover:bg-red-900/60 text-red-400 rounded-lg transition"
+                            title="Remove"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* A4 side-by-side */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-900">
+                        {/* BEFORE */}
+                        <div className="relative bg-white rounded-lg border-2 border-slate-700 overflow-hidden shadow-lg">
+                          <div className="absolute top-2 left-2 z-10 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-600">
+                            BEFORE
+                          </div>
+                          <div className="aspect-[1/1.414] flex items-center justify-center bg-white">
+                            <img
+                              src={img.originalUrl}
+                              alt="original"
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          </div>
+                        </div>
+
+                        {/* AFTER */}
+                        <div className="relative bg-white rounded-lg border-2 border-emerald-500 overflow-hidden shadow-lg">
+                          <div className="absolute top-2 left-2 z-10 bg-emerald-500 text-slate-950 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
+                            AFTER
+                          </div>
+                          <div className="aspect-[1/1.414] flex items-center justify-center bg-white">
+                            {img.processedUrl ? (
+                              <img
+                                src={img.processedUrl}
+                                alt="processed"
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            ) : (
+                              <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Download */}
+                      <div className="p-3 border-t border-slate-800">
+                        <button
+                          onClick={() => downloadSingle(img)}
+                          disabled={!img.processedUrl}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg transition"
+                        >
+                          <Download className="w-4 h-4" /> Download Edited Image
+                        </button>
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-300 flex gap-2">
+                <ImageIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Live Preview:</strong> Move slider or click quick angles for instant rotation. Click <Maximize2 className="w-3 h-3 inline" /> for fullscreen.
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition"
-        >
-          <X className="w-5 h-5" />
-        </button>
       </div>
 
-      {/* SETTINGS */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-5 space-y-4">
-        {/* Quick Buttons */}
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-2">
-            Quick Rotate:
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <button
-              onClick={handleRotate90Left}
-              className={`p-3 rounded-xl border-2 transition flex items-center justify-center gap-2 ${
-                angle === -90
-                  ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-purple-300'
-              }`}
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span className="text-xs font-black">90° Left</span>
-            </button>
-            <button
-              onClick={handleRotate90Right}
-              className={`p-3 rounded-xl border-2 transition flex items-center justify-center gap-2 ${
-                angle === 90
-                  ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-purple-300'
-              }`}
-            >
-              <RotateCw className="w-4 h-4" />
-              <span className="text-xs font-black">90° Right</span>
-            </button>
-            <button
-              onClick={handleRotate180}
-              className={`p-3 rounded-xl border-2 transition flex items-center justify-center gap-2 ${
-                angle === 180
-                  ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-purple-300'
-              }`}
-            >
-              <FlipVertical className="w-4 h-4" />
-              <span className="text-xs font-black">180°</span>
-            </button>
-            <button
-              onClick={handleResetAngle}
-              className={`p-3 rounded-xl border-2 transition flex items-center justify-center gap-2 ${
-                angle === 0
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-md'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span className="text-xs font-black">Reset</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Custom Angle Slider */}
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-2">
-            Custom Angle: <span className="font-mono text-purple-600">{angle}°</span>
-          </label>
-          <input
-            type="range"
-            min={-180}
-            max={180}
-            step={1}
-            value={angle}
-            onChange={(e) => setAngle(parseInt(e.target.value))}
-            className="w-full accent-purple-600"
-          />
-          <div className="flex justify-between text-[10px] text-slate-400 font-mono mt-1">
-            <span>-180°</span>
-            <span>-90°</span>
-            <span>0°</span>
-            <span>90°</span>
-            <span>180°</span>
-          </div>
-        </div>
-
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-          <p className="text-[11px] text-amber-900 leading-relaxed">
-            💡 <strong>Tip:</strong> 90° aur 180° rotations lossless hain (no quality loss). Custom angles mein white background fill hota hai.
-          </p>
-        </div>
-      </div>
-
-      {/* UPLOAD AREA */}
-      {images.length === 0 ? (
+      {/* Fullscreen */}
+      {fullscreenImg && (
         <div
-          onDrop={handleDrop}
-          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
-          onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition ${
-            dragActive
-              ? 'border-purple-500 bg-purple-50 scale-[1.01]'
-              : 'border-slate-300 hover:border-purple-400 hover:bg-purple-50/30'
-          }`}
+          className="fixed inset-0 z-[60] bg-slate-950/98 backdrop-blur-md overflow-auto"
+          onClick={() => setFullscreenImg(null)}
         >
-          <div className="w-16 h-16 mx-auto bg-purple-100 rounded-2xl flex items-center justify-center mb-4">
-            <Upload className="w-8 h-8 text-purple-600" />
-          </div>
-          <h3 className="text-base font-black text-slate-800 mb-1">
-            {dragActive ? 'Drop images here' : 'Upload Images'}
-          </h3>
-          <p className="text-xs text-slate-500 mb-3">
-            Click or drag & drop — Multiple images supported
-          </p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl">
-            <ImageIcon className="w-4 h-4" />
-            Choose Files
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleInputChange}
-            className="hidden"
-          />
-        </div>
-      ) : (
-        <>
-          {/* STATS */}
-          {doneCount > 0 && (
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <div className="text-[10px] font-bold text-slate-500 uppercase">Rotated</div>
-                <div className="text-lg font-black text-slate-900">{doneCount}/{images.length}</div>
+          <div className="min-h-screen flex flex-col p-4">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <RotateCw className="w-5 h-5 text-emerald-400" />
+                <p className="text-sm text-white font-bold truncate max-w-md">
+                  {fullscreenImg.file.name}
+                </p>
               </div>
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <div className="text-[10px] font-bold text-slate-500 uppercase">Original</div>
-                <div className="text-sm font-black text-slate-900 font-mono">
-                  {formatBytes(totalOriginalSize)}
+              <button
+                onClick={() => setFullscreenImg(null)}
+                className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div
+              className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="relative bg-white rounded-xl overflow-hidden border-2 border-slate-700 flex items-center justify-center p-4">
+                <div className="absolute top-3 left-3 z-10 bg-slate-950/90 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-slate-600">
+                  BEFORE
                 </div>
+                <img
+                  src={fullscreenImg.originalUrl}
+                  alt="original"
+                  className="max-w-full max-h-full object-contain"
+                />
               </div>
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <div className="text-[10px] font-bold text-slate-500 uppercase">Rotated</div>
-                <div className="text-sm font-black text-purple-700 font-mono">
-                  {formatBytes(totalRotatedSize)}
+
+              <div className="relative bg-white rounded-xl overflow-hidden border-2 border-emerald-500 flex items-center justify-center p-4">
+                <div className="absolute top-3 left-3 z-10 bg-emerald-500 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+                  AFTER
                 </div>
+                {fullscreenImg.processedUrl ? (
+                  <img
+                    src={fullscreenImg.processedUrl}
+                    alt="processed"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                ) : (
+                  <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                )}
               </div>
             </div>
-          )}
 
-          {/* ACTIONS */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition"
-            >
-              <Upload className="w-3.5 h-3.5" /> Add More
-            </button>
-            <button
-              onClick={rotateAll}
-              disabled={busy || angle === 0}
-              className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-md"
-            >
-              {busy ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Rotating...
-                </>
-              ) : (
-                <>
-                  <RotateCw className="w-3.5 h-3.5" />
-                  Rotate All ({angle}°)
-                </>
-              )}
-            </button>
-            {doneCount > 1 && (
+            <div className="flex justify-center mt-4 flex-shrink-0">
               <button
-                onClick={downloadAllAsZip}
-                disabled={busy}
-                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-md"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadSingle(fullscreenImg);
+                }}
+                disabled={!fullscreenImg.processedUrl}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white text-sm font-bold rounded-xl transition shadow-lg"
               >
-                <FileArchive className="w-3.5 h-3.5" /> Download All (ZIP)
+                <Download className="w-4 h-4" /> Download Edited Image
               </button>
-            )}
-            <button
-              onClick={clearAll}
-              disabled={busy}
-              className="ml-auto px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl flex items-center gap-1.5 transition"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Clear All
-            </button>
+            </div>
           </div>
-
-          {/* GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {images.map((img) => (
-              <div
-                key={img.id}
-                className={`bg-white rounded-2xl border-2 overflow-hidden shadow-sm ${
-                  img.status === 'error' ? 'border-rose-300' :
-                  img.status === 'done' ? 'border-purple-300' :
-                  img.status === 'processing' ? 'border-purple-300' :
-                  'border-slate-200'
-                }`}
-              >
-                <div className="relative aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
-                  {img.status === 'done' && img.rotatedPreview ? (
-                    <img src={img.rotatedPreview} alt="Rotated" className="w-full h-full object-contain" />
-                  ) : (
-                    <img src={img.originalPreview} alt="Original" className="w-full h-full object-contain" />
-                  )}
-
-                  {img.status === 'processing' && (
-                    <div className="absolute inset-0 bg-purple-600/80 backdrop-blur flex items-center justify-center">
-                      <Loader2 className="w-8 h-8 text-white animate-spin" />
-                    </div>
-                  )}
-
-                  {img.status === 'error' && (
-                    <div className="absolute inset-0 bg-rose-600/80 backdrop-blur flex flex-col items-center justify-center gap-2 p-3 text-center">
-                      <AlertCircle className="w-8 h-8 text-white" />
-                      <p className="text-[10px] text-white font-bold">{img.error}</p>
-                    </div>
-                  )}
-
-                  {img.status === 'done' && (
-                    <div className="absolute top-2 left-2 bg-purple-600 text-white px-2 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1">
-                      <Check className="w-2.5 h-2.5" /> {img.appliedAngle}°
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => removeImage(img.id)}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-md"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="p-3 space-y-1.5">
-                  <div className="text-[11px] font-bold text-slate-800 truncate">
-                    {img.outputName || img.originalFile.name}
-                  </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-500 font-mono">
-                      {img.originalWidth}×{img.originalHeight}
-                    </span>
-                    {img.status === 'done' && (
-                      <>
-                        <span className="text-slate-400">→</span>
-                        <span className="font-mono font-bold text-purple-700">
-                          {img.rotatedWidth}×{img.rotatedHeight}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-500 font-mono">
-                      {formatBytes(img.originalSize)}
-                    </span>
-                    {img.status === 'done' && (
-                      <span className="font-mono font-bold text-purple-700">
-                        {formatBytes(img.rotatedSize)}
-                      </span>
-                    )}
-                  </div>
-                  {img.status === 'done' && (
-                    <button
-                      onClick={() => downloadSingle(img)}
-                      className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition mt-2"
-                    >
-                      <Download className="w-3 h-3" /> Download
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
+        </div>
       )}
-
-      {images.length > 0 && (
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleInputChange}
-          className="hidden"
-        />
-      )}
-    </div>
+    </>
   );
 };
+
+export default PhotoRotator;
