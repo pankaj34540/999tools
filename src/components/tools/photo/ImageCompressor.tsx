@@ -1,667 +1,670 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import JSZip from 'jszip';
 import {
-  X, Upload, Download, Image as ImageIcon, Check, Loader2,
-  Trash2, FileArchive, AlertCircle, Zap, Target,
+  Zap, Upload, Download, X, Loader2, Trash2,
+  Image as ImageIcon, Maximize2, Crown, Check,
 } from 'lucide-react';
 
-interface ToolProps {
+interface ImageItem {
+  id: string;
+  file: File;
+  originalUrl: string;
+  processedBlob: Blob | null;
+  processedUrl: string | null;
+  originalSize: number;
+  processedSize: number;
+  originalWidth: number;
+  originalHeight: number;
+  isProcessing: boolean;
+}
+
+interface ImageCompressorProps {
   onClose: () => void;
 }
 
-interface CompressedImage {
-  id: string;
-  originalFile: File;
-  originalPreview: string;
-  originalWidth: number;
-  originalHeight: number;
-  originalSize: number;
-  compressedBlob: Blob | null;
-  compressedPreview: string;
-  compressedSize: number;
-  finalQuality: number;
-  finalWidth: number;
-  finalHeight: number;
-  status: 'pending' | 'processing' | 'done' | 'error' | 'warning';
-  error?: string;
-  outputName: string;
-}
-
-const PRESETS = [
-  { kb: 20, label: '20 KB', desc: 'Signature' },
-  { kb: 50, label: '50 KB', desc: 'Photo (SSC)' },
-  { kb: 100, label: '100 KB', desc: 'Photo (UPSC)' },
-  { kb: 200, label: '200 KB', desc: 'Document' },
-  { kb: 500, label: '500 KB', desc: 'High Quality' },
+const TARGET_PRESETS = [
+  { label: '20 KB', value: 20, note: 'Signature' },
+  { label: '50 KB', value: 50, note: 'Photo (SSC)' },
+  { label: '100 KB', value: 100, note: 'Photo (UPSC)' },
+  { label: '200 KB', value: 200, note: 'Document' },
+  { label: '500 KB', value: 500, note: 'High Quality' },
 ];
 
-export const ImageCompressor: React.FC<ToolProps> = ({ onClose }) => {
-  const [images, setImages] = useState<CompressedImage[]>([]);
+const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
+  const [images, setImages] = useState<ImageItem[]>([]);
   const [targetKB, setTargetKB] = useState(50);
-  const [maxDimension, setMaxDimension] = useState(0); // 0 = no resize
-  const [busy, setBusy] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState('50');
+  const [customKB, setCustomKB] = useState('');
+  const [maxDimension, setMaxDimension] = useState(0);
+  const [isZipping, setIsZipping] = useState(false);
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ============================================
-  // HELPERS
-  // ============================================
-  const formatBytes = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-  };
+  // ── Binary search compression ──
+  const compressToTarget = async (
+    img: HTMLImageElement,
+    targetBytes: number,
+    maxDim: number
+  ): Promise<Blob> => {
+    let drawW = img.naturalWidth;
+    let drawH = img.naturalHeight;
 
-  const getBaseName = (filename: string): string => {
-    return filename.replace(/\.[^.]+$/, '');
-  };
-
-  const loadImage = (file: File): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      if (!file.type.startsWith('image/')) {
-        reject(new Error('Not an image file'));
-        return;
+    // Resize if maxDimension specified
+    if (maxDim > 0 && (drawW > maxDim || drawH > maxDim)) {
+      if (drawW > drawH) {
+        drawH = Math.round((drawH / drawW) * maxDim);
+        drawW = maxDim;
+      } else {
+        drawW = Math.round((drawW / drawH) * maxDim);
+        drawH = maxDim;
       }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = e.target?.result as string;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = drawW;
+    canvas.height = drawH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas not supported');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, drawW, drawH);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, drawW, drawH);
+
+    // Binary search for quality
+    let minQ = 0.05;
+    let maxQ = 0.95;
+    let bestBlob: Blob | null = null;
+
+    for (let i = 0; i < 12; i++) {
+      const midQ = (minQ + maxQ) / 2;
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/jpeg', midQ);
+      });
+
+      if (!blob) break;
+
+      if (blob.size <= targetBytes) {
+        bestBlob = blob;
+        minQ = midQ;
+        if (blob.size >= targetBytes * 0.92) break;
+      } else {
+        maxQ = midQ;
+      }
+
+      if (maxQ - minQ < 0.01) break;
+    }
+
+    // If still too big, reduce dimensions progressively
+    if (!bestBlob || bestBlob.size > targetBytes) {
+      let scale = 0.9;
+      while (scale > 0.15) {
+        const scaledW = Math.round(drawW * scale);
+        const scaledH = Math.round(drawH * scale);
+        const scaledCanvas = document.createElement('canvas');
+        scaledCanvas.width = scaledW;
+        scaledCanvas.height = scaledH;
+        const scaledCtx = scaledCanvas.getContext('2d');
+        if (!scaledCtx) break;
+        scaledCtx.fillStyle = '#ffffff';
+        scaledCtx.fillRect(0, 0, scaledW, scaledH);
+        scaledCtx.imageSmoothingEnabled = true;
+        scaledCtx.imageSmoothingQuality = 'high';
+        scaledCtx.drawImage(canvas, 0, 0, scaledW, scaledH);
+
+        const blob = await new Promise<Blob | null>((resolve) => {
+          scaledCanvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85);
+        });
+
+        if (blob && blob.size <= targetBytes) {
+          bestBlob = blob;
+          break;
+        }
+        scale -= 0.1;
+      }
+    }
+
+    if (!bestBlob) throw new Error('Cannot compress to target size');
+    return bestBlob;
+  };
+
+  // ── Process one image ──
+  const processSingleImage = async (item: ImageItem): Promise<ImageItem> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          const targetBytes = targetKB * 1024;
+          const blob = await compressToTarget(img, targetBytes, maxDimension);
+          if (item.processedUrl) URL.revokeObjectURL(item.processedUrl);
+          resolve({
+            ...item,
+            processedBlob: blob,
+            processedUrl: URL.createObjectURL(blob),
+            processedSize: blob.size,
+            originalWidth: img.naturalWidth,
+            originalHeight: img.naturalHeight,
+            isProcessing: false,
+          });
+        } catch {
+          resolve({ ...item, isProcessing: false });
+        }
       };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
+      img.onerror = () => resolve({ ...item, isProcessing: false });
+      img.src = item.originalUrl;
     });
   };
 
-  // ============================================
-  // COMPRESS WITH BINARY SEARCH
-  // ============================================
-  const compressImage = async (
-    imageData: CompressedImage,
-    targetKB: number,
-    maxDim: number
-  ): Promise<CompressedImage> => {
+  // ── Apply compression to all ──
+  const applyCompression = async () => {
+    if (images.length === 0) return;
+    setIsBatchProcessing(true);
+    setError(null);
+
     try {
-      const img = await loadImage(imageData.originalFile);
-      const targetBytes = targetKB * 1024;
+      const updated = await Promise.all(images.map((img) => processSingleImage(img)));
+      setImages(updated);
+    } catch {
+      setError('Failed to compress images');
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
 
-      // Calculate dimensions
-      let finalW = img.width;
-      let finalH = img.height;
+  // ── Handle upload ──
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setError(null);
 
-      if (maxDim > 0 && (img.width > maxDim || img.height > maxDim)) {
-        const ratio = Math.min(maxDim / img.width, maxDim / img.height);
-        finalW = Math.round(img.width * ratio);
-        finalH = Math.round(img.height * ratio);
+    try {
+      const validFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
+      if (validFiles.length === 0) {
+        setError('Please upload valid image files');
+        return;
       }
 
-      // Prepare canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = finalW;
-      canvas.height = finalH;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas not supported');
+      const newItems: ImageItem[] = await Promise.all(
+        validFiles.map(
+          (f) =>
+            new Promise<ImageItem>((resolve) => {
+              const img = new Image();
+              const url = URL.createObjectURL(f);
+              img.onload = () => {
+                resolve({
+                  id: `${f.name}-${Date.now()}-${Math.random()}`,
+                  file: f,
+                  originalUrl: url,
+                  processedBlob: null,
+                  processedUrl: null,
+                  originalSize: f.size,
+                  processedSize: f.size,
+                  originalWidth: img.naturalWidth,
+                  originalHeight: img.naturalHeight,
+                  isProcessing: false,
+                });
+              };
+              img.onerror = () => resolve({
+                id: `${f.name}-${Date.now()}-${Math.random()}`,
+                file: f,
+                originalUrl: url,
+                processedBlob: null,
+                processedUrl: null,
+                originalSize: f.size,
+                processedSize: f.size,
+                originalWidth: 0,
+                originalHeight: 0,
+                isProcessing: false,
+              });
+              img.src = url;
+            })
+        )
+      );
 
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, finalW, finalH);
+      setImages((prev) => [...prev, ...newItems]);
+    } catch {
+      setError('Failed to load images');
+    }
+  };
 
-      // Binary search for quality
-      let low = 10;
-      let high = 100;
-      let bestBlob: Blob | null = null;
-      let bestQuality = 92;
-      const MAX_ITERATIONS = 12;
+  const downloadSingle = (item: ImageItem) => {
+    if (!item.processedUrl) return;
+    const link = document.createElement('a');
+    link.href = item.processedUrl;
+    link.download = `compressed_${item.file.name.replace(/\.[^.]+$/, '')}.jpg`;
+    link.click();
+  };
 
-      // First check if 100% quality itself is under target
-      const fullQualityBlob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, 'image/jpeg', 1.0);
+  const downloadZip = async () => {
+    const ready = images.filter((i) => i.processedBlob);
+    if (ready.length === 0) return;
+    setIsZipping(true);
+    try {
+      const zip = new JSZip();
+      ready.forEach((img, idx) => {
+        zip.file(
+          `compressed_${idx + 1}_${img.file.name.replace(/\.[^.]+$/, '')}.jpg`,
+          img.processedBlob!
+        );
       });
-
-      if (fullQualityBlob && fullQualityBlob.size <= targetBytes) {
-        bestBlob = fullQualityBlob;
-        bestQuality = 100;
-      } else {
-        for (let i = 0; i < MAX_ITERATIONS; i++) {
-          const mid = Math.floor((low + high) / 2);
-          const blob = await new Promise<Blob | null>((resolve) => {
-            canvas.toBlob(resolve, 'image/jpeg', mid / 100);
-          });
-
-          if (!blob) break;
-
-          if (blob.size <= targetBytes) {
-            bestBlob = blob;
-            bestQuality = mid;
-            low = mid + 1;
-          } else {
-            high = mid - 1;
-          }
-
-          if (low > high) break;
-        }
-      }
-
-      if (!bestBlob) {
-        // Fallback: reduce dimensions and try again
-        const scale = 0.7;
-        const newW = Math.round(finalW * scale);
-        const newH = Math.round(finalH * scale);
-        canvas.width = newW;
-        canvas.height = newH;
-        const ctx2 = canvas.getContext('2d')!;
-        ctx2.fillStyle = '#FFFFFF';
-        ctx2.fillRect(0, 0, newW, newH);
-        ctx2.drawImage(img, 0, 0, newW, newH);
-
-        bestBlob = await new Promise<Blob | null>((resolve) => {
-          canvas.toBlob(resolve, 'image/jpeg', 0.3);
-        });
-        bestQuality = 30;
-        finalW = newW;
-        finalH = newH;
-      }
-
-      if (!bestBlob) throw new Error('Compression failed');
-
-      const compressedPreview = URL.createObjectURL(bestBlob);
-      const outputName = `${getBaseName(imageData.originalFile.name)}_${targetKB}KB.jpg`;
-
-      // Warning if over target
-      const status = bestBlob.size > targetBytes ? 'warning' : 'done';
-
-      return {
-        ...imageData,
-        compressedBlob: bestBlob,
-        compressedPreview,
-        compressedSize: bestBlob.size,
-        finalQuality: bestQuality,
-        finalWidth: finalW,
-        finalHeight: finalH,
-        status,
-        outputName,
-      };
-    } catch (err: any) {
-      return {
-        ...imageData,
-        status: 'error',
-        error: err.message || 'Compression failed',
-      };
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `compressed_${targetKB}KB_${Date.now()}.zip`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch {
+      setError('Failed to create ZIP');
+    } finally {
+      setIsZipping(false);
     }
   };
 
-  // ============================================
-  // HANDLE FILES
-  // ============================================
-  const handleFiles = async (files: File[]) => {
-    const validFiles = files.filter((f) => f.type.startsWith('image/'));
-
-    if (validFiles.length === 0) {
-      alert('Please upload valid image files');
-      return;
-    }
-
-    const newImages: CompressedImage[] = [];
-
-    for (const file of validFiles) {
-      try {
-        const img = await loadImage(file);
-        newImages.push({
-          id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          originalFile: file,
-          originalPreview: URL.createObjectURL(file),
-          originalWidth: img.width,
-          originalHeight: img.height,
-          originalSize: file.size,
-          compressedBlob: null,
-          compressedPreview: '',
-          compressedSize: 0,
-          finalQuality: 0,
-          finalWidth: 0,
-          finalHeight: 0,
-          status: 'pending',
-          outputName: '',
-        });
-      } catch (err) {
-        console.error('Failed to load:', file.name, err);
-      }
-    }
-
-    setImages((prev) => [...prev, ...newImages]);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length > 0) handleFiles(files);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    const files = Array.from(e.dataTransfer.files || []);
-    if (files.length > 0) handleFiles(files);
-  };
-
-  // ============================================
-  // COMPRESS ALL
-  // ============================================
-  const compressAll = async () => {
-    if (images.length === 0 || targetKB <= 0) return;
-    setBusy(true);
-
-    setImages((prev) => prev.map((i) => ({ ...i, status: 'processing' })));
-
-    const results: CompressedImage[] = [];
-    for (const img of images) {
-      if (img.compressedPreview) URL.revokeObjectURL(img.compressedPreview);
-      const result = await compressImage(img, targetKB, maxDimension);
-      results.push(result);
-    }
-
-    setImages(results);
-    setBusy(false);
-  };
-
-  // ============================================
-  // REMOVE / CLEAR
-  // ============================================
   const removeImage = (id: string) => {
     setImages((prev) => {
       const img = prev.find((i) => i.id === id);
       if (img) {
-        URL.revokeObjectURL(img.originalPreview);
-        if (img.compressedPreview) URL.revokeObjectURL(img.compressedPreview);
+        URL.revokeObjectURL(img.originalUrl);
+        if (img.processedUrl) URL.revokeObjectURL(img.processedUrl);
       }
       return prev.filter((i) => i.id !== id);
     });
   };
 
-  const clearAll = () => {
+  const resetAll = () => {
     images.forEach((img) => {
-      URL.revokeObjectURL(img.originalPreview);
-      if (img.compressedPreview) URL.revokeObjectURL(img.compressedPreview);
+      URL.revokeObjectURL(img.originalUrl);
+      if (img.processedUrl) URL.revokeObjectURL(img.processedUrl);
     });
     setImages([]);
+    setTargetKB(50);
+    setCustomKB('');
+    setMaxDimension(0);
+    setError(null);
   };
 
-  // ============================================
-  // DOWNLOADS
-  // ============================================
-  const downloadSingle = (img: CompressedImage) => {
-    if (!img.compressedBlob) return;
-    const url = URL.createObjectURL(img.compressedBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = img.outputName;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 500);
+  // ── Custom KB handler ──
+  useEffect(() => {
+    const n = Number(customKB);
+    if (n > 0 && n <= 5000) setTargetKB(n);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customKB]);
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  const downloadAllAsZip = async () => {
-    const done = images.filter((i) => (i.status === 'done' || i.status === 'warning') && i.compressedBlob);
-    if (done.length === 0) return;
-
-    setBusy(true);
-    try {
-      const JSZip = (await import('jszip')).default;
-      const zip = new JSZip();
-
-      done.forEach((img) => {
-        if (img.compressedBlob) zip.file(img.outputName, img.compressedBlob);
-      });
-
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `999tools_compressed_${targetKB}KB_${Date.now()}.zip`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 500);
-    } catch (err) {
-      console.error('ZIP failed:', err);
-      alert('ZIP failed. Download individually.');
-    } finally {
-      setBusy(false);
-    }
+  const getSavingsPercent = (original: number, processed: number) => {
+    if (original === 0) return 0;
+    return Math.round(((original - processed) / original) * 100);
   };
 
-  // ============================================
-  // STATS
-  // ============================================
-  const doneCount = images.filter((i) => i.status === 'done' || i.status === 'warning').length;
-  const totalOriginalSize = images.reduce((s, i) => s + i.originalSize, 0);
-  const totalCompressedSize = images
-    .filter((i) => i.status === 'done' || i.status === 'warning')
-    .reduce((s, i) => s + i.compressedSize, 0);
-  const totalSaved = totalOriginalSize - totalCompressedSize;
-  const savedPercent = totalOriginalSize > 0 ? (totalSaved / totalOriginalSize) * 100 : 0;
-
-  // ============================================
-  // RENDER
-  // ============================================
   return (
-    <div className="space-y-5">
-      {/* HEADER */}
-      <div className="flex items-center justify-between border-b pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white flex items-center justify-center shadow-md">
-            <Zap className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-lg font-black text-slate-900">Image Compressor (Target KB)</h2>
-            <p className="text-xs text-slate-500">
-              Compress to exact file size — SSC, UPSC, Railway forms
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+    <>
+      <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md overflow-y-auto">
+        <div className="min-h-screen py-6 px-4">
+          <div className="max-w-6xl mx-auto bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
 
-      {/* SETTINGS */}
-      <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-2xl p-5 space-y-4">
-        {/* Target KB Presets */}
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
-            <Target className="w-3.5 h-3.5 text-orange-600" />
-            Target File Size:
-          </label>
-          <div className="grid grid-cols-5 gap-2">
-            {PRESETS.map((preset) => (
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-gradient-to-r from-slate-950 to-slate-900 sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    Image Compressor
+                    <span className="text-[10px] font-bold bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Crown className="w-2.5 h-2.5" /> PREMIUM
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Compress to exact KB for govt exam forms</p>
+                </div>
+              </div>
               <button
-                key={preset.kb}
-                onClick={() => {
-                  setTargetKB(preset.kb);
-                  setSelectedPreset(String(preset.kb));
-                }}
-                className={`p-2.5 rounded-xl border-2 transition ${
-                  selectedPreset === String(preset.kb)
-                    ? 'bg-orange-600 text-white border-orange-600 shadow-md'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-orange-300'
-                }`}
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
               >
-                <div className="text-xs font-black">{preset.label}</div>
-                <div className={`text-[9px] mt-0.5 ${
-                  selectedPreset === String(preset.kb) ? 'text-orange-100' : 'text-slate-400'
-                }`}>
-                  {preset.desc}
-                </div>
+                <X className="w-5 h-5" />
               </button>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Custom KB */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-2">
-              Custom Target (KB):
-            </label>
-            <input
-              type="number"
-              min={5}
-              max={5000}
-              value={targetKB}
-              onChange={(e) => {
-                setTargetKB(parseInt(e.target.value) || 0);
-                setSelectedPreset('');
-              }}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-mono font-bold focus:ring-2 focus:ring-orange-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-2">
-              Max Dimension (px, 0 = no resize):
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={5000}
-              value={maxDimension}
-              onChange={(e) => setMaxDimension(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-mono font-bold focus:ring-2 focus:ring-orange-500"
-            />
-            <p className="text-[10px] text-slate-500 mt-1">
-              e.g. 1920 for web, 1000 for fast loading
-            </p>
-          </div>
-        </div>
+            <div className="p-5 space-y-5">
 
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-          <p className="text-[11px] text-amber-900 leading-relaxed">
-            💡 <strong>How it works:</strong> Binary search algorithm automatically finds the best quality that gets closest to your target KB without exceeding it. If target is too small, image dimension will be reduced.
-          </p>
+              {/* Settings */}
+              <div className="bg-slate-950 rounded-xl border border-slate-800 p-5 space-y-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white">Target File Size</h3>
+                  <span className="text-[10px] text-orange-400 font-bold bg-orange-500/10 px-2 py-1 rounded-full">
+                    🎯 Exact KB
+                  </span>
+                </div>
+
+                {/* Presets */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {TARGET_PRESETS.map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => { setTargetKB(p.value); setCustomKB(''); }}
+                      className={`p-3 rounded-lg border-2 transition text-left ${
+                        targetKB === p.value && !customKB
+                          ? 'bg-orange-500 text-white border-orange-500'
+                          : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="text-sm font-bold">{p.label}</div>
+                      <div className={`text-[10px] mt-0.5 ${targetKB === p.value && !customKB ? 'text-orange-100' : 'text-slate-500'}`}>
+                        {p.note}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom KB & Max Dimension */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1.5">Custom Target (KB)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={5000}
+                      value={customKB}
+                      onChange={(e) => setCustomKB(e.target.value)}
+                      placeholder="e.g. 75"
+                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-orange-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1.5">Max Dimension (px, 0 = no resize)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={5000}
+                      value={maxDimension}
+                      onChange={(e) => setMaxDimension(Number(e.target.value))}
+                      placeholder="e.g. 1920"
+                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-orange-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3 text-xs text-amber-200 flex gap-2">
+                  <Zap className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Binary search:</strong> Finds best quality closest to your target KB. If target too small, dimensions auto-reduce.
+                  </div>
+                </div>
+
+                {/* Apply Button */}
+                {images.length > 0 && (
+                  <button
+                    onClick={applyCompression}
+                    disabled={isBatchProcessing}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg transition shadow-md"
+                  >
+                    {isBatchProcessing ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Compressing {images.length} image(s)...</>
+                    ) : (
+                      <><Check className="w-4 h-4" /> Apply Compression to All ({images.length})</>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Upload */}
+              {images.length === 0 ? (
+                <div
+                  onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-700 hover:border-orange-500 rounded-xl p-12 text-center cursor-pointer transition bg-slate-950/50"
+                >
+                  <div className="w-16 h-16 mx-auto rounded-full bg-orange-500/10 flex items-center justify-center mb-4">
+                    <Upload className="w-7 h-7 text-orange-400" />
+                  </div>
+                  <p className="text-white font-bold mb-1">Drop images here or click to upload</p>
+                  <p className="text-xs text-slate-400">JPG, PNG, WebP • Multiple files supported</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => handleFiles(e.target.files)}
+                    className="hidden"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg transition"
+                  >
+                    <Upload className="w-4 h-4" /> Add More
+                  </button>
+                  <button
+                    onClick={downloadZip}
+                    disabled={isZipping || !images.some((i) => i.processedBlob)}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg transition"
+                  >
+                    {isZipping ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Zipping...</>
+                    ) : (
+                      <><Download className="w-4 h-4" /> Download All (ZIP)</>
+                    )}
+                  </button>
+                  <button
+                    onClick={resetAll}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-900/40 hover:bg-red-900/60 text-red-400 text-sm font-bold rounded-lg transition ml-auto"
+                  >
+                    <Trash2 className="w-4 h-4" /> Clear All
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => handleFiles(e.target.files)}
+                    className="hidden"
+                  />
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 text-sm">
+                  ⚠️ {error}
+                </div>
+              )}
+
+              {/* Images with A4 preview */}
+              {images.length > 0 && (
+                <div className="space-y-6">
+                  {images.map((img) => {
+                    const savings = img.processedBlob ? getSavingsPercent(img.originalSize, img.processedSize) : 0;
+                    return (
+                      <div key={img.id} className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+
+                        {/* Header bar */}
+                        <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <ImageIcon className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                            <p className="text-xs text-white font-bold truncate">{img.file.name}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {img.processedBlob && (
+                              <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                -{savings}%
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 hidden sm:inline">
+                              {formatSize(img.originalSize)} → {formatSize(img.processedSize)}
+                            </span>
+                            <button
+                              onClick={() => setFullscreenImg(img)}
+                              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+                              title="Fullscreen"
+                            >
+                              <Maximize2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => removeImage(img.id)}
+                              className="p-1.5 bg-red-900/40 hover:bg-red-900/60 text-red-400 rounded-lg transition"
+                              title="Remove"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* A4 side-by-side */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-900">
+                          {/* BEFORE */}
+                          <div className="relative bg-white rounded-lg border-2 border-slate-700 overflow-hidden shadow-lg">
+                            <div className="absolute top-2 left-2 z-10 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-600">
+                              ORIGINAL
+                            </div>
+                            <div className="aspect-[1/1.414] flex items-center justify-center bg-white">
+                              <img
+                                src={img.originalUrl}
+                                alt="original"
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            </div>
+                          </div>
+
+                          {/* AFTER */}
+                          <div className="relative bg-white rounded-lg border-2 border-orange-500 overflow-hidden shadow-lg">
+                            <div className="absolute top-2 left-2 z-10 bg-orange-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
+                              COMPRESSED
+                            </div>
+                            <div className="aspect-[1/1.414] flex items-center justify-center bg-white">
+                              {img.processedUrl ? (
+                                <img
+                                  src={img.processedUrl}
+                                  alt="processed"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              ) : img.isProcessing ? (
+                                <div className="text-center">
+                                  <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+                                  <p className="text-[10px] text-slate-500 mt-2">Compressing...</p>
+                                </div>
+                              ) : (
+                                <div className="text-center px-4">
+                                  <Zap className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                                  <p className="text-xs text-slate-500 font-bold">Not compressed yet</p>
+                                  <p className="text-[10px] text-slate-400 mt-1">Click "Apply Compression"</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Download */}
+                        <div className="p-3 border-t border-slate-800">
+                          <button
+                            onClick={() => downloadSingle(img)}
+                            disabled={!img.processedUrl}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg transition"
+                          >
+                            <Download className="w-4 h-4" /> Download Compressed
+                          </button>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-300 flex gap-2">
+                <ImageIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Note:</strong> Binary search algorithm runs on "Apply" click. Free users: <strong>3/day</strong>. Premium: <strong>unlimited</strong>.
+                </div>
+              </div>
+
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* UPLOAD AREA */}
-      {images.length === 0 ? (
+      {/* Fullscreen */}
+      {fullscreenImg && (
         <div
-          onDrop={handleDrop}
-          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
-          onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition ${
-            dragActive
-              ? 'border-orange-500 bg-orange-50 scale-[1.01]'
-              : 'border-slate-300 hover:border-orange-400 hover:bg-orange-50/30'
-          }`}
+          className="fixed inset-0 z-[60] bg-slate-950/98 backdrop-blur-md overflow-auto"
+          onClick={() => setFullscreenImg(null)}
         >
-          <div className="w-16 h-16 mx-auto bg-orange-100 rounded-2xl flex items-center justify-center mb-4">
-            <Upload className="w-8 h-8 text-orange-600" />
-          </div>
-          <h3 className="text-base font-black text-slate-800 mb-1">
-            {dragActive ? 'Drop images here' : 'Upload Images to Compress'}
-          </h3>
-          <p className="text-xs text-slate-500 mb-3">
-            Click or drag & drop — Multiple images supported
-          </p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white text-xs font-bold rounded-xl">
-            <ImageIcon className="w-4 h-4" />
-            Choose Files
-          </div>
-          <p className="text-[10px] text-slate-400 mt-3">
-            Perfect for govt exam photo/signature requirements
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleInputChange}
-            className="hidden"
-          />
-        </div>
-      ) : (
-        <>
-          {/* STATS */}
-          {doneCount > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <div className="text-[10px] font-bold text-slate-500 uppercase">Compressed</div>
-                <div className="text-lg font-black text-slate-900">{doneCount}/{images.length}</div>
+          <div className="min-h-screen flex flex-col p-4">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <Zap className="w-5 h-5 text-orange-400" />
+                <p className="text-sm text-white font-bold truncate max-w-md">
+                  {fullscreenImg.file.name}
+                </p>
               </div>
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <div className="text-[10px] font-bold text-slate-500 uppercase">Original</div>
-                <div className="text-sm font-black text-slate-900 font-mono">
-                  {formatBytes(totalOriginalSize)}
+              <button
+                onClick={() => setFullscreenImg(null)}
+                className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div
+              className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="relative bg-white rounded-xl overflow-hidden border-2 border-slate-700 flex items-center justify-center p-4">
+                <div className="absolute top-3 left-3 z-10 bg-slate-950/90 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-slate-600">
+                  ORIGINAL ({formatSize(fullscreenImg.originalSize)})
                 </div>
+                <img
+                  src={fullscreenImg.originalUrl}
+                  alt="original"
+                  className="max-w-full max-h-full object-contain"
+                />
               </div>
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <div className="text-[10px] font-bold text-slate-500 uppercase">Compressed</div>
-                <div className="text-sm font-black text-orange-700 font-mono">
-                  {formatBytes(totalCompressedSize)}
+
+              <div className="relative bg-white rounded-xl overflow-hidden border-2 border-orange-500 flex items-center justify-center p-4">
+                <div className="absolute top-3 left-3 z-10 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+                  COMPRESSED ({formatSize(fullscreenImg.processedSize)})
                 </div>
-              </div>
-              <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
-                <div className="text-[10px] font-bold text-emerald-700 uppercase">Saved</div>
-                <div className="text-lg font-black text-emerald-700 font-mono">
-                  −{savedPercent.toFixed(0)}%
-                </div>
+                {fullscreenImg.processedUrl ? (
+                  <img
+                    src={fullscreenImg.processedUrl}
+                    alt="processed"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                ) : (
+                  <div className="text-center">
+                    <Zap className="w-12 h-12 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500 font-bold">Not compressed yet</p>
+                  </div>
+                )}
               </div>
             </div>
-          )}
 
-          {/* ACTIONS */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition"
-            >
-              <Upload className="w-3.5 h-3.5" /> Add More
-            </button>
-            <button
-              onClick={compressAll}
-              disabled={busy || targetKB <= 0}
-              className="px-4 py-2.5 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-md"
-            >
-              {busy ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Compressing...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-3.5 h-3.5" />
-                  Compress All to {targetKB}KB
-                </>
-              )}
-            </button>
-            {doneCount > 1 && (
+            <div className="flex justify-center mt-4 flex-shrink-0">
               <button
-                onClick={downloadAllAsZip}
-                disabled={busy}
-                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-md"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadSingle(fullscreenImg);
+                }}
+                disabled={!fullscreenImg.processedUrl}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white text-sm font-bold rounded-xl transition shadow-lg"
               >
-                <FileArchive className="w-3.5 h-3.5" /> Download All (ZIP)
+                <Download className="w-4 h-4" /> Download Compressed
               </button>
-            )}
-            <button
-              onClick={clearAll}
-              disabled={busy}
-              className="ml-auto px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl flex items-center gap-1.5 transition"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Clear All
-            </button>
+            </div>
           </div>
-
-          {/* GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {images.map((img) => (
-              <div
-                key={img.id}
-                className={`bg-white rounded-2xl border-2 overflow-hidden shadow-sm ${
-                  img.status === 'error' ? 'border-rose-300' :
-                  img.status === 'warning' ? 'border-amber-300' :
-                  img.status === 'done' ? 'border-emerald-300' :
-                  img.status === 'processing' ? 'border-orange-300' :
-                  'border-slate-200'
-                }`}
-              >
-                <div className="relative aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
-                  {img.status === 'done' || img.status === 'warning' ? (
-                    <img src={img.compressedPreview} alt="Compressed" className="w-full h-full object-contain" />
-                  ) : (
-                    <img src={img.originalPreview} alt="Original" className="w-full h-full object-contain" />
-                  )}
-
-                  {img.status === 'processing' && (
-                    <div className="absolute inset-0 bg-orange-600/80 backdrop-blur flex flex-col items-center justify-center">
-                      <Loader2 className="w-8 h-8 text-white animate-spin" />
-                      <p className="text-[10px] text-white font-bold mt-2">Compressing...</p>
-                    </div>
-                  )}
-
-                  {img.status === 'error' && (
-                    <div className="absolute inset-0 bg-rose-600/80 backdrop-blur flex flex-col items-center justify-center gap-2 p-3 text-center">
-                      <AlertCircle className="w-8 h-8 text-white" />
-                      <p className="text-[10px] text-white font-bold">{img.error}</p>
-                    </div>
-                  )}
-
-                  {img.status === 'done' && (
-                    <div className="absolute top-2 left-2 bg-emerald-600 text-white px-2 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1">
-                      <Check className="w-2.5 h-2.5" /> {Math.round(img.compressedSize / 1024)}KB
-                    </div>
-                  )}
-
-                  {img.status === 'warning' && (
-                    <div className="absolute top-2 left-2 bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1">
-                      <AlertCircle className="w-2.5 h-2.5" /> {Math.round(img.compressedSize / 1024)}KB
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => removeImage(img.id)}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-md"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="p-3 space-y-1.5">
-                  <div className="text-[11px] font-bold text-slate-800 truncate">
-                    {img.outputName || img.originalFile.name}
-                  </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-500 font-mono">
-                      {formatBytes(img.originalSize)}
-                    </span>
-                    {(img.status === 'done' || img.status === 'warning') && (
-                      <>
-                        <span className="text-slate-400">→</span>
-                        <span className={`font-mono font-bold ${
-                          img.status === 'done' ? 'text-emerald-700' : 'text-amber-700'
-                        }`}>
-                          {formatBytes(img.compressedSize)}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  {(img.status === 'done' || img.status === 'warning') && (
-                    <>
-                      <div className="text-[10px] text-slate-500">
-                        Quality: <span className="font-bold">{img.finalQuality}%</span> • 
-                        {' '}{img.finalWidth}×{img.finalHeight}
-                      </div>
-                      {img.status === 'warning' && (
-                        <div className="text-[10px] text-amber-700 font-bold bg-amber-50 p-1.5 rounded">
-                          ⚠️ Couldn't reach {targetKB}KB — try smaller max dimension
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {(img.status === 'done' || img.status === 'warning') && (
-                    <button
-                      onClick={() => downloadSingle(img)}
-                      className="w-full py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition mt-2"
-                    >
-                      <Download className="w-3 h-3" /> Download
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
+        </div>
       )}
-
-      {images.length > 0 && (
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleInputChange}
-          className="hidden"
-        />
-      )}
-    </div>
+    </>
   );
 };
+
+export default ImageCompressor;
