@@ -1,7 +1,7 @@
 import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
-  { id: 'photo_exam', label: '📸 Photo & Image', count: 5, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
+  { id: 'photo_exam', label: '📸 Photo & Image', count: 6, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
   { id: 'pdf_doc', label: '📄 PDF & Document', count: 0, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
@@ -90,6 +90,21 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PhotoFlip',
     active: true,
   },
+  {
+    num: 6,
+    id: 'brightness_contrast',
+    name: 'Brightness & Contrast',
+    shortName: 'Brightness',
+    category: 'photo_exam',
+    description: 'Adjust brightness and contrast of photos with easy sliders. Perfect for fixing dark or washed-out images. Batch processing and ZIP download supported.',
+    tags: ['brightness', 'contrast', 'light', 'dark', 'adjust', 'enhance'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Sun',
+    componentKey: 'BrightnessContrast',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
@@ -101,6 +116,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'image_compressor',
   'photo_rotator',
   'photo_flip_mirror',
+  'brightness_contrast',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
