@@ -41,6 +41,7 @@ import BrightnessContrast from './photo/BrightnessContrast';
 import BlackWhiteConverter from './photo/BlackWhiteConverter';
 import PhotoBlur from './photo/PhotoBlur';
 import PhotoSharpener from './photo/PhotoSharpener';
+import PhotoCrop from './photo/PhotoCrop';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -323,6 +324,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
        //Tool #009
       case 'PhotoSharpener': return <PhotoSharpener onClose={handleCloseTool} />;
+
+      //Tool #010
+      case 'PhotoCrop': return <PhotoCrop onClose={handleCloseTool} />;
       // 🆕 Add new tools here
 
       default:
