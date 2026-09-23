@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import JSZip from 'jszip';
 import {
   Crop, Upload, Download, X, Loader2, Trash2,
-  Image as ImageIcon, Maximize2, Lock, Unlock, RotateCcw, Check,
+  Image as ImageIcon, Maximize2, Lock, Unlock, RotateCcw,
 } from 'lucide-react';
 
 interface ImageItem {
@@ -52,72 +52,81 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const previewRef = useRef<HTMLDivElement>(null);
+  const activeIdxRef = useRef(0);
+
+  // Keep activeIdx ref in sync (for use in non-React callbacks)
+  useEffect(() => {
+    activeIdxRef.current = activeIdx;
+  }, [activeIdx]);
+
   const dragState = useRef<{
     mode: DragMode;
     startX: number;
     startY: number;
     startCrop: { x: number; y: number; w: number; h: number };
-    imgDisplayRect: { x: number; y: number; w: number; h: number };
+    scaleX: number;
+    scaleY: number;
+    imgW: number;
+    imgH: number;
+    aspectRatio: number | null;
+    rafId: number | null;
+    pendingUpdate: { x: number; y: number; w: number; h: number } | null;
   } | null>(null);
 
   const activeImage = images[activeIdx] || null;
 
   // ── Apply crop to canvas ──
-  const applyCrop = useCallback(
-    async (item: ImageItem): Promise<ImageItem> => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.max(1, Math.round(item.cropW));
-            canvas.height = Math.max(1, Math.round(item.cropH));
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return resolve(item);
+  const applyCrop = useCallback(async (item: ImageItem): Promise<ImageItem> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(item.cropW));
+          canvas.height = Math.max(1, Math.round(item.cropH));
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(item);
 
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
 
-            ctx.drawImage(
-              img,
-              Math.round(item.cropX),
-              Math.round(item.cropY),
-              Math.round(item.cropW),
-              Math.round(item.cropH),
-              0,
-              0,
-              canvas.width,
-              canvas.height
-            );
+          ctx.drawImage(
+            img,
+            Math.round(item.cropX),
+            Math.round(item.cropY),
+            Math.round(item.cropW),
+            Math.round(item.cropH),
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
 
-            canvas.toBlob(
-              (blob) => {
-                if (!blob) return resolve(item);
-                if (item.processedUrl) URL.revokeObjectURL(item.processedUrl);
-                resolve({
-                  ...item,
-                  processedBlob: blob,
-                  processedUrl: URL.createObjectURL(blob),
-                  processedSize: blob.size,
-                });
-              },
-              'image/jpeg',
-              0.95
-            );
-          } catch {
-            resolve(item);
-          }
-        };
-        img.onerror = () => resolve(item);
-        img.src = item.originalUrl;
-      });
-    },
-    []
-  );
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) return resolve(item);
+              if (item.processedUrl) URL.revokeObjectURL(item.processedUrl);
+              resolve({
+                ...item,
+                processedBlob: blob,
+                processedUrl: URL.createObjectURL(blob),
+                processedSize: blob.size,
+              });
+            },
+            'image/jpeg',
+            0.95
+          );
+        } catch {
+          resolve(item);
+        }
+      };
+      img.onerror = () => resolve(item);
+      img.src = item.originalUrl;
+    });
+  }, []);
 
   // ── Auto-apply crop (debounced) ──
   useEffect(() => {
@@ -128,9 +137,7 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
       setIsApplying(true);
       const updated = await applyCrop(activeImage);
       if (!cancelled) {
-        setImages((prev) =>
-          prev.map((p, i) => (i === activeIdx ? updated : p))
-        );
+        setImages((prev) => prev.map((p, i) => (i === activeIdx ? updated : p)));
         setIsApplying(false);
       }
     }, 250);
@@ -181,9 +188,7 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
                   processedSize: f.size,
                 });
               };
-              img.onerror = () => {
-                URL.revokeObjectURL(url);
-              };
+              img.onerror = () => URL.revokeObjectURL(url);
               img.src = url;
             })
         )
@@ -196,7 +201,7 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
     }
   };
 
-  // ── Drag handling ──
+  // ── Get image display rect ──
   const getImageDisplayRect = () => {
     if (!previewRef.current || !activeImage) return null;
     const container = previewRef.current;
@@ -222,16 +227,110 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
     const scaleX = displayW / activeImage.originalWidth;
     const scaleY = displayH / activeImage.originalHeight;
 
-    return {
-      x: offsetX,
-      y: offsetY,
-      w: displayW,
-      h: displayH,
-      scaleX,
-      scaleY,
-    };
+    return { x: offsetX, y: offsetY, w: displayW, h: displayH, scaleX, scaleY };
   };
 
+  // ── Mouse Move (RAF throttled) ──
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    const state = dragState.current;
+    if (!state || !state.mode) return;
+
+    const { mode, startX, startY, startCrop, scaleX, scaleY, imgW, imgH, aspectRatio } = state;
+
+    const dx = (e.clientX - startX) / scaleX;
+    const dy = (e.clientY - startY) / scaleY;
+
+    let newX = startCrop.x;
+    let newY = startCrop.y;
+    let newW = startCrop.w;
+    let newH = startCrop.h;
+    const minSize = 20;
+
+    if (mode === 'move') {
+      newX = Math.max(0, Math.min(imgW - newW, startCrop.x + dx));
+      newY = Math.max(0, Math.min(imgH - newH, startCrop.y + dy));
+    } else {
+      let left = startCrop.x;
+      let top = startCrop.y;
+      let right = startCrop.x + startCrop.w;
+      let bottom = startCrop.y + startCrop.h;
+
+      if (mode.includes('w')) left = Math.max(0, left + dx);
+      if (mode.includes('e')) right = Math.min(imgW, right + dx);
+      if (mode.includes('n')) top = Math.max(0, top + dy);
+      if (mode.includes('s')) bottom = Math.min(imgH, bottom + dy);
+
+      newX = left;
+      newY = top;
+      newW = right - left;
+      newH = bottom - top;
+
+      if (newW < minSize) newW = minSize;
+      if (newH < minSize) newH = minSize;
+
+      if (aspectRatio) {
+        const ar = aspectRatio;
+        if (mode === 'e' || mode === 'w') {
+          newH = newW / ar;
+        } else if (mode === 'n' || mode === 's') {
+          newW = newH * ar;
+        } else {
+          if (newW / newH > ar) newW = newH * ar;
+          else newH = newW / ar;
+        }
+        newX = Math.max(0, Math.min(imgW - newW, newX));
+        newY = Math.max(0, Math.min(imgH - newH, newY));
+        newW = Math.min(newW, imgW - newX);
+        newH = Math.min(newH, imgH - newY);
+      }
+    }
+
+    state.pendingUpdate = { x: newX, y: newY, w: newW, h: newH };
+
+    if (state.rafId === null) {
+      state.rafId = requestAnimationFrame(() => {
+        const pending = dragState.current?.pendingUpdate;
+        if (pending) {
+          const idx = activeIdxRef.current;
+          setImages((prev) =>
+            prev.map((img, i) =>
+              i === idx
+                ? { ...img, cropX: pending.x, cropY: pending.y, cropW: pending.w, cropH: pending.h }
+                : img
+            )
+          );
+          if (dragState.current) dragState.current.pendingUpdate = null;
+        }
+        if (dragState.current) dragState.current.rafId = null;
+      });
+    }
+  }, []);
+
+  // ── Mouse Up ──
+  const handleMouseUp = useCallback(() => {
+    const state = dragState.current;
+    if (state?.rafId !== null && state?.rafId !== undefined) {
+      cancelAnimationFrame(state.rafId);
+    }
+    if (state?.pendingUpdate) {
+      const pending = state.pendingUpdate;
+      const idx = activeIdxRef.current;
+      setImages((prev) =>
+        prev.map((img, i) =>
+          i === idx
+            ? { ...img, cropX: pending.x, cropY: pending.y, cropW: pending.w, cropH: pending.h }
+            : img
+        )
+      );
+    }
+    dragState.current = null;
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+  }, [handleMouseMove]);
+
+  // ── Mouse Down ──
   const handleMouseDown = (e: React.MouseEvent, mode: DragMode) => {
     e.preventDefault();
     e.stopPropagation();
@@ -249,98 +348,30 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
         w: activeImage.cropW,
         h: activeImage.cropH,
       },
-      imgDisplayRect: { x: rect.x, y: rect.y, w: rect.w, h: rect.h },
+      scaleX: rect.scaleX,
+      scaleY: rect.scaleY,
+      imgW: activeImage.originalWidth,
+      imgH: activeImage.originalHeight,
+      aspectRatio: activeImage.aspectRatio,
+      rafId: null,
+      pendingUpdate: null,
     };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = mode === 'move' ? 'grabbing' : 'crosshair';
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!dragState.current || !activeImage) return;
-
-      const { mode, startX, startY, startCrop, imgDisplayRect } = dragState.current;
-      const rect = getImageDisplayRect();
-      if (!rect) return;
-
-      const dx = (e.clientX - startX) / rect.scaleX;
-      const dy = (e.clientY - startY) / rect.scaleY;
-
-      let newX = startCrop.x;
-      let newY = startCrop.y;
-      let newW = startCrop.w;
-      let newH = startCrop.h;
-
-      const imgW = activeImage.originalWidth;
-      const imgH = activeImage.originalHeight;
-
-      const minSize = 20;
-
-      if (mode === 'move') {
-        newX = Math.max(0, Math.min(imgW - newW, startCrop.x + dx));
-        newY = Math.max(0, Math.min(imgH - newH, startCrop.y + dy));
-      } else {
-        let left = startCrop.x;
-        let top = startCrop.y;
-        let right = startCrop.x + startCrop.w;
-        let bottom = startCrop.y + startCrop.h;
-
-        if (mode?.includes('w')) left = Math.max(0, left + dx);
-        if (mode?.includes('e')) right = Math.min(imgW, right + dx);
-        if (mode?.includes('n')) top = Math.max(0, top + dy);
-        if (mode?.includes('s')) bottom = Math.min(imgH, bottom + dy);
-
-        newX = left;
-        newY = top;
-        newW = right - left;
-        newH = bottom - top;
-
-        if (newW < minSize) newW = minSize;
-        if (newH < minSize) newH = minSize;
-
-        // Apply aspect ratio if locked
-        if (activeImage.aspectRatio) {
-          const ar = activeImage.aspectRatio;
-          if (mode === 'e' || mode === 'w') {
-            newH = newW / ar;
-          } else if (mode === 'n' || mode === 's') {
-            newW = newH * ar;
-          } else {
-            if (newW / newH > ar) {
-              newW = newH * ar;
-            } else {
-              newH = newW / ar;
-            }
-          }
-          newX = Math.max(0, Math.min(imgW - newW, newX));
-          newY = Math.max(0, Math.min(imgH - newH, newY));
-          newW = Math.min(newW, imgW - newX);
-          newH = Math.min(newH, imgH - newY);
-        }
-      }
-
-      setImages((prev) =>
-        prev.map((img, i) =>
-          i === activeIdx
-            ? { ...img, cropX: newX, cropY: newY, cropW: newW, cropH: newH }
-            : img
-        )
-      );
-    },
-    [activeImage, activeIdx, images.length]
-  );
-
-  const handleMouseUp = useCallback(() => {
-    dragState.current = null;
-    window.removeEventListener('mousemove', handleMouseMove);
-    window.removeEventListener('mouseup', handleMouseUp);
-  }, [handleMouseMove]);
-
+  // ── Cleanup ──
   useEffect(() => {
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      if (dragState.current?.rafId) cancelAnimationFrame(dragState.current.rafId);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
     };
   }, [handleMouseMove, handleMouseUp]);
 
@@ -356,20 +387,13 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
       return;
     }
 
-    // Adjust crop box to match aspect ratio
     const imgW = activeImage.originalWidth;
     const imgH = activeImage.originalHeight;
     let w = activeImage.cropW;
     let h = w / ar;
 
-    if (h > imgH) {
-      h = imgH;
-      w = h * ar;
-    }
-    if (w > imgW) {
-      w = imgW;
-      h = w / ar;
-    }
+    if (h > imgH) { h = imgH; w = h * ar; }
+    if (w > imgW) { w = imgW; h = w / ar; }
 
     const x = Math.max(0, (imgW - w) / 2);
     const y = Math.max(0, (imgH - h) / 2);
@@ -495,33 +519,25 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
 
     return (
       <>
-        {/* Dark overlay outside crop */}
         <div className="absolute inset-0 pointer-events-none">
-          <div
-            className="absolute bg-slate-950/60"
-            style={{ left: 0, top: 0, right: 0, height: y }}
-          />
-          <div
-            className="absolute bg-slate-950/60"
-            style={{ left: 0, top: y + h, right: 0, bottom: 0 }}
-          />
-          <div
-            className="absolute bg-slate-950/60"
-            style={{ left: 0, top: y, width: x, height: h }}
-          />
-          <div
-            className="absolute bg-slate-950/60"
-            style={{ left: x + w, top: y, right: 0, height: h }}
-          />
+          <div className="absolute bg-slate-950/60" style={{ left: 0, top: 0, right: 0, height: y }} />
+          <div className="absolute bg-slate-950/60" style={{ left: 0, top: y + h, right: 0, bottom: 0 }} />
+          <div className="absolute bg-slate-950/60" style={{ left: 0, top: y, width: x, height: h }} />
+          <div className="absolute bg-slate-950/60" style={{ left: x + w, top: y, right: 0, height: h }} />
         </div>
 
-        {/* Crop box */}
         <div
-          className="absolute border-2 border-white cursor-move"
-          style={{ left: x, top: y, width: w, height: h, boxShadow: '0 0 0 1px rgba(0,0,0,0.5)' }}
+          className="absolute border-2 border-white"
+          style={{
+            left: x,
+            top: y,
+            width: w,
+            height: h,
+            boxShadow: '0 0 0 1px rgba(0,0,0,0.5)',
+            cursor: 'grab',
+          }}
           onMouseDown={(e) => handleMouseDown(e, 'move')}
         >
-          {/* Grid lines */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/30" />
             <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/30" />
@@ -529,11 +545,10 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
             <div className="absolute top-2/3 left-0 right-0 h-px bg-white/30" />
           </div>
 
-          {/* Handles */}
           {handles.map((hd) => (
             <div
               key={hd.mode}
-              className="absolute w-4 h-4 bg-white border-2 border-slate-900 rounded-sm hover:scale-125 transition"
+              className="absolute w-4 h-4 bg-white border-2 border-slate-900 rounded-sm hover:scale-125 transition-transform"
               style={{
                 left: `calc(${hd.x * 100}% - 8px)`,
                 top: `calc(${hd.y * 100}% - 8px)`,
@@ -543,8 +558,7 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
             />
           ))}
 
-          {/* Dimensions badge */}
-          <div className="absolute -top-8 left-0 bg-slate-950/90 text-white text-[10px] font-mono font-bold px-2 py-1 rounded">
+          <div className="absolute -top-8 left-0 bg-slate-950/90 text-white text-[10px] font-mono font-bold px-2 py-1 rounded whitespace-nowrap">
             {Math.round(activeImage.cropW)} × {Math.round(activeImage.cropH)}
           </div>
         </div>
@@ -686,7 +700,7 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
                 </div>
               )}
 
-              {/* Image list thumbnails */}
+              {/* Thumbnails */}
               {images.length > 1 && (
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {images.map((img, idx) => (
@@ -694,7 +708,9 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
                       key={img.id}
                       onClick={() => setActiveIdx(idx)}
                       className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition ${
-                        idx === activeIdx ? 'border-teal-500 ring-2 ring-teal-500/30' : 'border-slate-700 hover:border-slate-600'
+                        idx === activeIdx
+                          ? 'border-teal-500 ring-2 ring-teal-500/30'
+                          : 'border-slate-700 hover:border-slate-600'
                       }`}
                     >
                       <img src={img.originalUrl} alt="" className="w-full h-full object-cover" />
@@ -709,7 +725,6 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
               {/* Interactive Crop Area */}
               {activeImage && (
                 <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
-                  {/* Info bar */}
                   <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
                     <div className="flex items-center gap-2 min-w-0">
                       <ImageIcon className="w-4 h-4 text-teal-400 flex-shrink-0" />
@@ -722,7 +737,7 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
                       <button
                         onClick={() => setFullscreenImg(activeImage)}
                         className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
-                        title="Fullscreen preview"
+                        title="Fullscreen"
                       >
                         <Maximize2 className="w-3.5 h-3.5" />
                       </button>
@@ -736,9 +751,8 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
                     </div>
                   </div>
 
-                  {/* Preview container */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-900">
-                    {/* Interactive editor */}
+                    {/* Editor */}
                     <div className="relative">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[10px] font-bold text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded">
@@ -758,7 +772,7 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
                         <img
                           src={activeImage.originalUrl}
                           alt="edit"
-                          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                          className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
                           draggable={false}
                         />
                         {renderCropOverlay()}
@@ -768,7 +782,7 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
                       </p>
                     </div>
 
-                    {/* Live preview */}
+                    {/* Live Preview */}
                     <div className="relative">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
@@ -794,7 +808,6 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
                     </div>
                   </div>
 
-                  {/* Download */}
                   <div className="p-3 border-t border-slate-800">
                     <button
                       onClick={() => downloadSingle(activeImage)}
@@ -819,7 +832,7 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Fullscreen crop preview */}
+      {/* Fullscreen */}
       {fullscreenImg && (
         <div
           className="fixed inset-0 z-[60] bg-slate-950/98 backdrop-blur-md overflow-auto"
@@ -835,60 +848,4 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
               </div>
               <button
                 onClick={() => setFullscreenImg(null)}
-                className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div
-              className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="relative bg-white rounded-xl overflow-hidden border-2 border-slate-700 flex items-center justify-center p-4">
-                <div className="absolute top-3 left-3 z-10 bg-slate-950/90 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-slate-600">
-                  ORIGINAL
-                </div>
-                <img
-                  src={fullscreenImg.originalUrl}
-                  alt="original"
-                  className="max-w-full max-h-full object-contain"
-                />
-              </div>
-
-              <div className="relative bg-white rounded-xl overflow-hidden border-2 border-teal-500 flex items-center justify-center p-4">
-                <div className="absolute top-3 left-3 z-10 bg-teal-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
-                  CROPPED
-                </div>
-                {fullscreenImg.processedUrl ? (
-                  <img
-                    src={fullscreenImg.processedUrl}
-                    alt="cropped"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                ) : (
-                  <Loader2 className="w-10 h-10 text-teal-500 animate-spin" />
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-center mt-4 flex-shrink-0">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  downloadSingle(fullscreenImg);
-                }}
-                disabled={!fullscreenImg.processedUrl}
-                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white text-sm font-bold rounded-xl transition shadow-lg"
-              >
-                <Download className="w-4 h-4" /> Download Cropped
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
-
-export default PhotoCrop;
+                className
