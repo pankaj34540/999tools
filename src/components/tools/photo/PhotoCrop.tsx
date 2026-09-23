@@ -859,4 +859,36 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
               <div className="relative bg-white rounded-xl overflow-hidden border-2 border-teal-500 flex items-center justify-center p-4">
                 <div className="absolute top-3 left-3 z-10 bg-teal-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
                   CROPPED
-                </
+                </div>
+                {fullscreenImg.processedUrl ? (
+                  <img
+                    src={fullscreenImg.processedUrl}
+                    alt="cropped"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                ) : (
+                  <Loader2 className="w-10 h-10 text-teal-500 animate-spin" />
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-center mt-4 flex-shrink-0">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadSingle(fullscreenImg);
+                }}
+                disabled={!fullscreenImg.processedUrl}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white text-sm font-bold rounded-xl transition shadow-lg"
+              >
+                <Download className="w-4 h-4" /> Download Cropped
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default PhotoCrop;
