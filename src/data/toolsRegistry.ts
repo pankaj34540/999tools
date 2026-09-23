@@ -3,7 +3,7 @@ import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
   { id: 'photo_exam', label: '📸 Photo & Image', count: 10, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
-  { id: 'pdf_doc', label: '📄 PDF & Document', count: 0, description: 'Merge, split, compress PDF', icon: 'FileText' },
+  { id: 'pdf_doc', label: '📄 PDF & Document', count: 1, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
   { id: 'cyber_business', label: '🏪 Cyber Cafe Business', count: 0, description: 'Billing, receipts, customer queue', icon: 'Store' },
   { id: 'generators_daily', label: '💰 Finance & Calculator', count: 0, description: 'EMI, GST, interest, tax', icon: 'IndianRupee' },
@@ -164,6 +164,22 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PhotoCrop',
     active: true,
   },
+  {
+    num: 11,
+    id: 'image_to_pdf',
+    name: 'Image to PDF',
+    shortName: 'Img→PDF',
+    category: 'pdf_doc',
+    description: 'Convert multiple images (JPG, PNG, WebP) into a single PDF. Custom page sizes (A4, Letter, A3, Fit), orientation, margin, and quality control.',
+    badge: 'POPULAR',
+    tags: ['pdf', 'image', 'jpg', 'png', 'convert', 'document'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'FileImage',
+    componentKey: 'ImageToPdf',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
@@ -181,6 +197,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'black_white_converter',
   'photo_blur',
   'photo_crop',
+  'image_to_pdf',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
