@@ -1,7 +1,7 @@
 import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
-  { id: 'photo_exam', label: '📸 Photo & Image', count: 8, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
+  { id: 'photo_exam', label: '📸 Photo & Image', count: 9, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
   { id: 'pdf_doc', label: '📄 PDF & Document', count: 0, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
@@ -133,10 +133,27 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PhotoBlur',
     active: true,
   },
+  {
+    num: 9,
+    id: 'photo_sharpener',
+    name: 'Photo Sharpener',
+    shortName: 'Sharpen',
+    category: 'photo_exam',
+    description: 'Enhance photo clarity with unsharp mask algorithm. Adjustable intensity and radius for professional-looking sharpening.',
+    badge: 'PREMIUM',
+    tags: ['sharpen', 'clarity', 'enhance', 'unsharp', 'detail', 'crisp'],
+    vleEssential: true,
+    isPremium: true,
+    iconName: 'Sparkles',
+    componentKey: 'PhotoSharpener',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
-  'image_compressor',                  // ← YE ADD KARO
+  'image_compressor',
+  'photo_sharpener',
+                          // ← YE ADD KARO
 ];
 export const VLE_ESSENTIAL_IDS: string[] = [
   'image_format_converter',
