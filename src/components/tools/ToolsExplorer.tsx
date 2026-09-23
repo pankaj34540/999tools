@@ -39,6 +39,7 @@ import PhotoRotator from './photo/PhotoRotator';
 import PhotoFlip from './photo/PhotoFlip';
 import BrightnessContrast from './photo/BrightnessContrast';
 import BlackWhiteConverter from './photo/BlackWhiteConverter';
+import PhotoBlur from './photo/PhotoBlur';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -314,8 +315,10 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       case 'BrightnessContrast': return <BrightnessContrast onClose={handleCloseTool} />;
 
         //Tool #007
-              //Tool #007
       case 'BlackWhiteConverter': return <BlackWhiteConverter onClose={handleCloseTool} />;
+
+        //Tool #008
+      case 'PhotoBlur': return <PhotoBlur onClose={handleCloseTool} />;
       // 🆕 Add new tools here
 
       default:
