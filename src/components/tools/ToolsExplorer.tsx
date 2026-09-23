@@ -42,6 +42,7 @@ import BlackWhiteConverter from './photo/BlackWhiteConverter';
 import PhotoBlur from './photo/PhotoBlur';
 import PhotoSharpener from './photo/PhotoSharpener';
 import PhotoCrop from './photo/PhotoCrop';
+import ImageToPdf from './pdf/ImageToPdf';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -327,6 +328,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
       //Tool #010
       case 'PhotoCrop': return <PhotoCrop onClose={handleCloseTool} />;
+
+     //Tool #011
+      case 'ImageToPdf': return <ImageToPdf onClose={handleCloseTool} />;
       // 🆕 Add new tools here
 
       default:
