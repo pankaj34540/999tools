@@ -32,11 +32,16 @@ import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 // ============================================
 // 🆕 TOOL IMPORTS
 // ============================================
-import { ImageFormatConverter } from './photo/ImageFormatConverter';
-import { ImageResizer } from './photo/ImageResizer';
-import { ImageCompressor } from './photo/ImageCompressor';   // ← YE ADD KARO
-import { PhotoRotator } from './photo/PhotoRotator';
-import { PhotoFlip } from './photo/PhotoFlip';
+import ImageFormatConverter from './photo/ImageFormatConverter';
+import ImageResizer from './photo/ImageResizer';
+import ImageCompressor from './photo/ImageCompressor';   // ← YE ADD KARO
+import PhotoRotator from './photo/PhotoRotator';
+import PhotoFlip from './photo/PhotoFlip';
+import BrightnessContrast from './photo/BrightnessContrast';
+import BlackWhiteConverter from './photo/BlackWhiteConverter';
+import PhotoBlur from './photo/PhotoBlur';
+import PhotoSharpener from './photo/PhotoSharpener';
+import PhotoCrop from './photo/PhotoCrop';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -307,6 +312,21 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
         //Tool #005
       case 'PhotoFlip': return <PhotoFlip onClose={handleCloseTool} />;
+
+        //Tool #006
+      case 'BrightnessContrast': return <BrightnessContrast onClose={handleCloseTool} />;
+
+        //Tool #007
+      case 'BlackWhiteConverter': return <BlackWhiteConverter onClose={handleCloseTool} />;
+
+        //Tool #008
+      case 'PhotoBlur': return <PhotoBlur onClose={handleCloseTool} />;
+
+       //Tool #009
+      case 'PhotoSharpener': return <PhotoSharpener onClose={handleCloseTool} />;
+
+      //Tool #010
+      case 'PhotoCrop': return <PhotoCrop onClose={handleCloseTool} />;
       // 🆕 Add new tools here
 
       default:

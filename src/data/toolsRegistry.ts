@@ -1,7 +1,7 @@
 import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
-  { id: 'photo_exam', label: '📸 Photo & Image', count: 5, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
+  { id: 'photo_exam', label: '📸 Photo & Image', count: 10, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
   { id: 'pdf_doc', label: '📄 PDF & Document', count: 0, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
@@ -90,10 +90,86 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PhotoFlip',
     active: true,
   },
+  {
+    num: 6,
+    id: 'brightness_contrast',
+    name: 'Brightness & Contrast',
+    shortName: 'Brightness',
+    category: 'photo_exam',
+    description: 'Adjust brightness and contrast of photos with easy sliders. Perfect for fixing dark or washed-out images. Batch processing and ZIP download supported.',
+    tags: ['brightness', 'contrast', 'light', 'dark', 'adjust', 'enhance'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Sun',
+    componentKey: 'BrightnessContrast',
+    active: true,
+  },
+  {
+    num: 7,
+    id: 'black_white_converter',
+    name: 'Black & White Converter',
+    shortName: 'B&W',
+    category: 'photo_exam',
+    description: 'Convert photos to black and white with multiple styles: grayscale, high contrast, sepia, and inverted. Batch processing supported.',
+    tags: ['black', 'white', 'grayscale', 'sepia', 'bw', 'monochrome'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Palette',
+    componentKey: 'BlackWhiteConverter',
+    active: true,
+  },
+  {
+    num: 8,
+    id: 'photo_blur',
+    name: 'Photo Blur',
+    shortName: 'Blur',
+    category: 'photo_exam',
+    description: 'Apply blur effects with 4 styles: Gaussian, Box, Motion, and Radial. Adjustable intensity with real-time preview.',
+    tags: ['blur', 'gaussian', 'motion', 'radial', 'soften', 'effect'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Droplet',
+    componentKey: 'PhotoBlur',
+    active: true,
+  },
+  {
+    num: 9,
+    id: 'photo_sharpener',
+    name: 'Photo Sharpener',
+    shortName: 'Sharpen',
+    category: 'photo_exam',
+    description: 'Enhance photo clarity with unsharp mask algorithm. Adjustable intensity and radius for professional-looking sharpening.',
+    badge: 'PREMIUM',
+    tags: ['sharpen', 'clarity', 'enhance', 'unsharp', 'detail', 'crisp'],
+    vleEssential: true,
+    isPremium: true,
+    iconName: 'Sparkles',
+    componentKey: 'PhotoSharpener',
+    active: true,
+  },
+  {
+    num: 10,
+    id: 'photo_crop',
+    name: 'Photo Crop',
+    shortName: 'Crop',
+    category: 'photo_exam',
+    description: 'Interactive drag-and-crop tool with 8 aspect ratio presets (1:1, 4:3, 16:9, Passport, A4). Real-time preview with corner and edge handles.',
+    badge: 'POPULAR',
+    tags: ['crop', 'cut', 'trim', 'resize', 'aspect', 'ratio'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'Crop',
+    componentKey: 'PhotoCrop',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
-  'image_compressor',                  // ← YE ADD KARO
+  'image_compressor',
+  'photo_sharpener',
+                          // ← YE ADD KARO
 ];
 export const VLE_ESSENTIAL_IDS: string[] = [
   'image_format_converter',
@@ -101,6 +177,10 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'image_compressor',
   'photo_rotator',
   'photo_flip_mirror',
+  'brightness_contrast',
+  'black_white_converter',
+  'photo_blur',
+  'photo_crop',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>

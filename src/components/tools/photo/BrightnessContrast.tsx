@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import JSZip from 'jszip';
 import {
-  RotateCw, RotateCcw, Upload, Download, X, Loader2,
-  Trash2, Image as ImageIcon, Maximize2, RefreshCw,
+  Sun, Contrast, Upload, Download, X, Loader2,
+  Image as ImageIcon, Trash2, RotateCcw, Maximize2,
 } from 'lucide-react';
 
 interface ImageItem {
@@ -15,48 +15,49 @@ interface ImageItem {
   processedSize: number;
 }
 
-interface PhotoRotatorProps {
+interface BrightnessContrastProps {
   onClose: () => void;
 }
 
-const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
+const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
   const [images, setImages] = useState<ImageItem[]>([]);
-  const [angle, setAngle] = useState(0);
+  const [brightness, setBrightness] = useState(0);
+  const [contrast, setContrast] = useState(0);
   const [isZipping, setIsZipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Apply rotation to canvas ──
+  // ── Apply brightness/contrast to a canvas ──
   const applyToCanvas = useCallback(
-    (img: HTMLImageElement, deg: number): HTMLCanvasElement => {
-      const rad = (deg * Math.PI) / 180;
-      const cos = Math.abs(Math.cos(rad));
-      const sin = Math.abs(Math.sin(rad));
-
-      const newW = Math.round(img.naturalWidth * cos + img.naturalHeight * sin);
-      const newH = Math.round(img.naturalWidth * sin + img.naturalHeight * cos);
-
+    (img: HTMLImageElement, b: number, c: number): HTMLCanvasElement => {
       const canvas = document.createElement('canvas');
-      canvas.width = newW;
-      canvas.height = newH;
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) return canvas;
 
-      // White background fill
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, newW, newH);
+      ctx.drawImage(img, 0, 0);
 
-      ctx.translate(newW / 2, newH / 2);
-      ctx.rotate(rad);
-      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
 
+      const contrastFactor = (259 * (c + 255)) / (255 * (259 - c));
+      const brightnessOffset = b * 2.55;
+
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.min(255, Math.max(0, contrastFactor * (data[i] - 128) + 128 + brightnessOffset));
+        data[i + 1] = Math.min(255, Math.max(0, contrastFactor * (data[i + 1] - 128) + 128 + brightnessOffset));
+        data[i + 2] = Math.min(255, Math.max(0, contrastFactor * (data[i + 2] - 128) + 128 + brightnessOffset));
+      }
+
+      ctx.putImageData(imageData, 0, 0);
       return canvas;
     },
     []
   );
 
-  // ── Live preview: reprocess when angle changes ──
+  // ── Live preview: reprocess all images when sliders change ──
   useEffect(() => {
     if (images.length === 0) return;
 
@@ -69,7 +70,7 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
             const img = new Image();
             img.onload = () => {
               if (cancelled) return resolve(item);
-              const canvas = applyToCanvas(img, angle);
+              const canvas = applyToCanvas(img, brightness, contrast);
 
               if (item.processedUrl) URL.revokeObjectURL(item.processedUrl);
 
@@ -84,7 +85,7 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                   });
                 },
                 'image/jpeg',
-                0.95
+                0.92
               );
             };
             img.onerror = () => resolve(item);
@@ -101,8 +102,9 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [angle]);
+  }, [brightness, contrast]);
 
+  // ── Handle upload ──
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setError(null);
@@ -130,14 +132,16 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
     }
   };
 
+  // ── Download single ──
   const downloadSingle = (item: ImageItem) => {
     if (!item.processedUrl) return;
     const link = document.createElement('a');
     link.href = item.processedUrl;
-    link.download = `rotated_${item.file.name.replace(/\.[^.]+$/, '')}.jpg`;
+    link.download = `bc_${item.file.name.replace(/\.[^.]+$/, '')}.jpg`;
     link.click();
   };
 
+  // ── Download ZIP ──
   const downloadZip = async () => {
     const ready = images.filter((i) => i.processedBlob);
     if (ready.length === 0) return;
@@ -146,14 +150,14 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
       const zip = new JSZip();
       ready.forEach((img, idx) => {
         zip.file(
-          `rotated_${idx + 1}_${img.file.name.replace(/\.[^.]+$/, '')}.jpg`,
+          `bc_${idx + 1}_${img.file.name.replace(/\.[^.]+$/, '')}.jpg`,
           img.processedBlob!
         );
       });
       const blob = await zip.generateAsync({ type: 'blob' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `photo_rotator_${Date.now()}.zip`;
+      link.download = `brightness_contrast_${Date.now()}.zip`;
       link.click();
       URL.revokeObjectURL(link.href);
     } catch {
@@ -163,6 +167,7 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
     }
   };
 
+  // ── Remove image ──
   const removeImage = (id: string) => {
     setImages((prev) => {
       const img = prev.find((i) => i.id === id);
@@ -174,14 +179,21 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
     });
   };
 
+  // ── Reset ──
   const resetAll = () => {
     images.forEach((img) => {
       URL.revokeObjectURL(img.originalUrl);
       if (img.processedUrl) URL.revokeObjectURL(img.processedUrl);
     });
     setImages([]);
-    setAngle(0);
+    setBrightness(0);
+    setContrast(0);
     setError(null);
+  };
+
+  const resetSliders = () => {
+    setBrightness(0);
+    setContrast(0);
   };
 
   const formatSize = (bytes: number) => {
@@ -189,13 +201,6 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
-
-  const quickAngles = [
-    { deg: 0, label: '0°' },
-    { deg: 90, label: '90° CW' },
-    { deg: 180, label: '180°' },
-    { deg: 270, label: '270° CW' },
-  ];
 
   return (
     <>
@@ -206,17 +211,17 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-gradient-to-r from-slate-950 to-slate-900 sticky top-0 z-10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                  <RotateCw className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                  <Sun className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    Photo Rotator
+                    Brightness & Contrast
                     <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
                       LIVE
                     </span>
                   </h2>
-                  <p className="text-xs text-slate-400">Rotate photos with real-time preview</p>
+                  <p className="text-xs text-slate-400">Adjust photos with real-time preview</p>
                 </div>
               </div>
               <button
@@ -229,80 +234,74 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
 
             <div className="p-5 space-y-5">
 
-              {/* Angle Controls */}
+              {/* Sliders */}
               <div className="bg-slate-950 rounded-xl border border-slate-800 p-5 space-y-5">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white">Rotation Angle</h3>
+                  <h3 className="text-sm font-bold text-white">Adjust Settings</h3>
                   <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded-full">
                     ⚡ Live Preview
                   </span>
                 </div>
 
-                {/* Quick Angles */}
-                <div className="grid grid-cols-4 gap-2">
-                  {quickAngles.map((q) => (
-                    <button
-                      key={q.deg}
-                      onClick={() => setAngle(q.deg)}
-                      className={`py-2.5 px-3 rounded-lg text-xs font-bold border-2 transition ${
-                        angle === q.deg
-                          ? 'bg-emerald-500 text-slate-950 border-emerald-500'
-                          : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Fine Angle Slider */}
+                {/* Brightness */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                      <RefreshCw className="w-3.5 h-3.5 text-emerald-400" /> Custom Angle
+                      <Sun className="w-3.5 h-3.5 text-amber-400" /> Brightness
                     </label>
-                    <span className="text-xs font-mono font-bold text-emerald-400 bg-slate-900 px-2 py-0.5 rounded">
-                      {angle}°
+                    <span className="text-xs font-mono font-bold text-amber-400 bg-slate-900 px-2 py-0.5 rounded">
+                      {brightness > 0 ? '+' : ''}{brightness}
                     </span>
                   </div>
                   <input
                     type="range"
-                    min="-180"
-                    max="180"
-                    value={angle}
-                    onChange={(e) => setAngle(Number(e.target.value))}
+                    min="-100"
+                    max="100"
+                    value={brightness}
+                    onChange={(e) => setBrightness(Number(e.target.value))}
                     disabled={images.length === 0}
-                    className="w-full accent-emerald-500 disabled:opacity-40"
+                    className="w-full accent-amber-500 disabled:opacity-40"
                   />
                   <div className="flex justify-between text-[10px] text-slate-500 mt-1">
-                    <span>-180°</span>
-                    <span>0°</span>
-                    <span>+180°</span>
+                    <span>-100 (Dark)</span>
+                    <span>0 (Original)</span>
+                    <span>+100 (Bright)</span>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                {images.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setAngle((a) => a - 90)}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" /> Rotate -90°
-                    </button>
-                    <button
-                      onClick={() => setAngle((a) => a + 90)}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition"
-                    >
-                      <RotateCw className="w-3.5 h-3.5" /> Rotate +90°
-                    </button>
-                    <button
-                      onClick={() => setAngle(0)}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" /> Reset
-                    </button>
+                {/* Contrast */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <Contrast className="w-3.5 h-3.5 text-blue-400" /> Contrast
+                    </label>
+                    <span className="text-xs font-mono font-bold text-blue-400 bg-slate-900 px-2 py-0.5 rounded">
+                      {contrast > 0 ? '+' : ''}{contrast}
+                    </span>
                   </div>
+                  <input
+                    type="range"
+                    min="-100"
+                    max="100"
+                    value={contrast}
+                    onChange={(e) => setContrast(Number(e.target.value))}
+                    disabled={images.length === 0}
+                    className="w-full accent-blue-500 disabled:opacity-40"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                    <span>-100 (Flat)</span>
+                    <span>0 (Original)</span>
+                    <span>+100 (Sharp)</span>
+                  </div>
+                </div>
+
+                {images.length > 0 && (
+                  <button
+                    onClick={resetSliders}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold rounded-lg transition"
+                  >
+                    <RotateCcw className="w-4 h-4" /> Reset Sliders
+                  </button>
                 )}
               </div>
 
@@ -312,10 +311,10 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                   onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
                   onDragOver={(e) => e.preventDefault()}
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-12 text-center cursor-pointer transition bg-slate-950/50"
+                  className="border-2 border-dashed border-slate-700 hover:border-amber-500 rounded-xl p-12 text-center cursor-pointer transition bg-slate-950/50"
                 >
-                  <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
-                    <Upload className="w-7 h-7 text-emerald-400" />
+                  <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
+                    <Upload className="w-7 h-7 text-amber-400" />
                   </div>
                   <p className="text-white font-bold mb-1">Drop images here or click to upload</p>
                   <p className="text-xs text-slate-400">JPG, PNG, WebP • Multiple files supported</p>
@@ -370,7 +369,7 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                 </div>
               )}
 
-              {/* Images with A4 preview */}
+              {/* Images Grid - A4 style preview */}
               {images.length > 0 && (
                 <div className="space-y-6">
                   {images.map((img) => (
@@ -379,7 +378,7 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                       {/* Header bar */}
                       <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
                         <div className="flex items-center gap-2 min-w-0">
-                          <ImageIcon className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                          <ImageIcon className="w-4 h-4 text-amber-400 flex-shrink-0" />
                           <p className="text-xs text-white font-bold truncate">{img.file.name}</p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -389,7 +388,7 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                           <button
                             onClick={() => setFullscreenImg(img)}
                             className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
-                            title="Fullscreen"
+                            title="Fullscreen preview"
                           >
                             <Maximize2 className="w-3.5 h-3.5" />
                           </button>
@@ -403,9 +402,9 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                         </div>
                       </div>
 
-                      {/* A4 side-by-side */}
+                      {/* A4-style side-by-side preview */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-900">
-                        {/* BEFORE */}
+                        {/* BEFORE - A4 style */}
                         <div className="relative bg-white rounded-lg border-2 border-slate-700 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-600">
                             BEFORE
@@ -419,9 +418,9 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        {/* AFTER */}
-                        <div className="relative bg-white rounded-lg border-2 border-emerald-500 overflow-hidden shadow-lg">
-                          <div className="absolute top-2 left-2 z-10 bg-emerald-500 text-slate-950 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
+                        {/* AFTER - A4 style (live) */}
+                        <div className="relative bg-white rounded-lg border-2 border-amber-500 overflow-hidden shadow-lg">
+                          <div className="absolute top-2 left-2 z-10 bg-amber-500 text-slate-950 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
                             AFTER
                           </div>
                           <div className="aspect-[1/1.414] flex items-center justify-center bg-white">
@@ -432,13 +431,13 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                                 className="max-w-full max-h-full object-contain"
                               />
                             ) : (
-                              <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                              <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Download */}
+                      {/* Download button */}
                       <div className="p-3 border-t border-slate-800">
                         <button
                           onClick={() => downloadSingle(img)}
@@ -457,7 +456,7 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
               <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-300 flex gap-2">
                 <ImageIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <div>
-                  <strong>Live Preview:</strong> Move slider or click quick angles for instant rotation. Click <Maximize2 className="w-3 h-3 inline" /> for fullscreen.
+                  <strong>Live Preview:</strong> Move sliders for instant changes. Click <Maximize2 className="w-3 h-3 inline" /> for fullscreen view. A4-style preview shows complete image detail.
                 </div>
               </div>
 
@@ -466,16 +465,17 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Fullscreen */}
+      {/* ── Fullscreen Preview ── */}
       {fullscreenImg && (
         <div
           className="fixed inset-0 z-[60] bg-slate-950/98 backdrop-blur-md overflow-auto"
           onClick={() => setFullscreenImg(null)}
         >
           <div className="min-h-screen flex flex-col p-4">
+            {/* Header */}
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <div className="flex items-center gap-3">
-                <RotateCw className="w-5 h-5 text-emerald-400" />
+                <ImageIcon className="w-5 h-5 text-amber-400" />
                 <p className="text-sm text-white font-bold truncate max-w-md">
                   {fullscreenImg.file.name}
                 </p>
@@ -488,10 +488,12 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
               </button>
             </div>
 
+            {/* Side-by-side fullscreen */}
             <div
               className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* BEFORE */}
               <div className="relative bg-white rounded-xl overflow-hidden border-2 border-slate-700 flex items-center justify-center p-4">
                 <div className="absolute top-3 left-3 z-10 bg-slate-950/90 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-slate-600">
                   BEFORE
@@ -503,8 +505,9 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                 />
               </div>
 
-              <div className="relative bg-white rounded-xl overflow-hidden border-2 border-emerald-500 flex items-center justify-center p-4">
-                <div className="absolute top-3 left-3 z-10 bg-emerald-500 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+              {/* AFTER */}
+              <div className="relative bg-white rounded-xl overflow-hidden border-2 border-amber-500 flex items-center justify-center p-4">
+                <div className="absolute top-3 left-3 z-10 bg-amber-500 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
                   AFTER
                 </div>
                 {fullscreenImg.processedUrl ? (
@@ -514,11 +517,12 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                     className="max-w-full max-h-full object-contain"
                   />
                 ) : (
-                  <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                  <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
                 )}
               </div>
             </div>
 
+            {/* Download button */}
             <div className="flex justify-center mt-4 flex-shrink-0">
               <button
                 onClick={(e) => {
@@ -538,4 +542,4 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
   );
 };
 
-export default PhotoRotator;
+export default BrightnessContrast;
