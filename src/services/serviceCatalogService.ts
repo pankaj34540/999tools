@@ -10,7 +10,7 @@ import {
   query,
   orderBy,
 } from 'firebase/firestore';
-import { db } from './firebaseSync';
+import { db } from '../config/firebase';
 import {
   ServiceDefinition,
   ServiceOrder,
