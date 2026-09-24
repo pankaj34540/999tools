@@ -3,7 +3,7 @@ import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
   { id: 'photo_exam', label: '📸 Photo & Image', count: 10, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
-  { id: 'pdf_doc', label: '📄 PDF & Document', count: 1, description: 'Merge, split, compress PDF', icon: 'FileText' },
+  { id: 'pdf_doc', label: '📄 PDF & Document', count: 2, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
   { id: 'cyber_business', label: '🏪 Cyber Cafe Business', count: 0, description: 'Billing, receipts, customer queue', icon: 'Store' },
   { id: 'generators_daily', label: '💰 Finance & Calculator', count: 0, description: 'EMI, GST, interest, tax', icon: 'IndianRupee' },
@@ -180,6 +180,22 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'ImageToPdf',
     active: true,
   },
+  {
+    num: 12,
+    id: 'pdf_merge',
+    name: 'PDF Merge',
+    shortName: 'Merge PDF',
+    category: 'pdf_doc',
+    description: 'Combine multiple PDF files into a single PDF. Reorder files, see page count, and merge with one click. All processing is client-side.',
+    badge: 'POPULAR',
+    tags: ['pdf', 'merge', 'combine', 'join', 'document'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'FilePlus',
+    componentKey: 'PdfMerge',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
@@ -198,6 +214,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'photo_blur',
   'photo_crop',
   'image_to_pdf',
+  'pdf_merge',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
