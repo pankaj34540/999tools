@@ -43,6 +43,7 @@ import PhotoBlur from './photo/PhotoBlur';
 import PhotoSharpener from './photo/PhotoSharpener';
 import PhotoCrop from './photo/PhotoCrop';
 import ImageToPdf from './pdf/ImageToPdf';
+import PdfMerge from './pdf/PdfMerge';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -331,6 +332,11 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
      //Tool #011
       case 'ImageToPdf': return <ImageToPdf onClose={handleCloseTool} />;
+
+           //Tool #012
+      case 'PdfMerge': return <PdfMerge onClose={handleCloseTool} />;
+
+        
       // 🆕 Add new tools here
 
       default:
