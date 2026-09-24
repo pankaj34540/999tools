@@ -3,7 +3,7 @@ import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
   { id: 'photo_exam', label: '📸 Photo & Image', count: 10, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
-  { id: 'pdf_doc', label: '📄 PDF & Document', count: 5, description: 'Merge, split, compress PDF', icon: 'FileText' },
+  { id: 'pdf_doc', label: '📄 PDF & Document', count: 6, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
   { id: 'cyber_business', label: '🏪 Cyber Cafe Business', count: 0, description: 'Billing, receipts, customer queue', icon: 'Store' },
   { id: 'generators_daily', label: '💰 Finance & Calculator', count: 0, description: 'EMI, GST, interest, tax', icon: 'IndianRupee' },
@@ -241,6 +241,20 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PdfToImage',
     active: true,
   },
+  {
+    num: 16,
+    id: 'pdf_rotate',
+    name: 'PDF Rotate',
+    shortName: 'Rotate PDF',
+    category: 'pdf_doc',
+    description: 'Rotate all pages of a PDF by 90°, 180°, 270°, or custom angle (-180° to +180°). Perfect for fixing scanned documents with wrong orientation.',
+    tags: ['pdf', 'rotate', 'orientation', 'turn', 'angle', 'document'],
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'RotateCw',
+    componentKey: 'PdfRotate',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
@@ -264,6 +278,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'pdf_split',
   'pdf_compress',
   'pdf_to_image',
+  'pdf_rotate',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
