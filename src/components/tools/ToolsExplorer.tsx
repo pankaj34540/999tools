@@ -44,6 +44,7 @@ import PhotoSharpener from './photo/PhotoSharpener';
 import PhotoCrop from './photo/PhotoCrop';
 import ImageToPdf from './pdf/ImageToPdf';
 import PdfMerge from './pdf/PdfMerge';
+import PdfSplit from './pdf/PdfSplit';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -335,6 +336,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
            //Tool #012
       case 'PdfMerge': return <PdfMerge onClose={handleCloseTool} />;
+
+                //Tool #013
+      case 'PdfSplit': return <PdfSplit onClose={handleCloseTool} />;
 
         
       // 🆕 Add new tools here
