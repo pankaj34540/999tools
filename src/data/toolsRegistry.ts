@@ -3,7 +3,7 @@ import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
   { id: 'photo_exam', label: '📸 Photo & Image', count: 10, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
-  { id: 'pdf_doc', label: '📄 PDF & Document', count: 3, description: 'Merge, split, compress PDF', icon: 'FileText' },
+  { id: 'pdf_doc', label: '📄 PDF & Document', count: 4, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
   { id: 'cyber_business', label: '🏪 Cyber Cafe Business', count: 0, description: 'Billing, receipts, customer queue', icon: 'Store' },
   { id: 'generators_daily', label: '💰 Finance & Calculator', count: 0, description: 'EMI, GST, interest, tax', icon: 'IndianRupee' },
@@ -210,11 +210,27 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PdfSplit',
     active: true,
   },
+  {
+    num: 14,
+    id: 'pdf_compress',
+    name: 'PDF Compress',
+    shortName: 'Compress PDF',
+    category: 'pdf_doc',
+    description: 'Reduce PDF file size with two modes: Smart (metadata cleanup, safe) and Deep (image recompression, heavy). Adjustable quality and render scale.',
+    badge: 'PREMIUM',
+    tags: ['pdf', 'compress', 'reduce', 'size', 'optimize', 'document'],
+    vleEssential: true,
+    isPremium: true,
+    iconName: 'FileArchive',
+    componentKey: 'PdfCompress',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
   'image_compressor',
   'photo_sharpener',
+  'pdf_compress',
                           // ← YE ADD KARO
 ];
 export const VLE_ESSENTIAL_IDS: string[] = [
@@ -230,6 +246,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'image_to_pdf',
   'pdf_merge',
   'pdf_split',
+  'pdf_compress',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
