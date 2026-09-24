@@ -3,7 +3,7 @@ import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
   { id: 'photo_exam', label: '📸 Photo & Image', count: 10, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
-  { id: 'pdf_doc', label: '📄 PDF & Document', count: 4, description: 'Merge, split, compress PDF', icon: 'FileText' },
+  { id: 'pdf_doc', label: '📄 PDF & Document', count: 5, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 0, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
   { id: 'cyber_business', label: '🏪 Cyber Cafe Business', count: 0, description: 'Billing, receipts, customer queue', icon: 'Store' },
   { id: 'generators_daily', label: '💰 Finance & Calculator', count: 0, description: 'EMI, GST, interest, tax', icon: 'IndianRupee' },
@@ -225,6 +225,22 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PdfCompress',
     active: true,
   },
+  {
+    num: 15,
+    id: 'pdf_to_image',
+    name: 'PDF to Image',
+    shortName: 'PDF→Img',
+    category: 'pdf_doc',
+    description: 'Convert PDF pages to PNG, JPG, or WebP images. Adjustable resolution (1x-4x) and quality. Batch download as ZIP.',
+    badge: 'POPULAR',
+    tags: ['pdf', 'image', 'png', 'jpg', 'webp', 'convert', 'extract'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'FileImage',
+    componentKey: 'PdfToImage',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
@@ -247,6 +263,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'pdf_merge',
   'pdf_split',
   'pdf_compress',
+  'pdf_to_image',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
