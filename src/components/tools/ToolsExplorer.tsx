@@ -47,6 +47,7 @@ import PdfMerge from './pdf/PdfMerge';
 import PdfSplit from './pdf/PdfSplit';
 import PdfCompress from './pdf/PdfCompress';
 import PdfToImage from './pdf/PdfToImage';
+import PdfRotate from './pdf/PdfRotate';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -347,6 +348,9 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
 
   //Tool #015
       case 'PdfToImage': return <PdfToImage onClose={handleCloseTool} />;
+
+  //Tool #016
+      case 'PdfRotate': return <PdfRotate onClose={handleCloseTool} />;
 
         
       // 🆕 Add new tools here
