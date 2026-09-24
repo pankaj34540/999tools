@@ -46,6 +46,7 @@ import ImageToPdf from './pdf/ImageToPdf';
 import PdfMerge from './pdf/PdfMerge';
 import PdfSplit from './pdf/PdfSplit';
 import PdfCompress from './pdf/PdfCompress';
+import PdfToImage from './pdf/PdfToImage';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -342,7 +343,12 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       case 'PdfSplit': return <PdfSplit onClose={handleCloseTool} />;
 
   //Tool #014
-      case 'PdfCompress': return <PdfCompress onClose={handleCloseTool} />;  
+      case 'PdfCompress': return <PdfCompress onClose={handleCloseTool} />;
+
+  //Tool #015
+      case 'PdfToImage': return <PdfToImage onClose={handleCloseTool} />;
+
+        
       // 🆕 Add new tools here
 
       default:
