@@ -268,20 +268,27 @@ export interface LedgerFilterOptions {
 // ============================================
 export interface AdsterraConfig {
   enabled: boolean;
+  // ✅ Sirf toggles — ad CODE ab src/data/adSlots.ts mein hai
   headerBannerActive: boolean;
-  headerBannerCode: string;
   toolBannerActive: boolean;
-  toolBannerCode: string;
   sidebarAdActive: boolean;
-  sidebarAdCode: string;
   nativeBannerActive: boolean;
-  nativeBannerCode: string;
+  socialBarActive: boolean;
   directLinkActive: boolean;
   directLinkUrl: string;
   directLinkFrequency: number;
-  socialBarActive: boolean;
-  socialBarCode: string;
   testMode: boolean;
+
+  // 🆕 New toggles
+  toolSidebarActive: boolean;    // Tool modal ke left/right ads
+  downloadPopupActive: boolean;  // Download click pe popup ad
+
+  // ⚠️ Deprecated (backwards compat — inhe use mat karo)
+  headerBannerCode?: string;
+  toolBannerCode?: string;
+  sidebarAdCode?: string;
+  nativeBannerCode?: string;
+  socialBarCode?: string;
 }
 
 export interface SiteConfig {
