@@ -781,7 +781,7 @@ export interface ServiceOrder {
   documentLinks: string[];
   
   // Payment
-  paymentMethod: 'upi' | 'instamojo' | 'cash';
+  paymentMethod: 'upi' | 'instamojo' | 'cashfree' | 'cash';
   paymentStatus: 'pending' | 'paid' | 'failed';
   paymentReference: string;
   paymentAmount: number;
