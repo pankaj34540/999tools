@@ -36,6 +36,7 @@ import {
   Smartphone,
   BarChart3,
   UserCog,
+  Package,
 } from 'lucide-react';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
@@ -48,6 +49,7 @@ import { OwnerSupportManager } from './OwnerSupportManager';
 import { OwnerRechargeQueue } from './OwnerRechargeQueue';
 import { OwnerAnalytics } from './OwnerAnalytics';
 import { StaffManager } from './StaffManager';
+import ServiceSettingsManager from './ServiceSettingsManager';
 
 export const OwnerPortal: React.FC = () => {
   const { 
@@ -80,7 +82,23 @@ export const OwnerPortal: React.FC = () => {
     return <OwnerSecurityGate />;
   }
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'vle_approvals' | 'payment_approvals' | 'recharge_queue' | 'support' | 'services' | 'tools_hub' | 'links' | 'vles' | 'staff' | 'orders' | 'settings' | 'monetization'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    | 'overview' 
+    | 'analytics' 
+    | 'vle_approvals' 
+    | 'payment_approvals' 
+    | 'recharge_queue' 
+    | 'support' 
+    | 'services' 
+    | 'service_settings'
+    | 'tools_hub' 
+    | 'links' 
+    | 'vles' 
+    | 'staff' 
+    | 'orders' 
+    | 'settings' 
+    | 'monetization'
+  >('overview');
 
   // Service modal
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -235,6 +253,7 @@ export const OwnerPortal: React.FC = () => {
             { id: 'tools_hub', label: `50+ Tools Registry`, icon: Wrench },
             { id: 'links', label: `Govt Links (${importantLinks.length})`, icon: Link2 },
             { id: 'services', label: `Form Services (${services.length})`, icon: Layers },
+            { id: 'service_settings', label: `⚙️ Service Orders Setup`, icon: Package },
             { id: 'vles', label: `VLE Operators (${vles.length})`, icon: Store },
             { id: 'staff', label: `👥 Staff Management`, icon: UserCog },
             { id: 'orders', label: `Customer Orders (${orders.length})`, icon: FileText, badge: pendingOrders },
@@ -503,6 +522,13 @@ export const OwnerPortal: React.FC = () => {
             </table>
           </div>
         </div>
+      )}
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* 🆕 TAB: SERVICE ORDERS SETUP (Google Form + Payment) */}
+      {/* ═══════════════════════════════════════════ */}
+      {activeTab === 'service_settings' && (
+        <ServiceSettingsManager />
       )}
 
       {/* ═══════════════════════════════════════════ */}
