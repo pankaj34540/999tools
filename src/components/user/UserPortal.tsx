@@ -16,19 +16,18 @@ import {
   Building,
   HelpCircle,
   PhoneCall,
-  Send,
   AlertCircle
 } from 'lucide-react';
 import { quickGovtLinks } from '../../data/initialData';
 import { ToolsExplorer } from '../tools/ToolsExplorer';
 import { AdsterraBanner } from '../common/AdsterraBanner';
+import ServiceOrderButton from '../services/ServiceOrderButton';
 
 export const UserPortal: React.FC = () => {
   const { 
     siteConfig, 
     services, 
     orders, 
-    addCustomerOrder, 
     vles,
     activeTool,
     setActiveTool,
@@ -43,12 +42,6 @@ export const UserPortal: React.FC = () => {
   const [trackedOrder, setTrackedOrder] = useState<any | null>(null);
   const [trackSearched, setTrackSearched] = useState(false);
 
-  const [reqCustomerName, setReqCustomerName] = useState('');
-  const [reqMobile, setReqMobile] = useState('');
-  const [reqServiceId, setReqServiceId] = useState('srv_pan_new');
-  const [reqNotes, setReqNotes] = useState('');
-  const [reqSuccessToken, setReqSuccessToken] = useState<string | null>(null);
-
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setTrackSearched(true);
@@ -57,27 +50,6 @@ export const UserPortal: React.FC = () => {
       (o) => o.tokenNumber.toLowerCase() === clean || o.customerMobile === clean
     );
     setTrackedOrder(found || null);
-  };
-
-  const handlePublicRequestSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reqCustomerName || !reqMobile) return;
-
-    const srv = services.find((s) => s.id === reqServiceId);
-    const newOrder = addCustomerOrder({
-      customerName: reqCustomerName,
-      customerMobile: reqMobile,
-      serviceId: reqServiceId,
-      serviceName: srv?.name || 'Online Service',
-      amount: srv?.userPrice || 100,
-      status: 'pending',
-      notes: reqNotes || 'Customer submitted via 999tools online portal',
-    });
-
-    setReqSuccessToken(newOrder.tokenNumber);
-    setReqCustomerName('');
-    setReqMobile('');
-    setReqNotes('');
   };
 
   const filteredServices = services.filter((s) => {
@@ -165,7 +137,7 @@ export const UserPortal: React.FC = () => {
         <AdsterraBanner slot="native_banner" className="my-8" />
       </section>
 
-      {/* TRACK APPLICATION & ASSISTED REQUEST DUAL PANEL */}
+      {/* TRACK APPLICATION & SERVICE PROVIDE DUAL PANEL */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* TRACK STATUS */}
@@ -250,89 +222,35 @@ export const UserPortal: React.FC = () => {
             )}
           </div>
 
-          {/* ONLINE APPLICATION ASSISTANCE */}
-          <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl space-y-5">
+          {/* SERVICE PROVIDE — ORDER SERVICE */}
+          <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl flex flex-col justify-center space-y-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
-                <ShieldCheck className="w-3.5 h-3.5" /> Direct VLE Form Filing Assistance
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold">
+                <Sparkles className="w-3.5 h-3.5" /> Direct CSC VLE Partner Network
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-2">Need Help with Government Online Forms?</h3>
-              <p className="text-xs text-slate-500">
-                Submit your request directly to 999tools CSC VLE partner network. An authorized operator will process your application.
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mt-3 tracking-tight">
+                Service Provide
+              </h3>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                Order PAN Card, Aadhaar Update, Passport, Voter ID, Driving License, and 100+ government services directly from 999tools. An authorized CSC VLE partner will process your application with real-time status tracking.
               </p>
             </div>
 
-            {reqSuccessToken && (
-              <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-xs flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <div>
-                  <div className="font-bold">Application Registered Successfully!</div>
-                  <span>Your Token ID is <strong className="font-mono">{reqSuccessToken}</strong>. Keep this saved for tracking.</span>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 font-semibold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Verified VLE
               </div>
-            )}
-
-            <form onSubmit={handlePublicRequestSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700">1. Select Service Required:</label>
-                <select
-                  value={reqServiceId}
-                  onChange={(e) => setReqServiceId(e.target.value)}
-                  className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50 font-semibold"
-                >
-                  {services
-                    .filter((s) => s.enabled && s.category !== 'photo_tools')
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} (Estimated Fee: ₹{s.userPrice})
-                      </option>
-                    ))}
-                </select>
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 font-semibold">
+                <ShieldCheck className="w-4 h-4 text-blue-500 shrink-0" /> Secure Payment
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-700">2. Applicant Name:</label>
-                  <input
-                    type="text"
-                    required
-                    value={reqCustomerName}
-                    onChange={(e) => setReqCustomerName(e.target.value)}
-                    placeholder="Full legal name as on Aadhaar"
-                    className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700">3. Contact Mobile Number:</label>
-                  <input
-                    type="text"
-                    required
-                    value={reqMobile}
-                    onChange={(e) => setReqMobile(e.target.value)}
-                    placeholder="10-digit mobile number"
-                    className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-xs"
-                  />
-                </div>
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 font-semibold">
+                <Clock className="w-4 h-4 text-amber-500 shrink-0" /> Fast Processing
               </div>
+            </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700">4. Details / Remarks:</label>
-                <textarea
-                  rows={2}
-                  value={reqNotes}
-                  onChange={(e) => setReqNotes(e.target.value)}
-                  placeholder="e.g. Need urgent PAN card correction, father name update, DOB change"
-                  className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-xs"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
-              >
-                <Send className="w-3.5 h-3.5 text-amber-400" /> Submit Application Request
-              </button>
-            </form>
+            <div className="pt-2">
+              <ServiceOrderButton variant="primary" className="w-full sm:w-auto px-8 py-3.5 text-sm" />
+            </div>
           </div>
         </div>
       </section>
