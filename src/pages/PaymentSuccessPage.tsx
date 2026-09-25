@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle2, XCircle, Loader2, ArrowRight, Home } from 'lucide-react';
 import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../services/firebase'; // ⚠️ Path adjust karo agar alag hai
+import { db } from '../config/firebase';  // ✅ SAHI
 
 type Status = 'loading' | 'paid' | 'failed' | 'pending';
 
