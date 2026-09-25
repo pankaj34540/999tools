@@ -44,6 +44,10 @@ import PhotoSharpener from './photo/PhotoSharpener';
 import PhotoCrop from './photo/PhotoCrop';
 import ImageToPdf from './pdf/ImageToPdf';
 import PdfMerge from './pdf/PdfMerge';
+import PdfSplit from './pdf/PdfSplit';
+import PdfCompress from './pdf/PdfCompress';
+import PdfToImage from './pdf/PdfToImage';
+import PdfRotate from './pdf/PdfRotate';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -333,8 +337,20 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
      //Tool #011
       case 'ImageToPdf': return <ImageToPdf onClose={handleCloseTool} />;
 
-           //Tool #012
+    //Tool #012
       case 'PdfMerge': return <PdfMerge onClose={handleCloseTool} />;
+
+   //Tool #013
+      case 'PdfSplit': return <PdfSplit onClose={handleCloseTool} />;
+
+  //Tool #014
+      case 'PdfCompress': return <PdfCompress onClose={handleCloseTool} />;
+
+  //Tool #015
+      case 'PdfToImage': return <PdfToImage onClose={handleCloseTool} />;
+
+  //Tool #016
+      case 'PdfRotate': return <PdfRotate onClose={handleCloseTool} />;
 
         
       // 🆕 Add new tools here

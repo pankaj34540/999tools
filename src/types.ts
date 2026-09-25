@@ -268,20 +268,27 @@ export interface LedgerFilterOptions {
 // ============================================
 export interface AdsterraConfig {
   enabled: boolean;
+  // ✅ Sirf toggles — ad CODE ab src/data/adSlots.ts mein hai
   headerBannerActive: boolean;
-  headerBannerCode: string;
   toolBannerActive: boolean;
-  toolBannerCode: string;
   sidebarAdActive: boolean;
-  sidebarAdCode: string;
   nativeBannerActive: boolean;
-  nativeBannerCode: string;
+  socialBarActive: boolean;
   directLinkActive: boolean;
   directLinkUrl: string;
   directLinkFrequency: number;
-  socialBarActive: boolean;
-  socialBarCode: string;
   testMode: boolean;
+
+  // 🆕 New toggles
+  toolSidebarActive: boolean;    // Tool modal ke left/right ads
+  downloadPopupActive: boolean;  // Download click pe popup ad
+
+  // ⚠️ Deprecated (backwards compat — inhe use mat karo)
+  headerBannerCode?: string;
+  toolBannerCode?: string;
+  sidebarAdCode?: string;
+  nativeBannerCode?: string;
+  socialBarCode?: string;
 }
 
 export interface SiteConfig {
@@ -381,6 +388,7 @@ export interface ToolRequestItem {
   createdAt: string;
 }
 
+// ⚠️ Purana ServiceItem aur ServiceCategory — VLE Portal ke liye
 export type ServiceCategory = 
   | 'photo_tools'
   | 'govt_schemes'
@@ -658,21 +666,14 @@ export interface RechargeOperatorPreset {
 export type StaffRole = 'support' | 'vle' | 'payment' | 'recharge' | 'content';
 
 export type StaffPermission = 
-  // Support
   | 'tickets_view' | 'tickets_reply' | 'tickets_close'
-  // VLE
   | 'vle_view' | 'vle_approve' | 'vle_reject' | 'vle_suspend'
-  // Payment
   | 'payments_view' | 'payments_approve' | 'payments_reject'
-  // Recharge
   | 'recharge_view' | 'recharge_verify' | 'recharge_process' | 'recharge_complete'
-  // Content
   | 'tools_view' | 'tools_edit'
   | 'links_view' | 'links_edit'
   | 'services_view' | 'services_edit'
-  // Customers (all roles can view)
   | 'customers_view'
-  // Analytics (limited for staff)
   | 'analytics_view';
 
 export interface Staff {
@@ -735,3 +736,70 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   recharge: '📱 Recharge Admin',
   content: '📝 Content Admin',
 };
+
+// ============================================
+// 🆕 SERVICE ORDER SYSTEM (NEW — separate from VLE ServiceItem)
+// Ye user-facing service orders ke liye hai (Google Form + Payment)
+// ============================================
+
+export interface ServiceDefinition {
+  id: string;
+  name: string;
+  description: string;
+  category: string;          // 'govt_id' | 'certificate' | 'utility' | 'other'
+  price: number;             // in INR
+  processingDays: number;
+  icon: string;              // lucide icon name
+  enabled: boolean;
+  googleFormUrl?: string;    // 🆕 per-service Google Form URL
+  serviceFieldId?: string;   // 🆕 per-service field ID for pre-fill
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceOrder {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  price: number;
+  
+  // Customer details
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  customerAddress: string;
+  aadhaarNumber: string;
+  panNumber: string;
+  dateOfBirth: string;
+  fatherName: string;
+  motherName: string;
+  gender: string;
+  category: string;          // General/OBC/SC/ST
+  additionalData: Record<string, string>;
+  
+  // Documents (Google Drive links from form)
+  documentLinks: string[];
+  
+  // Payment
+  paymentMethod: 'upi' | 'instamojo' | 'cashfree' | 'cash';
+  paymentStatus: 'pending' | 'paid' | 'failed';
+  paymentReference: string;
+  paymentAmount: number;
+  
+  // Order status
+  orderStatus: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  ownerNotes: string;
+  
+  // Meta
+  userId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceSettings {
+  googleFormUrl: string;
+  serviceFieldId: string;
+  ownerUpiId: string;
+  ownerWhatsapp: string;
+  updatedAt: string;
+}

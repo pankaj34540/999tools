@@ -10,6 +10,7 @@ import PrivacyPage from './pages/legal/PrivacyPage';
 import TermsPage from './pages/legal/TermsPage';
 import RefundPage from './pages/legal/RefundPage';
 import ContactPage from './pages/legal/ContactPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/" element={<PublicPage />} />
           <Route path="/owner" element={<OwnerPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/payment-success" element={<PaymentSuccessPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/refund" element={<RefundPage />} />

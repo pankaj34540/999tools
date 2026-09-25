@@ -8,9 +8,11 @@ import {
   ExternalLink, 
   Layers, 
   Sparkles, 
-  Eye, 
   ShieldCheck, 
-  HelpCircle
+  HelpCircle,
+  Github,
+  Clock,
+  Monitor
 } from 'lucide-react';
 import { AdsterraConfig } from '../../types';
 
@@ -22,19 +24,16 @@ export const AdsterraManager: React.FC = () => {
       siteConfig.adsterra || {
         enabled: true,
         headerBannerActive: true,
-        headerBannerCode: '',
         toolBannerActive: true,
-        toolBannerCode: '',
         sidebarAdActive: false,
-        sidebarAdCode: '',
         nativeBannerActive: true,
-        nativeBannerCode: '',
+        socialBarActive: false,
         directLinkActive: false,
         directLinkUrl: '',
         directLinkFrequency: 2,
-        socialBarActive: false,
-        socialBarCode: '',
         testMode: true,
+        toolSidebarActive: true,
+        downloadPopupActive: true,
       }
     );
   });
@@ -44,7 +43,7 @@ export const AdsterraManager: React.FC = () => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateSiteConfig({ adsterra: form });
-    showNotification('✅ Adsterra Ads Configuration saved!');
+    showNotification('✅ Ad settings saved!');
   };
 
   const handleToggle = (key: keyof AdsterraConfig) => {
@@ -67,7 +66,7 @@ export const AdsterraManager: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-amber-100 mt-1 max-w-xl">
-            Control all advertising placements, banners, native ads, and social bars across 999tools.
+            Sirf ads ON/OFF karo. Ad codes GitHub mein <code className="bg-black/30 px-1.5 py-0.5 rounded">src/data/adSlots.ts</code> file mein hain.
           </p>
         </div>
 
@@ -95,6 +94,18 @@ export const AdsterraManager: React.FC = () => {
         </div>
       </div>
 
+      {/* GitHub Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
+        <Github className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+        <div className="text-xs text-blue-900">
+          <div className="font-bold mb-1">📝 Ad Codes GitHub Mein Hain</div>
+          <div className="text-blue-700 leading-relaxed">
+            Adsterra ke saare ad codes ab <code className="bg-blue-100 px-1.5 py-0.5 rounded font-bold">src/data/adSlots.ts</code> file mein hain.
+            Yahan se sirf <strong>ON/OFF</strong> karo. Code change karne ke liye GitHub file edit karke commit karo.
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
         <button
@@ -106,7 +117,7 @@ export const AdsterraManager: React.FC = () => {
           }`}
         >
           <Layers className="w-4 h-4" />
-          <span>Display Banners (Header, Tools, Sidebar, Native)</span>
+          <span>Display Banners & Popups</span>
         </button>
 
         <button
@@ -118,7 +129,7 @@ export const AdsterraManager: React.FC = () => {
           }`}
         >
           <ExternalLink className="w-4 h-4" />
-          <span>Popunder / Direct Link (Optional)</span>
+          <span>Popunder / Direct Link</span>
         </button>
 
         <button
@@ -149,140 +160,76 @@ export const AdsterraManager: React.FC = () => {
       <form onSubmit={handleSave} className="space-y-6">
         {/* TAB 1: Banners */}
         {activeTab === 'banners' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            {/* Master Info Box */}
+            <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-start gap-3">
+              <Monitor className="w-5 h-5 text-slate-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-slate-700">
+                <div className="font-bold mb-0.5">🎯 Har Ad Ka ON/OFF Alag</div>
+                <div className="text-slate-600">
+                  Niche har slot ka toggle hai. Sirf toggle karke <strong>Save</strong> karo.
+                </div>
+              </div>
+            </div>
+
             {/* Header Banner */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Header Leaderboard Banner</h3>
-                  <p className="text-[11px] text-slate-500">Size: 728x90</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('headerBannerActive')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    form.headerBannerActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {form.headerBannerActive ? 'Enabled' : 'Disabled'}
-                </button>
-              </div>
+            <AdToggleCard
+              title="Header Leaderboard Banner"
+              subtitle="Size: 728x90 — Top of page"
+              githubKey="header"
+              isActive={form.headerBannerActive}
+              onToggle={() => handleToggle('headerBannerActive')}
+            />
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Adsterra Script (728x90):
-                </label>
-                <textarea
-                  rows={6}
-                  value={form.headerBannerCode}
-                  onChange={(e) => setForm({ ...form, headerBannerCode: e.target.value })}
-                  placeholder="Paste 728x90 banner script here..."
-                  className="w-full font-mono text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-            </div>
+            {/* Tool In-Content Banner */}
+            <AdToggleCard
+              title="Tool Workspace Banner"
+              subtitle="Size: 300x250 — Inside tool"
+              githubKey="tool_banner"
+              isActive={form.toolBannerActive}
+              onToggle={() => handleToggle('toolBannerActive')}
+            />
 
-            {/* In-Tool Banner */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Inside Tool Workspace Banner</h3>
-                  <p className="text-[11px] text-slate-500">Size: 300x250</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('toolBannerActive')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    form.toolBannerActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {form.toolBannerActive ? 'Enabled' : 'Disabled'}
-                </button>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Adsterra Script (300x250):
-                </label>
-                <textarea
-                  rows={6}
-                  value={form.toolBannerCode}
-                  onChange={(e) => setForm({ ...form, toolBannerCode: e.target.value })}
-                  placeholder="Paste 300x250 banner script here..."
-                  className="w-full font-mono text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-            </div>
+            {/* Native Banner */}
+            <AdToggleCard
+              title="Native Banner"
+              subtitle="Native — In-content blend ad"
+              githubKey="native_banner"
+              isActive={form.nativeBannerActive}
+              onToggle={() => handleToggle('nativeBannerActive')}
+            />
 
             {/* Sidebar Banner */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4 md:col-span-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Sidebar / Sticky Banner Slot</h3>
-                  <p className="text-[11px] text-slate-500">Size: 160x600</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('sidebarAdActive')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    form.sidebarAdActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {form.sidebarAdActive ? 'Enabled' : 'Disabled'}
-                </button>
-              </div>
+            <AdToggleCard
+              title="Sidebar Banner"
+              subtitle="Size: 160x600 — Global sidebar"
+              githubKey="sidebar"
+              isActive={form.sidebarAdActive}
+              onToggle={() => handleToggle('sidebarAdActive')}
+            />
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Adsterra Script (160x600):
-                </label>
-                <textarea
-                  rows={4}
-                  value={form.sidebarAdCode}
-                  onChange={(e) => setForm({ ...form, sidebarAdCode: e.target.value })}
-                  placeholder="Paste 160x600 sidebar script here..."
-                  className="w-full font-mono text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-            </div>
+            {/* 🆕 Tool Sidebar Ads (Left + Right) */}
+            <AdToggleCard
+              title="Tool Modal Sidebar Ads (Left + Right)"
+              subtitle="Size: 160x600 — Desktop only"
+              githubKey="tool_sidebar_left & tool_sidebar_right"
+              isActive={form.toolSidebarActive}
+              onToggle={() => handleToggle('toolSidebarActive')}
+              isNew
+            />
 
-            {/* ✅ Native Banner — NEW */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4 md:col-span-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Native Banner (Script + Container)</h3>
-                  <p className="text-[11px] text-slate-500">
-                    Native banner ads — high CTR, content ke saath blend hote hain
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('nativeBannerActive')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    form.nativeBannerActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {form.nativeBannerActive ? 'Enabled' : 'Disabled'}
-                </button>
-              </div>
+            {/* 🆕 Download Popup Ad */}
+            <AdToggleCard
+              title="Download Popup Ad"
+              subtitle="Shown when free user clicks Download (5s wait)"
+              githubKey="download_popup"
+              isActive={form.downloadPopupActive}
+              onToggle={() => handleToggle('downloadPopupActive')}
+              isNew
+              icon={Clock}
+            />
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Adsterra Native Banner Code (Script + div container):
-                </label>
-                <textarea
-                  rows={5}
-                  value={form.nativeBannerCode}
-                  onChange={(e) => setForm({ ...form, nativeBannerCode: e.target.value })}
-                  placeholder={`<script async="async" data-cfasync="false" src="https://pl31302822.profitableratecpmnetwork.com/.../invoke.js"></script>
-<div id="container-97be12d2ea54be8b2c0bb6125b44f0d3"></div>`}
-                  className="w-full font-mono text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  ⚠️ Adsterra se <strong>poora code</strong> paste karein — script tag + div container dono.
-                </p>
-              </div>
-            </div>
           </div>
         )}
 
@@ -293,7 +240,7 @@ export const AdsterraManager: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Adsterra Direct Link / Popunder (Optional)</h3>
                 <p className="text-xs text-slate-500">
-                  Yeh optional hai. Agar aap aggressive monetization nahi chahte toh skip karein.
+                  Yeh optional hai. Agar aggressive monetization nahi chahte toh skip karo.
                 </p>
               </div>
               <button
@@ -319,6 +266,9 @@ export const AdsterraManager: React.FC = () => {
                   placeholder="https://www.profitablecpmrate.com/..."
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-mono"
                 />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  ⚠️ Ye URL GitHub mein <code className="bg-slate-100 px-1 rounded">adSlots.ts</code> mein bhi daal sakte ho, ya yahan rakh sakte ho — dono kaam karega.
+                </p>
               </div>
 
               <div>
@@ -342,36 +292,31 @@ export const AdsterraManager: React.FC = () => {
 
         {/* TAB 3: Social Bar */}
         {activeTab === 'social_bar' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Adsterra Social Bar</h3>
-                <p className="text-xs text-slate-500">
-                  Interactive notification badge — high CTR.
-                </p>
+          <div className="space-y-5">
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Adsterra Social Bar</h3>
+                  <p className="text-xs text-slate-500">
+                    Interactive notification badge — high CTR.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggle('socialBarActive')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    form.socialBarActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {form.socialBarActive ? 'Enabled' : 'Disabled'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleToggle('socialBarActive')}
-                className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  form.socialBarActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                }`}
-              >
-                {form.socialBarActive ? 'Enabled' : 'Disabled'}
-              </button>
-            </div>
 
-            <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
-                Social Bar Script:
-              </label>
-              <textarea
-                rows={5}
-                value={form.socialBarCode}
-                onChange={(e) => setForm({ ...form, socialBarCode: e.target.value })}
-                placeholder="Paste Adsterra Social Bar script here..."
-                className="w-full font-mono text-xs px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white"
-              />
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+                <strong>📌 Note:</strong> Social Bar ka script GitHub mein{' '}
+                <code className="bg-blue-100 px-1.5 py-0.5 rounded">adSlots.ts</code> →{' '}
+                <code className="bg-blue-100 px-1.5 py-0.5 rounded">social_bar.html</code> mein daalo.
+              </div>
             </div>
           </div>
         )}
@@ -381,17 +326,17 @@ export const AdsterraManager: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              <span>Adsterra Setup Guide</span>
+              <span>Adsterra Setup Guide — New System</span>
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <span className="w-6 h-6 rounded-full bg-amber-600 text-white font-bold flex items-center justify-center text-xs">
                   1
                 </span>
-                <h4 className="font-bold text-slate-900">Add Website on Adsterra</h4>
-                <p className="text-slate-600">
-                  Publishers panel → Add Website → 999tools.vercel.app
+                <h4 className="font-bold text-slate-900">GitHub File Open Karo</h4>
+                <p className="text-slate-600 leading-relaxed">
+                  GitHub repo → <code className="bg-white px-1 rounded">src/data/adSlots.ts</code> → Edit
                 </p>
               </div>
 
@@ -399,9 +344,9 @@ export const AdsterraManager: React.FC = () => {
                 <span className="w-6 h-6 rounded-full bg-amber-600 text-white font-bold flex items-center justify-center text-xs">
                   2
                 </span>
-                <h4 className="font-bold text-slate-900">Generate Ad Units</h4>
-                <p className="text-slate-600">
-                  Create: 728x90, 300x250, 160x600, Native Banner, Social Bar
+                <h4 className="font-bold text-slate-900">Adsterra Code Paste Karo</h4>
+                <p className="text-slate-600 leading-relaxed">
+                  Har slot ke <code className="bg-white px-1 rounded">html</code> field mein Adsterra ka code daalo
                 </p>
               </div>
 
@@ -409,11 +354,31 @@ export const AdsterraManager: React.FC = () => {
                 <span className="w-6 h-6 rounded-full bg-amber-600 text-white font-bold flex items-center justify-center text-xs">
                   3
                 </span>
-                <h4 className="font-bold text-slate-900">Paste & Save</h4>
-                <p className="text-slate-600">
-                  Paste codes → Click "Save All Ad Configurations" → Ads live instantly!
+                <h4 className="font-bold text-slate-900">Commit + Push</h4>
+                <p className="text-slate-600 leading-relaxed">
+                  Vercel auto-deploy karega (2-3 min). Code live ho jayega.
                 </p>
               </div>
+
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs">
+                  4
+                </span>
+                <h4 className="font-bold text-slate-900">Yahan Se Toggle Karo</h4>
+                <p className="text-slate-600 leading-relaxed">
+                  Is panel mein har ad slot ka ON/OFF karo. Save karo. Done!
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-900 mt-2">
+              <div className="font-bold mb-1">✅ Kyun Ye Better Hai?</div>
+              <ul className="space-y-1 text-emerald-800 list-disc list-inside">
+                <li>Logout/login pe code gayab nahi hoga (Firestore bug fix)</li>
+                <li>Version control — GitHub mein history rahegi</li>
+                <li>Owner Panel simple — sirf ON/OFF</li>
+                <li>Fast — Firestore read nahi karna padta</li>
+              </ul>
             </div>
           </div>
         )}
@@ -427,7 +392,7 @@ export const AdsterraManager: React.FC = () => {
               onChange={(e) => setForm({ ...form, testMode: e.target.checked })}
               className="w-4 h-4 text-amber-600 rounded-sm"
             />
-            <span>Show placeholder if ad code empty</span>
+            <span>Show placeholder if ad code empty (dev mode)</span>
           </label>
 
           <button
@@ -435,10 +400,81 @@ export const AdsterraManager: React.FC = () => {
             className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition"
           >
             <Check className="w-4 h-4" />
-            <span>Save All Ad Configurations</span>
+            <span>Save Ad Settings</span>
           </button>
         </div>
       </form>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════
+// Helper: Reusable toggle card for ad slots
+// ═══════════════════════════════════════════
+interface AdToggleCardProps {
+  title: string;
+  subtitle: string;
+  githubKey: string;
+  isActive: boolean;
+  onToggle: () => void;
+  isNew?: boolean;
+  icon?: React.ComponentType<{ className?: string }>;
+}
+
+const AdToggleCard: React.FC<AdToggleCardProps> = ({
+  title,
+  subtitle,
+  githubKey,
+  isActive,
+  onToggle,
+  isNew,
+  icon: Icon,
+}) => {
+  return (
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {Icon && <Icon className="w-4 h-4 text-slate-500" />}
+            <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+            {isNew && (
+              <span className="text-[9px] font-black bg-emerald-500 text-white px-1.5 py-0.5 rounded">
+                NEW
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition ${
+            isActive
+              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+          }`}
+        >
+          {isActive ? (
+            <>
+              <ToggleRight className="w-4 h-4" />
+              <span>ON</span>
+            </>
+          ) : (
+            <>
+              <ToggleLeft className="w-4 h-4" />
+              <span>OFF</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-[10px] text-slate-600">
+        <div className="font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+          Code Location
+        </div>
+        <code className="text-slate-800 font-mono">adSlots.ts → {githubKey}</code>
+      </div>
     </div>
   );
 };
