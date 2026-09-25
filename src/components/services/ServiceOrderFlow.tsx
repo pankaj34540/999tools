@@ -15,6 +15,9 @@ interface ServiceOrderFlowProps {
 
 type Step = 'form' | 'payment' | 'done';
 
+// 🚦 Toggle: KYC approve hone ke baad `true` kar dena
+const INSTAMOJO_ENABLED = false;
+
 const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
   service,
   settings,
