@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft, Check, Copy, MessageCircle, ExternalLink,
-  FileText, QrCode, X, AlertCircle,
+  FileText, QrCode, X, AlertCircle, Smartphone,
 } from 'lucide-react';
 import { ServiceDefinition, ServiceSettings } from '../../types';
 import { createServiceOrder } from '../../services/serviceCatalogService';
@@ -49,6 +49,19 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
     } catch {
       return formUrl;
     }
+  };
+
+  // ── Generate UPI QR data string ──
+  const getUpiQrData = () => {
+    const upiId = settings.ownerUpiId;
+    const name = '999tools';
+    const amount = service.price;
+    const note = service.name;
+    return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+  };
+
+  const getQrUrl = () => {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(getUpiQrData())}`;
   };
 
   const copyUpi = () => {
@@ -244,9 +257,11 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
             {/* STEP 2: PAYMENT */}
             {step === 'payment' && (
               <>
+                {/* Amount Banner */}
                 <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl p-5 text-center">
                   <p className="text-xs text-emerald-100 uppercase tracking-wider mb-1">Amount to Pay</p>
                   <p className="text-4xl font-black text-white">₹{service.price}</p>
+                  <p className="text-[11px] text-emerald-100 mt-2">for {service.name}</p>
                 </div>
 
                 <div className="bg-slate-950 rounded-xl border border-slate-800 p-5 space-y-4">
@@ -255,9 +270,42 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     Payment Details
                   </h3>
 
+                  {/* 🆕 QR Code Section */}
+                  <div className="bg-white rounded-xl p-4 flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                      <Smartphone className="w-3 h-3" />
+                      Scan QR to Pay ₹{service.price}
+                    </div>
+
+                    <img
+                      src={getQrUrl()}
+                      alt="UPI QR Code"
+                      className="w-48 h-48 rounded-lg border-4 border-slate-100"
+                      onError={(e) => {
+                        // Fallback in case primary API fails
+                        (e.target as HTMLImageElement).src = `https://quickchart.io/qr?text=${encodeURIComponent(
+                          getUpiQrData()
+                        )}&size=250`;
+                      }}
+                    />
+
+                    <p className="text-[10px] text-slate-500 text-center leading-relaxed">
+                      Open <strong>GPay / PhonePe / Paytm</strong> app<br />
+                      Scan this QR → Amount auto-fills → Pay
+                    </p>
+                  </div>
+
+                  {/* OR Divider */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-slate-800"></div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">OR</span>
+                    <div className="flex-1 h-px bg-slate-800"></div>
+                  </div>
+
+                  {/* UPI ID Section */}
                   <div>
                     <label className="text-xs font-bold text-slate-300 block mb-2">
-                      Pay to UPI ID:
+                      Pay manually to UPI ID:
                     </label>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm font-mono break-all">
@@ -273,15 +321,21 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     </div>
                   </div>
 
+                  {/* Instructions */}
                   <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-200 space-y-1">
                     <p className="font-bold mb-1">How to pay:</p>
                     <p>1. Open any UPI app (GPay, PhonePe, Paytm)</p>
-                    <p>2. Send <strong>₹{service.price}</strong> to the UPI ID above</p>
+                    <p>2. <strong>Scan QR</strong> or send <strong>₹{service.price}</strong> to the UPI ID above</p>
                     <p>3. Copy the transaction ID from your UPI app</p>
                     <p>4. Fill your details below</p>
                   </div>
 
-                  <div className="space-y-3">
+                  {/* Customer Details Form */}
+                  <div className="space-y-3 pt-2 border-t border-slate-800">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Confirm Order Details
+                    </p>
+
                     <div>
                       <label className="text-xs font-bold text-slate-300 block mb-1">
                         Your Name <span className="text-red-400">*</span>
