@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft, Check, Copy, MessageCircle, ExternalLink,
-  FileText, QrCode, X, AlertCircle, Smartphone,
+  FileText, QrCode, X, AlertCircle, Smartphone, CreditCard,
 } from 'lucide-react';
 import { ServiceDefinition, ServiceSettings } from '../../types';
 import { createServiceOrder } from '../../services/serviceCatalogService';
@@ -28,6 +28,7 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPayingOnline, setIsPayingOnline] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ── Get form URL (per-service takes priority) ──
@@ -51,7 +52,7 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
     }
   };
 
-  // ── Generate UPI QR data string ──
+  // ── Generate UPI QR data ──
   const getUpiQrData = () => {
     const upiId = settings.ownerUpiId;
     const name = '999tools';
@@ -74,6 +75,45 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
     setStep('payment');
   };
 
+  // ── Online Payment via Instamojo ──
+  const handleOnlinePayment = async () => {
+    if (!customerName.trim() || !customerPhone.trim()) {
+      setError('Please fill name and phone first');
+      return;
+    }
+
+    setIsPayingOnline(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: service.price,
+          purpose: `${service.name} — 999tools`,
+          buyerName: customerName.trim(),
+          email: customerEmail.trim(),
+          phone: customerPhone.trim(),
+          serviceId: service.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        setError(data.error || 'Payment failed. Please try UPI QR instead.');
+      }
+    } catch (err) {
+      setError('Failed to connect. Please try UPI QR instead.');
+    } finally {
+      setIsPayingOnline(false);
+    }
+  };
+
+  // ── Manual UPI Submit ──
   const handlePaymentSubmit = async () => {
     if (!paymentRef.trim()) return;
     if (!customerName.trim() || !customerPhone.trim()) {
@@ -205,7 +245,7 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
 
           <div className="p-5 space-y-5">
 
-            {/* STEP 1: GOOGLE FORM */}
+            {/* STEP 1: FORM */}
             {step === 'form' && (
               <div className="bg-slate-950 rounded-xl border border-slate-800 p-5 space-y-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -257,7 +297,6 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
             {/* STEP 2: PAYMENT */}
             {step === 'payment' && (
               <>
-                {/* Amount Banner */}
                 <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl p-5 text-center">
                   <p className="text-xs text-emerald-100 uppercase tracking-wider mb-1">Amount to Pay</p>
                   <p className="text-4xl font-black text-white">₹{service.price}</p>
@@ -270,7 +309,41 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     Payment Details
                   </h3>
 
-                  {/* 🆕 QR Code Section */}
+                  {/* 🆕 PAY ONLINE BUTTON — Instamojo */}
+                  <button
+                    onClick={handleOnlinePayment}
+                    disabled={isPayingOnline || !customerName.trim() || !customerPhone.trim()}
+                    className="w-full flex flex-col items-center justify-center gap-1 px-4 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition shadow-lg"
+                  >
+                    <div className="flex items-center gap-2 text-base font-bold">
+                      {isPayingOnline ? (
+                        <>Processing...</>
+                      ) : (
+                        <>
+                          <CreditCard className="w-5 h-5" />
+                          Pay Online (Instant)
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-indigo-100">
+                      Card / NetBanking / UPI / Wallet — Powered by Instamojo
+                    </p>
+                  </button>
+
+                  {(!customerName.trim() || !customerPhone.trim()) && (
+                    <p className="text-[10px] text-amber-400 text-center">
+                      ⚠️ Name aur mobile pehle bharein (neeche form mein)
+                    </p>
+                  )}
+
+                  {/* OR Divider */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-slate-800"></div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">OR Pay via UPI QR</span>
+                    <div className="flex-1 h-px bg-slate-800"></div>
+                  </div>
+
+                  {/* QR Code */}
                   <div className="bg-white rounded-xl p-4 flex flex-col items-center gap-2">
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                       <Smartphone className="w-3 h-3" />
@@ -282,7 +355,6 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                       alt="UPI QR Code"
                       className="w-48 h-48 rounded-lg border-4 border-slate-100"
                       onError={(e) => {
-                        // Fallback in case primary API fails
                         (e.target as HTMLImageElement).src = `https://quickchart.io/qr?text=${encodeURIComponent(
                           getUpiQrData()
                         )}&size=250`;
@@ -295,14 +367,7 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     </p>
                   </div>
 
-                  {/* OR Divider */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-px bg-slate-800"></div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">OR</span>
-                    <div className="flex-1 h-px bg-slate-800"></div>
-                  </div>
-
-                  {/* UPI ID Section */}
+                  {/* Manual UPI ID */}
                   <div>
                     <label className="text-xs font-bold text-slate-300 block mb-2">
                       Pay manually to UPI ID:
@@ -323,14 +388,14 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
 
                   {/* Instructions */}
                   <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-200 space-y-1">
-                    <p className="font-bold mb-1">How to pay:</p>
+                    <p className="font-bold mb-1">How to pay via UPI QR:</p>
                     <p>1. Open any UPI app (GPay, PhonePe, Paytm)</p>
                     <p>2. <strong>Scan QR</strong> or send <strong>₹{service.price}</strong> to the UPI ID above</p>
                     <p>3. Copy the transaction ID from your UPI app</p>
                     <p>4. Fill your details below</p>
                   </div>
 
-                  {/* Customer Details Form */}
+                  {/* Customer Details */}
                   <div className="space-y-3 pt-2 border-t border-slate-800">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       Confirm Order Details
@@ -380,7 +445,7 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                         type="text"
                         value={paymentRef}
                         onChange={(e) => setPaymentRef(e.target.value)}
-                        placeholder="e.g. 1234567890123"
+                        placeholder="e.g. 1234567890123 (only for UPI QR payment)"
                         className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-indigo-500 outline-none"
                       />
                     </div>
@@ -400,7 +465,7 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     {isSubmitting ? (
                       <>Submitting...</>
                     ) : (
-                      <><Check className="w-4 h-4" /> Submit Order</>
+                      <><Check className="w-4 h-4" /> Submit UPI Order</>
                     )}
                   </button>
                 </div>
