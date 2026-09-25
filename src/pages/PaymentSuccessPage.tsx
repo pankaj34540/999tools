@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle2, XCircle, Loader2, ArrowRight, Home } from 'lucide-react';
-import { createServiceOrder } from '../services/serviceCatalogService';
+import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../services/firebase'; // ⚠️ Path adjust karo agar alag hai
 
 type Status = 'loading' | 'paid' | 'failed' | 'pending';
 
@@ -40,38 +41,35 @@ const PaymentSuccessPage: React.FC = () => {
 
       if (data.status === 'PAID') {
         setStatus('paid');
-        // Save order to Firestore
-        if (!orderSaved) {
+        // Update Firestore document created by create-order API
+        if (!orderSaved && orderId) {
           try {
-            await createServiceOrder({
-              serviceId: data.serviceId || 'unknown',
-              serviceName: data.serviceName || data.note || 'Service',
-              price: Number(data.amount),
-              customerName: data.customerName || 'Customer',
-              customerPhone: data.customerPhone || '',
-              customerEmail: data.customerEmail || '',
-              customerAddress: '',
-              aadhaarNumber: '',
-              panNumber: '',
-              dateOfBirth: '',
-              fatherName: '',
-              motherName: '',
-              gender: '',
-              category: '',
-              additionalData: {},
-              documentLinks: [],
-              paymentMethod: 'cashfree' as any,
-              paymentStatus: 'paid',
-              paymentReference: orderId || '',
-              paymentAmount: Number(data.amount),
-              orderStatus: 'pending',
-              ownerNotes: `Cashfree auto-verified. Payment ID: ${data.orderId}`,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            } as any);
+            const orderRef = doc(db, 'serviceOrders', orderId);
+            const snap = await getDoc(orderRef);
+
+            if (snap.exists()) {
+              const existing = snap.data();
+              // Already paid by webhook? Skip
+              if (existing?.paymentStatus === 'paid') {
+                console.log('ℹ️ Already marked paid by webhook');
+              } else {
+                await updateDoc(orderRef, {
+                  paymentStatus: 'paid',
+                  paymentReference: orderId,
+                  cashfreePaymentId: data.orderId || '',
+                  ownerNotes: `Cashfree verified via success page. Payment ID: ${data.orderId}`,
+                  updatedAt: new Date().toISOString(),
+                });
+                console.log('✅ Firestore order updated via success page');
+              }
+            } else {
+              // Not found — create it
+              await updateDoc(doc(db, 'serviceOrders', orderId), {}).catch(() => {});
+              console.warn('⚠️ Order doc not found:', orderId);
+            }
             setOrderSaved(true);
-          } catch (err) {
-            console.error('Failed to save Firestore order:', err);
+          } catch (err: any) {
+            console.error('Failed to update Firestore order:', err);
           }
         }
       } else if (data.status === 'ACTIVE') {
@@ -89,7 +87,6 @@ const PaymentSuccessPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="max-w-lg w-full bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
-
         <div className="p-8 text-center space-y-5">
           {status === 'loading' && (
             <>
@@ -175,7 +172,6 @@ const PaymentSuccessPage: React.FC = () => {
             </>
           )}
         </div>
-
       </div>
     </div>
   );
