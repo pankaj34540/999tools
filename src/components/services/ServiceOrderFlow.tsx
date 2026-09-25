@@ -15,7 +15,9 @@ interface ServiceOrderFlowProps {
 
 type Step = 'form' | 'payment' | 'done';
 
-// 🚦 Toggle: KYC approve hone ke baad `true` kar dena
+// 🚦 TOGGLE: KYC approve hone ke baad `true` kar dena
+// false = Pay Online button hide (sirf UPI QR dikhega)
+// true  = Pay Online button show (Instamojo active)
 const INSTAMOJO_ENABLED = false;
 
 const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
@@ -312,39 +314,45 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     Payment Details
                   </h3>
 
-                  {/* 🆕 PAY ONLINE BUTTON — Instamojo */}
-                  <button
-                    onClick={handleOnlinePayment}
-                    disabled={isPayingOnline || !customerName.trim() || !customerPhone.trim()}
-                    className="w-full flex flex-col items-center justify-center gap-1 px-4 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition shadow-lg"
-                  >
-                    <div className="flex items-center gap-2 text-base font-bold">
-                      {isPayingOnline ? (
-                        <>Processing...</>
-                      ) : (
-                        <>
-                          <CreditCard className="w-5 h-5" />
-                          Pay Online (Instant)
-                        </>
+                  {/* 🆕 PAY ONLINE BUTTON — Instamojo (sirf tab dikhega jab INSTAMOJO_ENABLED = true ho) */}
+                  {INSTAMOJO_ENABLED && (
+                    <>
+                      <button
+                        onClick={handleOnlinePayment}
+                        disabled={isPayingOnline || !customerName.trim() || !customerPhone.trim()}
+                        className="w-full flex flex-col items-center justify-center gap-1 px-4 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition shadow-lg"
+                      >
+                        <div className="flex items-center gap-2 text-base font-bold">
+                          {isPayingOnline ? (
+                            <>Processing...</>
+                          ) : (
+                            <>
+                              <CreditCard className="w-5 h-5" />
+                              Pay Online (Instant)
+                            </>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-indigo-100">
+                          Card / NetBanking / UPI / Wallet — Powered by Instamojo
+                        </p>
+                      </button>
+
+                      {(!customerName.trim() || !customerPhone.trim()) && (
+                        <p className="text-[10px] text-amber-400 text-center">
+                          ⚠️ Name aur mobile pehle bharein (neeche form mein)
+                        </p>
                       )}
-                    </div>
-                    <p className="text-[10px] text-indigo-100">
-                      Card / NetBanking / UPI / Wallet — Powered by Instamojo
-                    </p>
-                  </button>
 
-                  {(!customerName.trim() || !customerPhone.trim()) && (
-                    <p className="text-[10px] text-amber-400 text-center">
-                      ⚠️ Name aur mobile pehle bharein (neeche form mein)
-                    </p>
+                      {/* OR Divider */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-slate-800"></div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          OR Pay via UPI QR
+                        </span>
+                        <div className="flex-1 h-px bg-slate-800"></div>
+                      </div>
+                    </>
                   )}
-
-                  {/* OR Divider */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-px bg-slate-800"></div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">OR Pay via UPI QR</span>
-                    <div className="flex-1 h-px bg-slate-800"></div>
-                  </div>
 
                   {/* QR Code */}
                   <div className="bg-white rounded-xl p-4 flex flex-col items-center gap-2">
@@ -448,7 +456,7 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                         type="text"
                         value={paymentRef}
                         onChange={(e) => setPaymentRef(e.target.value)}
-                        placeholder="e.g. 1234567890123 (only for UPI QR payment)"
+                        placeholder="e.g. 1234567890123"
                         className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-indigo-500 outline-none"
                       />
                     </div>
