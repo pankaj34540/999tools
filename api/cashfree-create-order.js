@@ -1,4 +1,5 @@
 // Vercel Serverless — Cashfree Create Order (v2023-08-01)
+import { getFirestore } from './_firebase.js';
 
 const CASHFREE_BASE =
   process.env.CASHFREE_ENV === 'production'
@@ -69,11 +70,52 @@ export default async function handler(req, res) {
       });
     }
 
+    // 🆕 Firestore mein pending order save karo (same orderId as doc ID)
+    try {
+      const db = getFirestore();
+      await db.collection('serviceOrders').doc(orderId).set({
+        cashfreeOrderId: orderId,
+        serviceId: serviceId || '',
+        serviceName: serviceName || 'Service',
+        price: Number(amount),
+
+        customerName: customerName,
+        customerPhone: customerPhone,
+        customerEmail: customerEmail || '',
+        customerAddress: '',
+        aadhaarNumber: '',
+        panNumber: '',
+        dateOfBirth: '',
+        fatherName: '',
+        motherName: '',
+        gender: '',
+        category: '',
+        additionalData: {},
+        documentLinks: [],
+
+        paymentMethod: 'cashfree',
+        paymentStatus: 'pending',
+        paymentReference: orderId,
+        paymentAmount: Number(amount),
+
+        orderStatus: 'pending',
+        ownerNotes: 'Order created — awaiting payment',
+
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      console.log('✅ Pending order saved to Firestore:', orderId);
+    } catch (dbErr) {
+      console.error('⚠️ Firestore save failed:', dbErr.message);
+      // Continue anyway — payment flow must not break
+    }
+
     return res.status(200).json({
       success: true,
       orderId: data.order_id,
       paymentSessionId: data.payment_session_id,
-      environment: process.env.CASHFREE_ENV === 'production' ? 'production' : 'sandbox',
+      environment:
+        process.env.CASHFREE_ENV === 'production' ? 'production' : 'sandbox',
     });
   } catch (error) {
     console.error('Cashfree create error:', error);
