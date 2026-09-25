@@ -30,17 +30,25 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Google Form URL with pre-filled service name ──
+  // ── Get form URL (per-service takes priority) ──
   const getFormUrl = () => {
-    if (!settings.googleFormUrl || settings.googleFormUrl.includes('YOUR_FORM_ID')) {
-      return settings.googleFormUrl;
+    const formUrl = service.googleFormUrl?.trim() || settings.googleFormUrl;
+    const fieldId = service.serviceFieldId?.trim() || settings.serviceFieldId;
+
+    if (!formUrl || formUrl.includes('YOUR_FORM_ID')) {
+      return formUrl;
     }
-    const url = new URL(settings.googleFormUrl);
-    url.searchParams.set('usp', 'pp_url');
-    if (settings.serviceFieldId && settings.serviceFieldId !== 'entry.0000000000') {
-      url.searchParams.set(settings.serviceFieldId, service.name);
+
+    try {
+      const url = new URL(formUrl);
+      url.searchParams.set('usp', 'pp_url');
+      if (fieldId && fieldId !== 'entry.0000000000') {
+        url.searchParams.set(fieldId, service.name);
+      }
+      return url.toString();
+    } catch {
+      return formUrl;
     }
-    return url.toString();
   };
 
   const copyUpi = () => {
@@ -115,6 +123,8 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
     );
     window.open(`https://wa.me/${settings.ownerWhatsapp}?text=${msg}`, '_blank');
   };
+
+  const hasOwnForm = !!service.googleFormUrl?.trim();
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md overflow-y-auto">
@@ -195,6 +205,15 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                   After submitting, come back to this tab to complete payment.
                 </p>
 
+                {!hasOwnForm && (
+                  <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-200 flex gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <div>
+                      Using <strong>default form</strong>. Owner can set a dedicated form for this service.
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3 text-xs text-amber-200 flex gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <div>
@@ -236,7 +255,6 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     Payment Details
                   </h3>
 
-                  {/* UPI ID */}
                   <div>
                     <label className="text-xs font-bold text-slate-300 block mb-2">
                       Pay to UPI ID:
@@ -255,7 +273,6 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     </div>
                   </div>
 
-                  {/* Steps */}
                   <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-200 space-y-1">
                     <p className="font-bold mb-1">How to pay:</p>
                     <p>1. Open any UPI app (GPay, PhonePe, Paytm)</p>
@@ -264,7 +281,6 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     <p>4. Fill your details below</p>
                   </div>
 
-                  {/* Customer Info */}
                   <div className="space-y-3">
                     <div>
                       <label className="text-xs font-bold text-slate-300 block mb-1">
