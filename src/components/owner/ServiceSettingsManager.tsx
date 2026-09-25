@@ -3,7 +3,7 @@ import {
   Plus, Edit3, Trash2, Save, X, ToggleLeft, ToggleRight,
   Link as LinkIcon, CreditCard, UserCheck, Vote, ShoppingBasket,
   Heart, Shield, Award, Package, FileText, RefreshCw, Loader2,
-  AlertCircle, CheckCircle,
+  AlertCircle, CheckCircle, ExternalLink,
 } from 'lucide-react';
 import {
   subscribeToServices,
@@ -47,11 +47,7 @@ const CATEGORIES = [
   { id: 'other', label: '📦 Other' },
 ];
 
-interface ServiceSettingsManagerProps {
-  // Optional callback
-}
-
-const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
+const ServiceSettingsManager: React.FC = () => {
   const [services, setServices] = useState<ServiceDefinition[]>([]);
   const [settings, setSettings] = useState<ServiceSettings | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -69,6 +65,8 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
     processingDays: 7,
     icon: 'CreditCard',
     enabled: true,
+    googleFormUrl: '',
+    serviceFieldId: '',
   });
 
   // Settings form
@@ -106,6 +104,8 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
       processingDays: 7,
       icon: 'CreditCard',
       enabled: true,
+      googleFormUrl: '',
+      serviceFieldId: '',
     });
     setShowForm(true);
   };
@@ -124,7 +124,6 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
       return;
     }
 
-    // Generate ID from name if new
     const serviceId =
       editingService?.id ||
       formData.id?.trim() ||
@@ -150,6 +149,8 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
         processingDays: Number(formData.processingDays) || 1,
         icon: formData.icon || 'FileText',
         enabled: formData.enabled ?? true,
+        googleFormUrl: formData.googleFormUrl?.trim() || '',
+        serviceFieldId: formData.serviceFieldId?.trim() || '',
         createdAt: editingService?.createdAt || now,
         updatedAt: now,
       });
@@ -207,7 +208,7 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
             ⚙️ Service Settings
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Manage services, Google Form URL, and payment settings
+            Manage services, Google Form URLs, and payment settings
           </p>
         </div>
         <button
@@ -240,13 +241,17 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
         <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
           <LinkIcon className="w-4 h-4 text-blue-500" />
-          Global Settings
+          Global Settings (Fallback)
         </h3>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+          💡 Ye fallback URL hai. Agar kisi service mein apna Google Form URL nahi hai, to ye use hoga.
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <label className="text-xs font-bold text-slate-700 block mb-1">
-              Google Form URL
+              Default Google Form URL
             </label>
             <input
               type="text"
@@ -257,14 +262,11 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
               placeholder="https://docs.google.com/forms/d/e/.../viewform"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-indigo-500 outline-none"
             />
-            <p className="text-[10px] text-slate-500 mt-1">
-              Customer is form ko fill karega
-            </p>
           </div>
 
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1">
-              Form Field ID (for pre-fill)
+              Default Form Field ID
             </label>
             <input
               type="text"
@@ -275,9 +277,6 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
               placeholder="entry.1234567890"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-indigo-500 outline-none"
             />
-            <p className="text-[10px] text-slate-500 mt-1">
-              Google Form ka "Service Name" field ID
-            </p>
           </div>
 
           <div>
@@ -357,6 +356,15 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
                     {!service.enabled && (
                       <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">
                         DISABLED
+                      </span>
+                    )}
+                    {service.googleFormUrl ? (
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded flex items-center gap-1">
+                        <CheckCircle className="w-2.5 h-2.5" /> Own Form
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                        Uses Global Form
                       </span>
                     )}
                   </div>
@@ -444,6 +452,46 @@ const ServiceSettingsManager: React.FC<ServiceSettingsManagerProps> = () => {
                   placeholder="Short description..."
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-indigo-500 outline-none resize-none"
                 />
+              </div>
+
+              {/* 🆕 Google Form URL for THIS service */}
+              <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-indigo-800">
+                  <ExternalLink className="w-4 h-4" />
+                  This Service's Google Form (Optional)
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Google Form URL
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.googleFormUrl || ''}
+                    onChange={(e) => setFormData({ ...formData, googleFormUrl: e.target.value })}
+                    placeholder="https://docs.google.com/forms/d/e/.../viewform"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-indigo-500 outline-none"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Leave empty to use Global Settings URL
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Form Field ID (for pre-fill)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.serviceFieldId || ''}
+                    onChange={(e) => setFormData({ ...formData, serviceFieldId: e.target.value })}
+                    placeholder="entry.1234567890"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-indigo-500 outline-none"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Leave empty to use Global Settings field ID
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
