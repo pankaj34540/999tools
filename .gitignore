@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Firebase Admin Service Account (DO NOT COMMIT)
+tools-42873-firebase-adminsdk*.json
+firebase-adminsdk*.json
+
+# Firebase Admin Service Account (DO NOT COMMIT)
+tools-42873-firebase-adminsdk*.json
+firebase-adminsdk*.json
