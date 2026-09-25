@@ -15,6 +15,8 @@ export const DEFAULT_SERVICES: ServiceDefinition[] = [
     processingDays: 7,
     icon: 'CreditCard',
     enabled: true,
+    googleFormUrl: '',
+    serviceFieldId: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -27,6 +29,8 @@ export const DEFAULT_SERVICES: ServiceDefinition[] = [
     processingDays: 15,
     icon: 'UserCheck',
     enabled: true,
+    googleFormUrl: '',
+    serviceFieldId: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -39,6 +43,8 @@ export const DEFAULT_SERVICES: ServiceDefinition[] = [
     processingDays: 30,
     icon: 'Vote',
     enabled: true,
+    googleFormUrl: '',
+    serviceFieldId: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -51,6 +57,8 @@ export const DEFAULT_SERVICES: ServiceDefinition[] = [
     processingDays: 20,
     icon: 'ShoppingBasket',
     enabled: true,
+    googleFormUrl: '',
+    serviceFieldId: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -63,14 +71,15 @@ export const DEFAULT_SERVICES: ServiceDefinition[] = [
     processingDays: 10,
     icon: 'Heart',
     enabled: true,
+    googleFormUrl: '',
+    serviceFieldId: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
 ];
 
 // ============================================
-// 🆕 DEFAULT SETTINGS
-// ⚠️ YE OWNER PANEL SE UPDATE KARNA
+// 🆕 DEFAULT SETTINGS (Fallback for services without own form)
 // ============================================
 
 export const DEFAULT_SERVICE_SETTINGS: ServiceSettings = {
