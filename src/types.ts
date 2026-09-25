@@ -744,6 +744,8 @@ export interface ServiceDefinition {
   processingDays: number;
   icon: string;              // lucide icon name
   enabled: boolean;
+  googleFormUrl?: string;    // 🆕 per-service Google Form URL
+  serviceFieldId?: string;   // 🆕 per-service field ID for pre-fill
   createdAt: string;
   updatedAt: string;
 }
