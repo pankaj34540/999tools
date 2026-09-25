@@ -15,10 +15,10 @@ interface ServiceOrderFlowProps {
 
 type Step = 'form' | 'payment' | 'done';
 
-// 🚦 TOGGLE: KYC approve hone ke baad `true` kar dena
-// false = Pay Online button hide (sirf UPI QR dikhega)
-// true  = Pay Online button show (Instamojo active)
-const INSTAMOJO_ENABLED = false;
+// 🚦 TOGGLE: Cashfree payment button ON/OFF
+// false = sirf UPI QR dikhega (manual payment)
+// true  = Pay Online (Cashfree) button bhi dikhega
+const CASHFREE_ENABLED = true;
 
 const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
   service,
@@ -36,14 +36,11 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
   const [isPayingOnline, setIsPayingOnline] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Get form URL (per-service takes priority) ──
   const getFormUrl = () => {
     const formUrl = service.googleFormUrl?.trim() || settings.googleFormUrl;
     const fieldId = service.serviceFieldId?.trim() || settings.serviceFieldId;
 
-    if (!formUrl || formUrl.includes('YOUR_FORM_ID')) {
-      return formUrl;
-    }
+    if (!formUrl || formUrl.includes('YOUR_FORM_ID')) return formUrl;
 
     try {
       const url = new URL(formUrl);
@@ -57,7 +54,6 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
     }
   };
 
-  // ── Generate UPI QR data ──
   const getUpiQrData = () => {
     const upiId = settings.ownerUpiId;
     const name = '999tools';
@@ -80,7 +76,7 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
     setStep('payment');
   };
 
-  // ── Online Payment via Instamojo ──
+  // ── Cashfree Online Payment ──
   const handleOnlinePayment = async () => {
     if (!customerName.trim() || !customerPhone.trim()) {
       setError('Please fill name and phone first');
@@ -91,29 +87,45 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
     setError(null);
 
     try {
-      const response = await fetch('/api/create-payment', {
+      const response = await fetch('/api/cashfree-create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: service.price,
-          purpose: `${service.name} — 999tools`,
-          buyerName: customerName.trim(),
-          email: customerEmail.trim(),
-          phone: customerPhone.trim(),
           serviceId: service.id,
+          serviceName: service.name,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim(),
+          customerEmail: customerEmail.trim(),
         }),
       });
 
       const data = await response.json();
 
-      if (data.success && data.paymentUrl) {
-        window.location.href = data.paymentUrl;
+      if (data.success && data.paymentSessionId) {
+        // Dynamic import Cashfree SDK
+        const { load } = await import('@cashfreepayments/cashfree-js');
+        const cashfree = await load({
+          mode: data.environment === 'production' ? 'production' : 'sandbox',
+        });
+
+        const checkoutResult = await cashfree.checkout({
+          paymentSessionId: data.paymentSessionId,
+          redirectTarget: '_self',
+        });
+
+        if (checkoutResult.error) {
+          setError(checkoutResult.error.message || 'Payment failed');
+          setIsPayingOnline(false);
+        }
+        // On success, page redirects — no need to reset state
       } else {
         setError(data.error || 'Payment failed. Please try UPI QR instead.');
+        setIsPayingOnline(false);
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Cashfree error:', err);
       setError('Failed to connect. Please try UPI QR instead.');
-    } finally {
       setIsPayingOnline(false);
     }
   };
@@ -160,7 +172,7 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
 
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
+      } as any);
 
       setStep('done');
     } catch (err) {
@@ -314,34 +326,80 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     Payment Details
                   </h3>
 
-                  {/* 🆕 PAY ONLINE BUTTON — Instamojo (sirf tab dikhega jab INSTAMOJO_ENABLED = true ho) */}
-                  {INSTAMOJO_ENABLED && (
-                    <>
-                      <button
-                        onClick={handleOnlinePayment}
-                        disabled={isPayingOnline || !customerName.trim() || !customerPhone.trim()}
-                        className="w-full flex flex-col items-center justify-center gap-1 px-4 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition shadow-lg"
-                      >
-                        <div className="flex items-center gap-2 text-base font-bold">
-                          {isPayingOnline ? (
-                            <>Processing...</>
-                          ) : (
-                            <>
-                              <CreditCard className="w-5 h-5" />
-                              Pay Online (Instant)
-                            </>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-indigo-100">
-                          Card / NetBanking / UPI / Wallet — Powered by Instamojo
-                        </p>
-                      </button>
+                  {/* Customer Details FIRST (needed for Cashfree) */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Your Details
+                    </p>
 
-                      {(!customerName.trim() || !customerPhone.trim()) && (
-                        <p className="text-[10px] text-amber-400 text-center">
-                          ⚠️ Name aur mobile pehle bharein (neeche form mein)
-                        </p>
-                      )}
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">
+                        Your Name <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Enter your full name"
+                        className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">
+                        Mobile Number <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="10-digit mobile"
+                        className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">
+                        Email (optional)
+                      </label>
+                      <input
+                        type="email"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 🆕 CASHFREE PAY ONLINE */}
+                  {CASHFREE_ENABLED && (
+                    <>
+                      <div className="pt-3 border-t border-slate-800 space-y-2">
+                        <button
+                          onClick={handleOnlinePayment}
+                          disabled={isPayingOnline || !customerName.trim() || !customerPhone.trim()}
+                          className="w-full flex flex-col items-center justify-center gap-1 px-4 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition shadow-lg"
+                        >
+                          <div className="flex items-center gap-2 text-base font-bold">
+                            {isPayingOnline ? (
+                              <>Processing...</>
+                            ) : (
+                              <>
+                                <CreditCard className="w-5 h-5" />
+                                Pay Online (Instant)
+                              </>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-indigo-100">
+                            Card / NetBanking / UPI / Wallet — Powered by Cashfree
+                          </p>
+                        </button>
+
+                        {(!customerName.trim() || !customerPhone.trim()) && (
+                          <p className="text-[10px] text-amber-400 text-center">
+                            ⚠️ Name aur mobile upar bharein
+                          </p>
+                        )}
+                      </div>
 
                       {/* OR Divider */}
                       <div className="flex items-center gap-3">
@@ -403,51 +461,11 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                     <p>1. Open any UPI app (GPay, PhonePe, Paytm)</p>
                     <p>2. <strong>Scan QR</strong> or send <strong>₹{service.price}</strong> to the UPI ID above</p>
                     <p>3. Copy the transaction ID from your UPI app</p>
-                    <p>4. Fill your details below</p>
+                    <p>4. Fill UPI Transaction ID below</p>
                   </div>
 
-                  {/* Customer Details */}
+                  {/* UPI Ref + Submit */}
                   <div className="space-y-3 pt-2 border-t border-slate-800">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Confirm Order Details
-                    </p>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">
-                        Your Name <span className="text-red-400">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Enter your full name"
-                        className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">
-                        Mobile Number <span className="text-red-400">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="10-digit mobile"
-                        className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">
-                        Email (optional)
-                      </label>
-                      <input
-                        type="email"
-                        value={customerEmail}
-                        onChange={(e) => setCustomerEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-indigo-500 outline-none"
-                      />
-                    </div>
                     <div>
                       <label className="text-xs font-bold text-slate-300 block mb-1">
                         UPI Transaction ID <span className="text-red-400">*</span>
@@ -460,25 +478,25 @@ const ServiceOrderFlow: React.FC<ServiceOrderFlowProps> = ({
                         className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-indigo-500 outline-none"
                       />
                     </div>
-                  </div>
 
-                  {error && (
-                    <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 text-xs">
-                      ⚠️ {error}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handlePaymentSubmit}
-                    disabled={!paymentRef.trim() || !customerName.trim() || !customerPhone.trim() || isSubmitting}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg transition"
-                  >
-                    {isSubmitting ? (
-                      <>Submitting...</>
-                    ) : (
-                      <><Check className="w-4 h-4" /> Submit UPI Order</>
+                    {error && (
+                      <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 text-xs">
+                        ⚠️ {error}
+                      </div>
                     )}
-                  </button>
+
+                    <button
+                      onClick={handlePaymentSubmit}
+                      disabled={!paymentRef.trim() || !customerName.trim() || !customerPhone.trim() || isSubmitting}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg transition"
+                    >
+                      {isSubmitting ? (
+                        <>Submitting...</>
+                      ) : (
+                        <><Check className="w-4 h-4" /> Submit UPI Order</>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
