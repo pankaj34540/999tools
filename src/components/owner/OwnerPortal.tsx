@@ -50,6 +50,7 @@ import { OwnerRechargeQueue } from './OwnerRechargeQueue';
 import { OwnerAnalytics } from './OwnerAnalytics';
 import { StaffManager } from './StaffManager';
 import ServiceSettingsManager from './ServiceSettingsManager';
+import ServiceOrdersManager from './ServiceOrdersManager';
 
 export const OwnerPortal: React.FC = () => {
   const { 
@@ -91,6 +92,7 @@ export const OwnerPortal: React.FC = () => {
     | 'support' 
     | 'services' 
     | 'service_settings'
+    | 'service_orders'
     | 'tools_hub' 
     | 'links' 
     | 'vles' 
@@ -254,6 +256,7 @@ export const OwnerPortal: React.FC = () => {
             { id: 'links', label: `Govt Links (${importantLinks.length})`, icon: Link2 },
             { id: 'services', label: `Form Services (${services.length})`, icon: Layers },
             { id: 'service_settings', label: `⚙️ Service Orders Setup`, icon: Package },
+            { id: 'service_orders', label: `📦 Service Orders`, icon: Package, badge: 0 },
             { id: 'vles', label: `VLE Operators (${vles.length})`, icon: Store },
             { id: 'staff', label: `👥 Staff Management`, icon: UserCog },
             { id: 'orders', label: `Customer Orders (${orders.length})`, icon: FileText, badge: pendingOrders },
@@ -529,6 +532,10 @@ export const OwnerPortal: React.FC = () => {
       {/* ═══════════════════════════════════════════ */}
       {activeTab === 'service_settings' && (
         <ServiceSettingsManager />
+      )}
+
+      {activeTab === 'service_orders' && (
+        <ServiceOrdersManager />
       )}
 
       {/* ═══════════════════════════════════════════ */}
