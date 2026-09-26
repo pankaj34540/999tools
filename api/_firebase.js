@@ -1,10 +1,13 @@
 // Firebase Admin SDK — shared helper for Vercel serverless functions
-import admin from 'firebase-admin';
+// Uses modular API (firebase-admin v12+) — more reliable with ESM
+
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
 let initialized = false;
 
 export function initFirebase() {
-  if (initialized) return admin;
+  if (initialized) return;
 
   const serviceAccountB64 = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (!serviceAccountB64) {
@@ -20,16 +23,22 @@ export function initFirebase() {
     throw new Error('Failed to parse FIREBASE_SERVICE_ACCOUNT: ' + err.message);
   }
 
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+  // Validate critical fields
+  if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
+    throw new Error('Service account JSON missing required fields (project_id, private_key, client_email)');
+  }
+
+  if (getApps().length === 0) {
+    initializeApp({
+      credential: cert(serviceAccount),
     });
+    console.log('✅ Firebase Admin initialized for project:', serviceAccount.project_id);
   }
 
   initialized = true;
-  return admin;
 }
 
 export function getFirestore() {
-  return initFirebase().firestore();
+  initFirebase();
+  return getAdminFirestore();
 }
