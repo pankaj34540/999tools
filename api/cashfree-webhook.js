@@ -1,5 +1,5 @@
 // Vercel Serverless — Cashfree Webhook
-// Handles BOTH service orders AND subscription payments
+// Handles: service orders, subscriptions, VLE registrations
 import { getFirestore } from './_firebase.js';
 
 export default async function handler(req, res) {
@@ -56,8 +56,8 @@ export default async function handler(req, res) {
       // ═══════════════════════════════════════
       else if (orderType === 'subscription') {
         const userId = tags.userId;
-        const plan = tags.plan;              // 'premium' | 'vle'
-        const billingCycle = tags.billingCycle; // 'monthly' | 'yearly'
+        const plan = tags.plan;
+        const billingCycle = tags.billingCycle;
 
         const reqRef = db.collection('paymentRequests').doc(orderId);
         const reqDoc = await reqRef.get();
@@ -67,7 +67,6 @@ export default async function handler(req, res) {
           if (cur?.status === 'approved') {
             console.log('ℹ️ Subscription already activated');
           } else {
-            // Update paymentRequests
             await reqRef.update({
               status: 'approved',
               verifiedAt: new Date().toISOString(),
@@ -79,7 +78,6 @@ export default async function handler(req, res) {
               ).toISOString(),
             });
 
-            // Activate user subscription
             if (userId && plan) {
               const userRef = db.collection('userAccounts').doc(userId);
               const userDoc = await userRef.get();
@@ -106,6 +104,35 @@ export default async function handler(req, res) {
         }
       }
 
+      // ═══════════════════════════════════════
+      // CASE 3: VLE REGISTRATION
+      // ═══════════════════════════════════════
+      else if (orderType === 'vle_registration') {
+        const applicationId = tags.applicationId;
+        if (!applicationId) {
+          console.warn('⚠️ No applicationId in VLE webhook');
+        } else {
+          const appRef = db.collection('vleApplications').doc(applicationId);
+          const appDoc = await appRef.get();
+          if (appDoc.exists) {
+            const cur = appDoc.data();
+            if (cur?.paymentStatus === 'paid') {
+              console.log('ℹ️ VLE app already paid');
+            } else {
+              await appRef.update({
+                paymentStatus: 'paid',
+                cashfreePaymentId: paymentId || '',
+                cashfreeOrderId: orderId,
+                webhookReceivedAt: new Date().toISOString(),
+              });
+              console.log('✅ VLE registration paid:', applicationId);
+            }
+          } else {
+            console.log('⚠️ VLE app not found:', applicationId);
+          }
+        }
+      }
+
       else {
         console.log('ℹ️ Unknown order type:', orderType);
       }
@@ -114,6 +141,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('Webhook error:', error);
-    return res.status(200).json({ success: true }); // Always 200
+    return res.status(200).json({ success: true });
   }
 }
