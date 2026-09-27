@@ -277,7 +277,6 @@ export interface LedgerFilterOptions {
 // ============================================
 export interface AdsterraConfig {
   enabled: boolean;
-  // ✅ Sirf toggles — ad CODE ab src/data/adSlots.ts mein hai
   headerBannerActive: boolean;
   toolBannerActive: boolean;
   sidebarAdActive: boolean;
@@ -288,11 +287,10 @@ export interface AdsterraConfig {
   directLinkFrequency: number;
   testMode: boolean;
 
-  // 🆕 New toggles
-  toolSidebarActive: boolean;    // Tool modal ke left/right ads
-  downloadPopupActive: boolean;  // Download click pe popup ad
+  toolSidebarActive: boolean;
+  downloadPopupActive: boolean;
 
-  // ⚠️ Deprecated (backwards compat — inhe use mat karo)
+  // ⚠️ Deprecated
   headerBannerCode?: string;
   toolBannerCode?: string;
   sidebarAdCode?: string;
@@ -345,8 +343,21 @@ export interface VleApplication {
   district: string;
   address: string;
   cscId?: string;
-  paymentUtr: string;
+
+  // Payment info
+  paymentMethod?: 'cashfree' | 'manual';
+  paymentStatus?: 'pending' | 'paid' | 'failed';
   paymentAmount: number;
+
+  // Cashfree fields
+  cashfreeOrderId?: string;
+  cashfreePaymentId?: string;
+  webhookReceivedAt?: string;
+  verifiedAt?: string;
+
+  // ⚠️ Deprecated (manual UPI — removed)
+  paymentUtr?: string;
+
   status: 'pending' | 'approved' | 'rejected';
   appliedDate: string;
   generatedVleId?: string;
@@ -747,21 +758,20 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
 };
 
 // ============================================
-// 🆕 SERVICE ORDER SYSTEM (NEW — separate from VLE ServiceItem)
-// Ye user-facing service orders ke liye hai (Google Form + Payment)
+// SERVICE ORDER SYSTEM (NEW — separate from VLE ServiceItem)
 // ============================================
 
 export interface ServiceDefinition {
   id: string;
   name: string;
   description: string;
-  category: string;          // 'govt_id' | 'certificate' | 'utility' | 'other'
-  price: number;             // in INR
+  category: string;
+  price: number;
   processingDays: number;
-  icon: string;              // lucide icon name
+  icon: string;
   enabled: boolean;
-  googleFormUrl?: string;    // 🆕 per-service Google Form URL
-  serviceFieldId?: string;   // 🆕 per-service field ID for pre-fill
+  googleFormUrl?: string;
+  serviceFieldId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -772,7 +782,6 @@ export interface ServiceOrder {
   serviceName: string;
   price: number;
   
-  // Customer details
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -783,23 +792,19 @@ export interface ServiceOrder {
   fatherName: string;
   motherName: string;
   gender: string;
-  category: string;          // General/OBC/SC/ST
+  category: string;
   additionalData: Record<string, string>;
   
-  // Documents (Google Drive links from form)
   documentLinks: string[];
   
-  // Payment
   paymentMethod: 'upi' | 'instamojo' | 'cashfree' | 'cash';
   paymentStatus: 'pending' | 'paid' | 'failed';
   paymentReference: string;
   paymentAmount: number;
   
-  // Order status
   orderStatus: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   ownerNotes: string;
   
-  // Meta
   userId?: string;
   createdAt: string;
   updatedAt: string;
