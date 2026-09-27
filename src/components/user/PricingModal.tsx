@@ -8,7 +8,8 @@ import {
   Zap,
   Sparkles,
   Shield,
-  TrendingUp
+  TrendingUp,
+  ArrowLeft,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -118,15 +119,27 @@ export const PricingModal: React.FC<PricingModalProps> = ({
   return (
     <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8">
-        
+
+        {/* 🆕 BACK BUTTON — Top Left */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition z-10"
+          title="Back"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">Back</span>
+        </button>
+
+        {/* CLOSE BUTTON — Top Right */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center font-bold z-10"
+          title="Close"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="text-center mb-8 pt-2">
+        <div className="text-center mb-8 pt-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold mb-3">
             <Sparkles className="w-3.5 h-3.5" />
             Choose Your Plan
@@ -136,7 +149,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           </h2>
           <p className="text-sm text-slate-500 max-w-2xl mx-auto">
             Upgrade to remove ads, unlock 299+ premium tools, and access unlimited usage.
-            Cancel anytime. Pay via UPI.
+            Cancel anytime. <strong>Pay securely via Cashfree.</strong>
           </p>
         </div>
 
@@ -268,7 +281,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({
         <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-center gap-6 text-[11px] text-slate-500">
           <div className="flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Manual UPI Verification</span>
+            <span>Secure Cashfree Payment</span>
           </div>
           <div className="flex items-center gap-1.5">
             <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
@@ -276,10 +289,12 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           </div>
           <div className="flex items-center gap-1.5">
             <Check className="w-3.5 h-3.5 text-amber-600" />
-            <span>Instant Activation After Approval</span>
+            <span>Instant Activation</span>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+export default PricingModal;
