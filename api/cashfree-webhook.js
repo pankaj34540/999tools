@@ -1,6 +1,5 @@
 // Vercel Serverless — Cashfree Webhook
-// Payment success hone par Cashfree ye endpoint hit karega
-// Firestore mein order status update karega (browser band hone pe bhi)
+// Handles BOTH service orders AND subscription payments
 import { getFirestore } from './_firebase.js';
 
 export default async function handler(req, res) {
@@ -12,82 +11,109 @@ export default async function handler(req, res) {
     const eventType = req.body?.type;
     const data = req.body?.data;
 
-    console.log('🔔 Cashfree Webhook received:', eventType);
-    console.log('  Body:', JSON.stringify(req.body, null, 2));
+    console.log('🔔 Cashfree Webhook:', eventType);
 
     if (eventType === 'PAYMENT_SUCCESS_WEBHOOK') {
       const orderId = data?.order?.order_id;
       const paymentId = data?.payment?.cf_payment_id;
+      const tags = data?.order?.order_tags || {};
+      const orderType = tags.type || 'service_order';
+      const db = getFirestore();
 
       if (!orderId) {
         console.warn('⚠️ No order_id in webhook');
         return res.status(200).json({ success: true });
       }
 
-      try {
-        const db = getFirestore();
+      // ═══════════════════════════════════════
+      // CASE 1: SERVICE ORDER
+      // ═══════════════════════════════════════
+      if (orderType === 'service_order') {
         const orderRef = db.collection('serviceOrders').doc(orderId);
         const orderDoc = await orderRef.get();
 
         if (orderDoc.exists) {
-          const currentData = orderDoc.data();
-          // Already paid? Skip duplicate update
-          if (currentData?.paymentStatus === 'paid') {
-            console.log('ℹ️ Order already marked paid, skipping');
-            return res.status(200).json({ success: true });
+          const cur = orderDoc.data();
+          if (cur?.paymentStatus === 'paid') {
+            console.log('ℹ️ Service order already paid');
+          } else {
+            await orderRef.update({
+              paymentStatus: 'paid',
+              cashfreePaymentId: paymentId || '',
+              webhookReceivedAt: new Date().toISOString(),
+              ownerNotes: `Cashfree webhook verified. Payment ID: ${paymentId}`,
+              updatedAt: new Date().toISOString(),
+            });
+            console.log('✅ Service order updated via webhook:', orderId);
           }
-
-          await orderRef.update({
-            paymentStatus: 'paid',
-            cashfreePaymentId: paymentId || '',
-            webhookReceivedAt: new Date().toISOString(),
-            ownerNotes: `Cashfree auto-verified via webhook. Payment ID: ${paymentId || 'N/A'}`,
-            updatedAt: new Date().toISOString(),
-          });
-          console.log('✅ Firestore order updated via webhook:', orderId);
         } else {
-          // Order nahi mila — rare case, create a basic record
-          console.log('⚠️ Order not found, creating minimal record:', orderId);
-          await orderRef.set({
-            cashfreeOrderId: orderId,
-            serviceId: data?.order?.order_tags?.serviceId || '',
-            serviceName: data?.order?.order_tags?.serviceName || 'Service',
-            price: Number(data?.order?.order_amount || 0),
-            customerName: data?.customer_details?.customer_name || 'Customer',
-            customerPhone: data?.customer_details?.customer_phone || '',
-            customerEmail: data?.customer_details?.customer_email || '',
-            customerAddress: '',
-            aadhaarNumber: '',
-            panNumber: '',
-            dateOfBirth: '',
-            fatherName: '',
-            motherName: '',
-            gender: '',
-            category: '',
-            additionalData: {},
-            documentLinks: [],
-            paymentMethod: 'cashfree',
-            paymentStatus: 'paid',
-            paymentReference: orderId,
-            paymentAmount: Number(data?.order?.order_amount || 0),
-            cashfreePaymentId: paymentId || '',
-            orderStatus: 'pending',
-            ownerNotes: `Created via webhook. Payment ID: ${paymentId || 'N/A'}`,
-            webhookReceivedAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-          console.log('✅ Minimal order created:', orderId);
+          console.log('⚠️ Service order not found:', orderId);
         }
-      } catch (dbErr) {
-        console.error('❌ Firestore update failed:', dbErr.message);
-        // Still return 200 so Cashfree doesn't retry endlessly
+      }
+
+      // ═══════════════════════════════════════
+      // CASE 2: SUBSCRIPTION
+      // ═══════════════════════════════════════
+      else if (orderType === 'subscription') {
+        const userId = tags.userId;
+        const plan = tags.plan;              // 'premium' | 'vle'
+        const billingCycle = tags.billingCycle; // 'monthly' | 'yearly'
+
+        const reqRef = db.collection('paymentRequests').doc(orderId);
+        const reqDoc = await reqRef.get();
+
+        if (reqDoc.exists) {
+          const cur = reqDoc.data();
+          if (cur?.status === 'approved') {
+            console.log('ℹ️ Subscription already activated');
+          } else {
+            // Update paymentRequests
+            await reqRef.update({
+              status: 'approved',
+              verifiedAt: new Date().toISOString(),
+              verifiedVia: 'cashfree_webhook',
+              cashfreePaymentId: paymentId || '',
+              webhookReceivedAt: new Date().toISOString(),
+              validUntil: new Date(
+                Date.now() + (billingCycle === 'monthly' ? 30 : 365) * 86400000
+              ).toISOString(),
+            });
+
+            // Activate user subscription
+            if (userId && plan) {
+              const userRef = db.collection('userAccounts').doc(userId);
+              const userDoc = await userRef.get();
+
+              if (userDoc.exists) {
+                const now = new Date();
+                const endDate = new Date(
+                  now.getTime() + (billingCycle === 'monthly' ? 30 : 365) * 86400000
+                );
+                await userRef.update({
+                  plan: plan,
+                  subscriptionStart: now.toISOString(),
+                  subscriptionEnd: endDate.toISOString(),
+                  subscriptionStatus: 'active',
+                });
+                console.log(`✅ Subscription activated: ${plan} ${billingCycle} for ${userId}`);
+              } else {
+                console.warn('⚠️ User account not found:', userId);
+              }
+            }
+          }
+        } else {
+          console.log('⚠️ Subscription paymentRequest not found:', orderId);
+        }
+      }
+
+      else {
+        console.log('ℹ️ Unknown order type:', orderType);
       }
     }
 
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('Webhook error:', error);
-    return res.status(500).json({ error: 'Internal error' });
+    return res.status(200).json({ success: true }); // Always 200
   }
 }
