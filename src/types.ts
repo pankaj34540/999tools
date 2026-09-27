@@ -160,8 +160,17 @@ export interface PaymentRequest {
   plan: 'premium' | 'vle';
   billingCycle: BillingCycle;
   amount: number;
-  utr: string;
+
+  // ✅ Cashfree fields (new)
+  cashfreeOrderId?: string;
+  cashfreePaymentId?: string;
+  verifiedVia?: 'cashfree_webhook' | 'cashfree_success_page' | 'manual';
+  webhookReceivedAt?: string;
+
+  // ⚠️ Deprecated (manual UPI — removed)
+  utr?: string;
   screenshotUrl?: string;
+
   status: 'pending' | 'approved' | 'rejected';
   requestedAt: string;
   verifiedAt?: string;
