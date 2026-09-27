@@ -34,17 +34,28 @@ export default async function handler(req, res) {
       });
     }
 
+    const tags = data.order_tags || {};
+
     return res.status(200).json({
       success: true,
       orderId: data.order_id,
-      status: data.order_status, // PAID | ACTIVE | EXPIRED | CANCELLED
+      status: data.order_status,
       amount: data.order_amount,
       customerName: data.customer_details?.customer_name,
       customerPhone: data.customer_details?.customer_phone,
       customerEmail: data.customer_details?.customer_email,
       note: data.order_note,
-      serviceId: data.order_tags?.serviceId || '',
-      serviceName: data.order_tags?.serviceName || '',
+
+      // ✅ Tags (service orders + subscriptions dono ke liye)
+      orderTags: tags,
+      serviceId: tags.serviceId || '',
+      serviceName: tags.serviceName || '',
+
+      // 🆕 Subscription tags (agar subscription order hai)
+      type: tags.type || 'service_order',
+      userId: tags.userId || '',
+      plan: tags.plan || '',
+      billingCycle: tags.billingCycle || '',
     });
   } catch (error) {
     console.error('Verify error:', error);
