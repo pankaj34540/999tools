@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle2, XCircle, Loader2, ArrowRight, Home } from 'lucide-react';
-import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';  // ✅ SAHI
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 type Status = 'loading' | 'paid' | 'failed' | 'pending';
 
@@ -12,9 +12,10 @@ const PaymentSuccessPage: React.FC = () => {
   const [status, setStatus] = useState<Status>('loading');
   const [details, setDetails] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
-  const [orderSaved, setOrderSaved] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const orderId = searchParams.get('order_id');
+  const type = searchParams.get('type') || 'service_order';
 
   useEffect(() => {
     if (!orderId) {
@@ -38,38 +39,52 @@ const PaymentSuccessPage: React.FC = () => {
       }
 
       setDetails(data);
+      const orderTags = data.orderTags || {};
+      const detectedType = orderTags.type || type;
 
       if (data.status === 'PAID') {
         setStatus('paid');
-        // Update Firestore document created by create-order API
-        if (!orderSaved && orderId) {
+        if (!saved && orderId) {
           try {
-            const orderRef = doc(db, 'serviceOrders', orderId);
-            const snap = await getDoc(orderRef);
-
-            if (snap.exists()) {
-              const existing = snap.data();
-              // Already paid by webhook? Skip
-              if (existing?.paymentStatus === 'paid') {
-                console.log('ℹ️ Already marked paid by webhook');
-              } else {
-                await updateDoc(orderRef, {
-                  paymentStatus: 'paid',
-                  paymentReference: orderId,
-                  cashfreePaymentId: data.orderId || '',
-                  ownerNotes: `Cashfree verified via success page. Payment ID: ${data.orderId}`,
-                  updatedAt: new Date().toISOString(),
-                });
-                console.log('✅ Firestore order updated via success page');
+            if (detectedType === 'subscription') {
+              // Update paymentRequests
+              const reqRef = doc(db, 'paymentRequests', orderId);
+              const snap = await getDoc(reqRef);
+              if (snap.exists()) {
+                const existing = snap.data();
+                if (existing?.status !== 'approved') {
+                  await updateDoc(reqRef, {
+                    status: 'approved',
+                    verifiedAt: new Date().toISOString(),
+                    verifiedVia: 'cashfree_success_page',
+                    cashfreePaymentId: data.orderId || '',
+                    validUntil: new Date(
+                      Date.now() +
+                        ((orderTags.billingCycle === 'monthly' ? 30 : 365) * 86400000)
+                    ).toISOString(),
+                  });
+                }
               }
             } else {
-              // Not found — create it
-              await updateDoc(doc(db, 'serviceOrders', orderId), {}).catch(() => {});
-              console.warn('⚠️ Order doc not found:', orderId);
+              // Update serviceOrders
+              const orderRef = doc(db, 'serviceOrders', orderId);
+              const snap = await getDoc(orderRef);
+              if (snap.exists()) {
+                const existing = snap.data();
+                if (existing?.paymentStatus !== 'paid') {
+                  await updateDoc(orderRef, {
+                    paymentStatus: 'paid',
+                    paymentReference: orderId,
+                    cashfreePaymentId: data.orderId || '',
+                    ownerNotes: `Verified via success page. Payment ID: ${data.orderId}`,
+                    updatedAt: new Date().toISOString(),
+                  });
+                }
+              }
             }
-            setOrderSaved(true);
+            setSaved(true);
           } catch (err: any) {
-            console.error('Failed to update Firestore order:', err);
+            console.error('Firestore update failed:', err);
           }
         }
       } else if (data.status === 'ACTIVE') {
@@ -105,7 +120,9 @@ const PaymentSuccessPage: React.FC = () => {
               </div>
               <h1 className="text-2xl font-black text-white">Payment Successful! 🎉</h1>
               <p className="text-sm text-slate-400">
-                Your order has been placed and is now being processed.
+                {type === 'subscription'
+                  ? 'Your plan has been activated instantly.'
+                  : 'Your order has been placed and is now being processed.'}
               </p>
 
               {details && (
@@ -114,10 +131,12 @@ const PaymentSuccessPage: React.FC = () => {
                     <span className="text-slate-400">Order ID:</span>
                     <span className="text-white font-mono text-[10px]">{details.orderId}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Service:</span>
-                    <span className="text-white font-bold">{details.serviceName || details.note}</span>
-                  </div>
+                  {details.serviceName || details.note ? (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Service:</span>
+                      <span className="text-white font-bold">{details.serviceName || details.note}</span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between">
                     <span className="text-slate-400">Amount Paid:</span>
                     <span className="text-emerald-400 font-bold">₹{details.amount}</span>
@@ -145,7 +164,7 @@ const PaymentSuccessPage: React.FC = () => {
               </div>
               <h1 className="text-xl font-bold text-white">Payment Pending</h1>
               <p className="text-sm text-slate-400">
-                Your payment is still being processed. Please check again in a few minutes.
+                Payment is still being processed. Please check again.
               </p>
               <button
                 onClick={verifyPayment}
