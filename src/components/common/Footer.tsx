@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Wrench, Mail, MessageCircle, Shield, FileText, RotateCcw, Home } from 'lucide-react';
+import { Wrench, Mail, MessageCircle, Shield, FileText, RotateCcw, Home, BookOpen } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -29,6 +29,11 @@ export const Footer: React.FC = () => {
               <li>
                 <Link to="/" className="flex items-center gap-1.5 text-slate-400 hover:text-indigo-400 transition">
                   <Home className="w-3 h-3" /> Home
+                </Link>
+              </li>
+              <li>
+                <Link to="/blog" className="flex items-center gap-1.5 text-slate-400 hover:text-indigo-400 transition">
+                  <BookOpen className="w-3 h-3" /> Blog & Guides
                 </Link>
               </li>
               <li>
