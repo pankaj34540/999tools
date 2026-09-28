@@ -57,7 +57,7 @@ const BlogToolEmbed: React.FC<BlogToolEmbedProps> = ({
   heading,
   description,
 }) => {
-  const { checkToolAccess, recordUsage, isUserPremium, showNotification } = useApp();
+  const { checkToolAccess, isUserPremium, showNotification } = useApp();
   const [showTool, setShowTool] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -82,7 +82,8 @@ const BlogToolEmbed: React.FC<BlogToolEmbedProps> = ({
     setLoading(true);
     try {
       const access = await checkToolAccess(toolId);
-      if (!access.allowed || access.remaining <= 0) {
+      // ✅ Fix: sirf 'allowed' check karo — remaining '-1' = unlimited
+      if (!access.allowed) {
         showNotification('❌ Daily free limit reached (3/day). Upgrade to Premium.');
         window.dispatchEvent(new Event('openPricingModal'));
         return;
@@ -145,11 +146,7 @@ const BlogToolEmbed: React.FC<BlogToolEmbedProps> = ({
                 🚀 Tool #{String(tool.num).padStart(3, '0')}
               </span>
               {isPremium && (
-                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
-                  userPremium
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                }`}>
+                <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                   <Crown className="w-2.5 h-2.5" />
                   {userPremium ? 'PRO UNLOCKED' : 'PRO'}
                 </span>
@@ -193,7 +190,7 @@ const BlogToolEmbed: React.FC<BlogToolEmbedProps> = ({
         </div>
       </div>
 
-      {/* ── TOOL MODAL (renders directly — tools already have full-screen modals) ── */}
+      {/* ── TOOL MODAL ── */}
       {showTool && renderToolComponent()}
     </>
   );
