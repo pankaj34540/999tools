@@ -3,9 +3,17 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { OwnerPortal } from '../components/owner/OwnerPortal';
 import { ArrowLeft, ShieldAlert } from 'lucide-react';
+import { useSEO } from '../hooks/useSEO';
 
 export const OwnerPage: React.FC = () => {
   const { setRole, ownerAuthenticated } = useApp();
+
+  // 🔒 SEO: Owner panel should NEVER be indexed by Google
+  useSEO({
+    title: 'Owner Panel — 999tools',
+    description: 'Secure owner administration panel.',
+    noindex: true,
+  });
 
   useEffect(() => {
     setRole('owner');
