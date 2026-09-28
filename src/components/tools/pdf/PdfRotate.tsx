@@ -4,12 +4,16 @@ import {
   RotateCw, Upload, Download, X, Trash2, Loader2,
   FileText, RotateCcw, Layers, Maximize2,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface PdfRotateProps {
   onClose: () => void;
 }
 
 const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfArrayBuffer, setPdfArrayBuffer] = useState<ArrayBuffer | null>(null);
   const [pageCount, setPageCount] = useState(0);
@@ -23,6 +27,30 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
   const [progress, setProgress] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
 
   // ── Handle PDF upload ──
   const handleFile = async (files: FileList | null) => {
@@ -46,7 +74,6 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
       setPageCount(count);
       setProgress('');
 
-      // Render first page preview
       await renderPreview(arrayBuffer);
     } catch {
       setError('Failed to read PDF. File may be encrypted or corrupted.');
@@ -80,7 +107,6 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
         viewport,
       }).promise;
 
-      // Save aspect ratio for layout
       setPageAspect(canvas.height / canvas.width);
 
       canvas.toBlob((blob) => {
@@ -96,8 +122,8 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
     }
   };
 
-  // ── Rotate PDF ──
-  const handleRotate = async () => {
+  // ⚡ ACTUAL rotate (runs after ad gate)
+  const actualHandleRotate = async () => {
     if (!pdfArrayBuffer || !pdfFile) return;
     setIsProcessing(true);
     setError(null);
@@ -132,6 +158,16 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // 🆕 Public handleRotate — ad gated
+  const handleRotate = () => {
+    const angle = customAngle !== 0 ? customAngle : rotation;
+    if (angle === 0) return;
+    requestDownload(
+      `Rotated PDF (${angle}°)`,
+      actualHandleRotate
+    );
   };
 
   // ── Reset ──
@@ -242,7 +278,7 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
                 </div>
               )}
 
-              {/* Main content — Preview + Controls */}
+              {/* Main content */}
               {pdfFile && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   {/* Preview Panel */}
@@ -281,7 +317,6 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
                             className="flex items-center justify-center transition-transform duration-300 ease-out"
                             style={{
                               transform: `rotate(${appliedAngle}deg)`,
-                              // For 90/270 deg, swap visible area
                               maxWidth: appliedAngle % 180 !== 0 ? '60%' : '100%',
                               maxHeight: appliedAngle % 180 !== 0 ? '60%' : '100%',
                             }}
@@ -314,7 +349,6 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
                       Rotation Settings
                     </h3>
 
-                    {/* Quick Angles */}
                     <div>
                       <label className="text-xs font-bold text-slate-300 block mb-2">Quick Angle</label>
                       <div className="grid grid-cols-2 gap-2">
@@ -340,7 +374,6 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
                       </div>
                     </div>
 
-                    {/* Custom Angle Slider */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <label className="text-xs font-bold text-slate-300">Custom Angle</label>
@@ -364,13 +397,11 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
                       </div>
                     </div>
 
-                    {/* Applied rotation info */}
                     <div className="bg-orange-900/20 border border-orange-800/50 rounded-lg p-3 text-xs text-orange-200">
                       <strong>Applied rotation:</strong> {appliedAngle}°
                       {customAngle !== 0 && <span className="text-orange-400"> (custom)</span>}
                     </div>
 
-                    {/* Rotate Button */}
                     <button
                       onClick={handleRotate}
                       disabled={isProcessing || appliedAngle === 0}
@@ -436,6 +467,15 @@ const PdfRotate: React.FC<PdfRotateProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
       )}
     </>
   );
