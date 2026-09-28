@@ -87,7 +87,6 @@ const BlogToolEmbed: React.FC<BlogToolEmbedProps> = ({
         window.dispatchEvent(new Event('openPricingModal'));
         return;
       }
-      await recordUsage(toolId);
       setShowTool(true);
     } catch (err) {
       console.error('BlogToolEmbed access check failed:', err);
