@@ -9,7 +9,7 @@ export type ContentBlock =
   | { type: 'ul'; items: string[] }
   | { type: 'ol'; items: string[] }
   | { type: 'callout'; title?: string; text: string }
-  | { type: 'cta'; text: string; linkText: string; link: string };
+  | { type: 'cta'; text: string; linkText: string; link: string }
   | { type: 'tool'; toolId: string; heading?: string; description?: string };
 
 export interface BlogPost {
