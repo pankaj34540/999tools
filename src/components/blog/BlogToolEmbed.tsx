@@ -57,7 +57,7 @@ const BlogToolEmbed: React.FC<BlogToolEmbedProps> = ({
   heading,
   description,
 }) => {
-  const { checkToolAccess, isUserPremium, showNotification } = useApp();
+  const { checkToolAccess, recordUsage, isUserPremium, showNotification } = useApp();
   const [showTool, setShowTool] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -82,12 +82,13 @@ const BlogToolEmbed: React.FC<BlogToolEmbedProps> = ({
     setLoading(true);
     try {
       const access = await checkToolAccess(toolId);
-      // ✅ Fix: sirf 'allowed' check karo — remaining '-1' = unlimited
       if (!access.allowed) {
         showNotification('❌ Daily free limit reached (3/day). Upgrade to Premium.');
         window.dispatchEvent(new Event('openPricingModal'));
         return;
       }
+      // ✅ Record usage AFTER access check
+      await recordUsage(toolId);
       setShowTool(true);
     } catch (err) {
       console.error('BlogToolEmbed access check failed:', err);
