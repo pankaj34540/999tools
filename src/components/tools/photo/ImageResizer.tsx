@@ -4,6 +4,9 @@ import {
   Maximize2, Upload, Download, X, Loader2, Trash2,
   Image as ImageIcon, Link as LinkIcon, Unlock, Lock,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface ImageItem {
   id: string;
@@ -26,6 +29,7 @@ interface ImageResizerProps {
 type ResizeMode = 'fit' | 'fill' | 'stretch';
 
 const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [images, setImages] = useState<ImageItem[]>([]);
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(600);
@@ -36,6 +40,31 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  // 🆕 Wraps any download action — if paid, run immediately; else show ad gate
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
 
   // ── Apply resize to canvas ──
   const applyToCanvas = useCallback(
@@ -51,7 +80,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return canvas;
 
-      // White background
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, targetW, targetH);
 
@@ -66,7 +94,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
       if (resizeMode === 'stretch') {
         ctx.drawImage(img, 0, 0, targetW, targetH);
       } else if (resizeMode === 'fit') {
-        // Fit whole image inside, letterbox
         let drawW = targetW;
         let drawH = targetH;
         if (srcRatio > targetRatio) {
@@ -78,7 +105,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
         const dy = (targetH - drawH) / 2;
         ctx.drawImage(img, dx, dy, drawW, drawH);
       } else {
-        // Fill: crop to cover
         let cropW = srcW;
         let cropH = srcH;
         if (srcRatio > targetRatio) {
@@ -173,7 +199,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
         return;
       }
 
-      // Load dimensions
       const newItems = await Promise.all(
         validFiles.map(
           (f) =>
@@ -216,7 +241,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
         )
       );
 
-      // Set aspect ratio based on first image if lock is on
       if (lockAspect && newItems[0]?.originalWidth) {
         const ar = newItems[0].originalWidth / newItems[0].originalHeight;
         setAspectRatio(ar);
@@ -230,7 +254,8 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
     }
   };
 
-  const downloadSingle = (item: ImageItem) => {
+  // ⚡ ACTUAL download — runs after ad gate
+  const actualDownloadSingle = (item: ImageItem) => {
     if (!item.processedUrl) return;
     const link = document.createElement('a');
     link.href = item.processedUrl;
@@ -238,7 +263,7 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
     link.click();
   };
 
-  const downloadZip = async () => {
+  const actualDownloadZip = async () => {
     const ready = images.filter((i) => i.processedBlob);
     if (ready.length === 0) return;
     setIsZipping(true);
@@ -261,6 +286,17 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
     } finally {
       setIsZipping(false);
     }
+  };
+
+  // 🆕 Public download functions — gated with ad
+  const downloadSingle = (item: ImageItem) => {
+    requestDownload(item.file.name, () => actualDownloadSingle(item));
+  };
+
+  const downloadZip = () => {
+    const ready = images.filter((i) => i.processedBlob);
+    if (ready.length === 0) return;
+    requestDownload(`All ${ready.length} images (ZIP)`, actualDownloadZip);
   };
 
   const removeImage = (id: string) => {
@@ -347,7 +383,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
                   </span>
                 </div>
 
-                {/* Width & Height */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-300 block mb-1.5">Width (px)</label>
@@ -382,7 +417,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                {/* Mode */}
                 <div>
                   <label className="text-xs font-bold text-slate-300 block mb-1.5">Resize Mode</label>
                   <div className="grid grid-cols-3 gap-2">
@@ -402,7 +436,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                {/* Presets */}
                 <div>
                   <label className="text-xs font-bold text-slate-300 block mb-1.5">Quick Presets</label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -494,7 +527,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
                   {images.map((img) => (
                     <div key={img.id} className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
 
-                      {/* Header bar */}
                       <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
                         <div className="flex items-center gap-2 min-w-0">
                           <ImageIcon className="w-4 h-4 text-rose-400 flex-shrink-0" />
@@ -524,9 +556,7 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
                         </div>
                       </div>
 
-                      {/* A4 side-by-side */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-900">
-                        {/* BEFORE */}
                         <div className="relative bg-white rounded-lg border-2 border-slate-700 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-600">
                             BEFORE
@@ -540,7 +570,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        {/* AFTER */}
                         <div className="relative bg-white rounded-lg border-2 border-rose-500 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-rose-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
                             AFTER
@@ -559,7 +588,6 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
                         </div>
                       </div>
 
-                      {/* Download */}
                       <div className="p-3 border-t border-slate-800">
                         <button
                           onClick={() => downloadSingle(img)}
@@ -654,6 +682,15 @@ const ImageResizer: React.FC<ImageResizerProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
       )}
     </>
   );
