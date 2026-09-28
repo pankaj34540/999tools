@@ -5,10 +5,18 @@ import { AdminLogin } from '../components/admin/AdminLogin';
 import { AdminPortal } from '../components/admin/AdminPortal';
 import { Staff } from '../types';
 import { subscribeToStaffAuth } from '../services/staffService';
+import { useSEO } from '../hooks/useSEO';
 
 export const AdminPage: React.FC = () => {
   const [staff, setStaff] = useState<Staff | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // 🔒 SEO: Admin panel should NEVER be indexed by Google
+  useSEO({
+    title: 'Admin Panel — 999tools',
+    description: 'Staff administration access.',
+    noindex: true,
+  });
 
   useEffect(() => {
     // 🔄 Listen to Firebase Auth state
