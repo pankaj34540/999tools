@@ -1,9 +1,16 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
+import { useSEO } from '../../hooks/useSEO';
 
 const RefundPage: React.FC = () => {
   const navigate = useNavigate();
+
+  useSEO({
+    title: 'Refund & Cancellation Policy — 999tools',
+    description:
+      'Read 999tools refund policy. 7-day refund window for duplicate payments, non-delivery, and technical failures. Cashfree payment gateway.',
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
@@ -36,7 +43,7 @@ const RefundPage: React.FC = () => {
             <p>Refunds are provided only in the following cases:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>Duplicate Payment:</strong> If you accidentally paid twice for the same subscription.</li>
-              <li><strong>Service Not Delivered:</strong> If your subscription was not activated within 48 hours of payment (despite correct UPI transaction ID).</li>
+              <li><strong>Service Not Delivered:</strong> If your subscription was not activated within 48 hours of successful payment, despite correct payment confirmation.</li>
               <li><strong>Technical Failure:</strong> If a critical service failure prevents you from using the features you paid for, and we cannot resolve it within 7 days.</li>
             </ul>
           </section>
@@ -58,9 +65,9 @@ const RefundPage: React.FC = () => {
             <p>To request a refund:</p>
             <ol className="list-decimal pl-6 space-y-1">
               <li>Email us at <a href="mailto:support@tools999.store" className="text-indigo-400">support@tools999.store</a> within <strong>7 days</strong> of payment.</li>
-              <li>Include your registered email, UPI transaction ID, payment date, and reason.</li>
+              <li>Include your registered email, Cashfree order ID / payment reference, payment date, and reason.</li>
               <li>We will review and respond within 3-5 business days.</li>
-              <li>Approved refunds will be processed within 7-10 business days to the original payment method.</li>
+              <li>Approved refunds will be processed within 7-10 business days to the original payment method via Cashfree.</li>
             </ol>
           </section>
 
