@@ -4,6 +4,9 @@ import {
   FileImage, Upload, Download, X, Loader2, Trash2,
   FileText, Image as ImageIcon, Maximize2, Layers,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface PageImage {
   pageNum: number;
@@ -21,6 +24,7 @@ interface PdfToImageProps {
 type OutputFormat = 'image/png' | 'image/jpeg' | 'image/webp';
 
 const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfArrayBuffer, setPdfArrayBuffer] = useState<ArrayBuffer | null>(null);
   const [pageCount, setPageCount] = useState(0);
@@ -34,6 +38,30 @@ const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<PageImage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
 
   const getExtension = (fmt: OutputFormat) => {
     if (fmt === 'image/png') return 'png';
@@ -125,7 +153,7 @@ const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
             height: canvas.height,
             size: blob.size,
           });
-          setPages([...newPages]); // Progressive update
+          setPages([...newPages]);
         }
       }
 
@@ -138,16 +166,16 @@ const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
     }
   };
 
-  // ── Download single page ──
-  const downloadSingle = (page: PageImage) => {
+  // ⚡ ACTUAL download single page
+  const actualDownloadSingle = (page: PageImage) => {
     const link = document.createElement('a');
     link.href = page.url;
     link.download = `${pdfFile?.name.replace(/\.pdf$/i, '')}_page_${String(page.pageNum).padStart(3, '0')}.${getExtension(format)}`;
     link.click();
   };
 
-  // ── Download all as ZIP ──
-  const downloadZip = async () => {
+  // ⚡ ACTUAL download all as ZIP
+  const actualDownloadZip = async () => {
     if (pages.length === 0) return;
     setIsZipping(true);
     try {
@@ -170,6 +198,22 @@ const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
     } finally {
       setIsZipping(false);
     }
+  };
+
+  // 🆕 Public download functions — ad gated
+  const downloadSingle = (page: PageImage) => {
+    requestDownload(
+      `Page ${page.pageNum}`,
+      () => actualDownloadSingle(page)
+    );
+  };
+
+  const downloadZip = () => {
+    if (pages.length === 0) return;
+    requestDownload(
+      `All ${pages.length} pages (ZIP)`,
+      actualDownloadZip
+    );
   };
 
   // ── Reset ──
@@ -280,7 +324,6 @@ const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
                     Output Settings
                   </h3>
 
-                  {/* Format */}
                   <div>
                     <label className="text-xs font-bold text-slate-300 block mb-2">Output Format</label>
                     <div className="grid grid-cols-3 gap-2">
@@ -307,7 +350,6 @@ const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
                     </div>
                   </div>
 
-                  {/* Quality (JPG/WebP only) */}
                   {format !== 'image/png' && (
                     <div>
                       <div className="flex items-center justify-between mb-2">
@@ -327,7 +369,6 @@ const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
                     </div>
                   )}
 
-                  {/* Resolution Scale */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-bold text-slate-300">Resolution (Scale)</label>
@@ -351,7 +392,6 @@ const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
                     </div>
                   </div>
 
-                  {/* Convert Button */}
                   <button
                     onClick={convertToImages}
                     disabled={isProcessing}
@@ -492,6 +532,15 @@ const PdfToImage: React.FC<PdfToImageProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
       )}
     </>
   );
