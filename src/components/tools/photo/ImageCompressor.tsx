@@ -4,6 +4,9 @@ import {
   Zap, Upload, Download, X, Loader2, Trash2,
   Image as ImageIcon, Maximize2, Crown, Check,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface ImageItem {
   id: string;
@@ -31,6 +34,7 @@ const TARGET_PRESETS = [
 ];
 
 const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [images, setImages] = useState<ImageItem[]>([]);
   const [targetKB, setTargetKB] = useState(50);
   const [customKB, setCustomKB] = useState('');
@@ -41,6 +45,30 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
   const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
+
   // ── Binary search compression ──
   const compressToTarget = async (
     img: HTMLImageElement,
@@ -50,7 +78,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
     let drawW = img.naturalWidth;
     let drawH = img.naturalHeight;
 
-    // Resize if maxDimension specified
     if (maxDim > 0 && (drawW > maxDim || drawH > maxDim)) {
       if (drawW > drawH) {
         drawH = Math.round((drawH / drawW) * maxDim);
@@ -73,7 +100,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, drawW, drawH);
 
-    // Binary search for quality
     let minQ = 0.05;
     let maxQ = 0.95;
     let bestBlob: Blob | null = null;
@@ -97,7 +123,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
       if (maxQ - minQ < 0.01) break;
     }
 
-    // If still too big, reduce dimensions progressively
     if (!bestBlob || bestBlob.size > targetBytes) {
       let scale = 0.9;
       while (scale > 0.15) {
@@ -130,7 +155,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
     return bestBlob;
   };
 
-  // ── Process one image ──
   const processSingleImage = async (item: ImageItem): Promise<ImageItem> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -157,7 +181,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
     });
   };
 
-  // ── Apply compression to all ──
   const applyCompression = async () => {
     if (images.length === 0) return;
     setIsBatchProcessing(true);
@@ -173,7 +196,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
     }
   };
 
-  // ── Handle upload ──
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setError(null);
@@ -228,7 +250,8 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
     }
   };
 
-  const downloadSingle = (item: ImageItem) => {
+  // ⚡ ACTUAL download
+  const actualDownloadSingle = (item: ImageItem) => {
     if (!item.processedUrl) return;
     const link = document.createElement('a');
     link.href = item.processedUrl;
@@ -236,7 +259,7 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
     link.click();
   };
 
-  const downloadZip = async () => {
+  const actualDownloadZip = async () => {
     const ready = images.filter((i) => i.processedBlob);
     if (ready.length === 0) return;
     setIsZipping(true);
@@ -259,6 +282,17 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
     } finally {
       setIsZipping(false);
     }
+  };
+
+  // 🆕 Public download functions — ad gated
+  const downloadSingle = (item: ImageItem) => {
+    requestDownload(item.file.name, () => actualDownloadSingle(item));
+  };
+
+  const downloadZip = () => {
+    const ready = images.filter((i) => i.processedBlob);
+    if (ready.length === 0) return;
+    requestDownload(`All ${ready.length} images (ZIP)`, actualDownloadZip);
   };
 
   const removeImage = (id: string) => {
@@ -284,7 +318,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
     setError(null);
   };
 
-  // ── Custom KB handler ──
   useEffect(() => {
     const n = Number(customKB);
     if (n > 0 && n <= 5000) setTargetKB(n);
@@ -343,7 +376,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
                   </span>
                 </div>
 
-                {/* Presets */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {TARGET_PRESETS.map((p) => (
                     <button
@@ -363,7 +395,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
                   ))}
                 </div>
 
-                {/* Custom KB & Max Dimension */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-300 block mb-1.5">Custom Target (KB)</label>
@@ -391,7 +422,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                {/* Info */}
                 <div className="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3 text-xs text-amber-200 flex gap-2">
                   <Zap className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <div>
@@ -399,7 +429,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                {/* Apply Button */}
                 {images.length > 0 && (
                   <button
                     onClick={applyCompression}
@@ -487,7 +516,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
                     return (
                       <div key={img.id} className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
 
-                        {/* Header bar */}
                         <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
                           <div className="flex items-center gap-2 min-w-0">
                             <ImageIcon className="w-4 h-4 text-orange-400 flex-shrink-0" />
@@ -519,9 +547,7 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        {/* A4 side-by-side */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-900">
-                          {/* BEFORE */}
                           <div className="relative bg-white rounded-lg border-2 border-slate-700 overflow-hidden shadow-lg">
                             <div className="absolute top-2 left-2 z-10 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-600">
                               ORIGINAL
@@ -535,7 +561,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
                             </div>
                           </div>
 
-                          {/* AFTER */}
                           <div className="relative bg-white rounded-lg border-2 border-orange-500 overflow-hidden shadow-lg">
                             <div className="absolute top-2 left-2 z-10 bg-orange-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
                               COMPRESSED
@@ -563,7 +588,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        {/* Download */}
                         <div className="p-3 border-t border-slate-800">
                           <button
                             onClick={() => downloadSingle(img)}
@@ -662,6 +686,15 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
       )}
     </>
   );
