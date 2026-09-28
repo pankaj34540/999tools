@@ -1,9 +1,16 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
+import { useSEO } from '../../hooks/useSEO';
 
 const TermsPage: React.FC = () => {
   const navigate = useNavigate();
+
+  useSEO({
+    title: 'Terms & Conditions — 999tools',
+    description:
+      'Read 999tools terms of service. Free and paid plans, refund policy, acceptable use, and user responsibilities.',
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
@@ -67,7 +74,7 @@ const TermsPage: React.FC = () => {
               <li><strong>Free Plan:</strong> Limited features with premium tool usage limits.</li>
               <li><strong>Premium Plan:</strong> ₹49/month or ₹399/year — unlimited premium tools, no ads.</li>
               <li><strong>VLE Plan:</strong> ₹199/month or ₹1499/year — all features + CRM + Khatabook + Billing.</li>
-              <li>Payments are accepted via UPI. Manual verification may take up to 24 hours.</li>
+              <li>All payments are processed securely via <strong>Cashfree</strong> payment gateway.</li>
               <li>Subscriptions auto-expire; no auto-renewal without your consent.</li>
             </ul>
           </section>
