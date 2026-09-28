@@ -4,6 +4,9 @@ import {
   Crop, Upload, Download, X, Loader2, Trash2,
   Image as ImageIcon, Maximize2, Lock, Unlock, RotateCcw,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface ImageItem {
   id: string;
@@ -44,6 +47,7 @@ const ASPECT_PRESETS = [
 ];
 
 const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [images, setImages] = useState<ImageItem[]>([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [currentAspect, setCurrentAspect] = useState<number | null>(null);
@@ -54,6 +58,30 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const activeIdxRef = useRef(0);
+
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
 
   // Keep activeIdx ref in sync (for use in non-React callbacks)
   useEffect(() => {
@@ -425,8 +453,8 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
     setCurrentAspect(null);
   };
 
-  // ── Download single ──
-  const downloadSingle = (item: ImageItem) => {
+  // ⚡ ACTUAL download single
+  const actualDownloadSingle = (item: ImageItem) => {
     if (!item.processedUrl) return;
     const link = document.createElement('a');
     link.href = item.processedUrl;
@@ -434,8 +462,8 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
     link.click();
   };
 
-  // ── Download ZIP ──
-  const downloadZip = async () => {
+  // ⚡ ACTUAL download ZIP
+  const actualDownloadZip = async () => {
     const ready = images.filter((i) => i.processedBlob);
     if (ready.length === 0) return;
     setIsZipping(true);
@@ -458,6 +486,17 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
     } finally {
       setIsZipping(false);
     }
+  };
+
+  // 🆕 Public download functions — ad gated
+  const downloadSingle = (item: ImageItem) => {
+    requestDownload(item.file.name, () => actualDownloadSingle(item));
+  };
+
+  const downloadZip = () => {
+    const ready = images.filter((i) => i.processedBlob);
+    if (ready.length === 0) return;
+    requestDownload(`All ${ready.length} images (ZIP)`, actualDownloadZip);
   };
 
   const removeImage = (id: string) => {
@@ -899,6 +938,15 @@ const PhotoCrop: React.FC<PhotoCropProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
       )}
     </>
   );
