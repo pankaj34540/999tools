@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle2, XCircle, Loader2, ArrowRight, Home } from 'lucide-react';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { useSEO } from '../hooks/useSEO';
 
 type Status = 'loading' | 'paid' | 'failed' | 'pending';
 
@@ -16,6 +17,13 @@ const PaymentSuccessPage: React.FC = () => {
 
   const orderId = searchParams.get('order_id');
   const urlType = searchParams.get('type') || 'service_order';
+
+  // 🔒 SEO: Transactional page — never indexed by Google
+  useSEO({
+    title: 'Payment Complete — 999tools',
+    description: 'Payment verification page.',
+    noindex: true,
+  });
 
   useEffect(() => {
     if (!orderId) {
