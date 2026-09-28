@@ -4,6 +4,9 @@ import {
   Palette, Upload, Download, X, Loader2, Trash2,
   Image as ImageIcon, Contrast, Maximize2,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface ImageItem {
   id: string;
@@ -22,12 +25,37 @@ interface BlackWhiteConverterProps {
 type BWMode = 'grayscale' | 'high_contrast' | 'sepia' | 'inverted';
 
 const BlackWhiteConverter: React.FC<BlackWhiteConverterProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [images, setImages] = useState<ImageItem[]>([]);
   const [mode, setMode] = useState<BWMode>('grayscale');
   const [isZipping, setIsZipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
 
   // ── Apply B&W effect to canvas ──
   const applyToCanvas = useCallback(
@@ -146,7 +174,8 @@ const BlackWhiteConverter: React.FC<BlackWhiteConverterProps> = ({ onClose }) =>
     }
   };
 
-  const downloadSingle = (item: ImageItem) => {
+  // ⚡ ACTUAL download single
+  const actualDownloadSingle = (item: ImageItem) => {
     if (!item.processedUrl) return;
     const link = document.createElement('a');
     link.href = item.processedUrl;
@@ -154,7 +183,8 @@ const BlackWhiteConverter: React.FC<BlackWhiteConverterProps> = ({ onClose }) =>
     link.click();
   };
 
-  const downloadZip = async () => {
+  // ⚡ ACTUAL download ZIP
+  const actualDownloadZip = async () => {
     const ready = images.filter((i) => i.processedBlob);
     if (ready.length === 0) return;
     setIsZipping(true);
@@ -177,6 +207,17 @@ const BlackWhiteConverter: React.FC<BlackWhiteConverterProps> = ({ onClose }) =>
     } finally {
       setIsZipping(false);
     }
+  };
+
+  // 🆕 Public download functions — ad gated
+  const downloadSingle = (item: ImageItem) => {
+    requestDownload(item.file.name, () => actualDownloadSingle(item));
+  };
+
+  const downloadZip = () => {
+    const ready = images.filter((i) => i.processedBlob);
+    if (ready.length === 0) return;
+    requestDownload(`All ${ready.length} images (ZIP)`, actualDownloadZip);
   };
 
   const removeImage = (id: string) => {
@@ -346,7 +387,6 @@ const BlackWhiteConverter: React.FC<BlackWhiteConverterProps> = ({ onClose }) =>
                   {images.map((img) => (
                     <div key={img.id} className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
 
-                      {/* Header bar */}
                       <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
                         <div className="flex items-center gap-2 min-w-0">
                           <ImageIcon className="w-4 h-4 text-purple-400 flex-shrink-0" />
@@ -373,9 +413,7 @@ const BlackWhiteConverter: React.FC<BlackWhiteConverterProps> = ({ onClose }) =>
                         </div>
                       </div>
 
-                      {/* A4-style side-by-side */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-900">
-                        {/* BEFORE */}
                         <div className="relative bg-white rounded-lg border-2 border-slate-700 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-600">
                             BEFORE
@@ -389,7 +427,6 @@ const BlackWhiteConverter: React.FC<BlackWhiteConverterProps> = ({ onClose }) =>
                           </div>
                         </div>
 
-                        {/* AFTER */}
                         <div className="relative bg-white rounded-lg border-2 border-purple-500 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-purple-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
                             AFTER
@@ -408,7 +445,6 @@ const BlackWhiteConverter: React.FC<BlackWhiteConverterProps> = ({ onClose }) =>
                         </div>
                       </div>
 
-                      {/* Download */}
                       <div className="p-3 border-t border-slate-800">
                         <button
                           onClick={() => downloadSingle(img)}
@@ -503,6 +539,15 @@ const BlackWhiteConverter: React.FC<BlackWhiteConverterProps> = ({ onClose }) =>
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
       )}
     </>
   );
