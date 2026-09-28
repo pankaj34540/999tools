@@ -4,6 +4,9 @@ import {
   Sun, Contrast, Upload, Download, X, Loader2,
   Image as ImageIcon, Trash2, RotateCcw, Maximize2,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface ImageItem {
   id: string;
@@ -20,6 +23,7 @@ interface BrightnessContrastProps {
 }
 
 const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [images, setImages] = useState<ImageItem[]>([]);
   const [brightness, setBrightness] = useState(0);
   const [contrast, setContrast] = useState(0);
@@ -27,6 +31,30 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
 
   // ── Apply brightness/contrast to a canvas ──
   const applyToCanvas = useCallback(
@@ -132,8 +160,8 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
     }
   };
 
-  // ── Download single ──
-  const downloadSingle = (item: ImageItem) => {
+  // ⚡ ACTUAL download single
+  const actualDownloadSingle = (item: ImageItem) => {
     if (!item.processedUrl) return;
     const link = document.createElement('a');
     link.href = item.processedUrl;
@@ -141,8 +169,8 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
     link.click();
   };
 
-  // ── Download ZIP ──
-  const downloadZip = async () => {
+  // ⚡ ACTUAL download ZIP
+  const actualDownloadZip = async () => {
     const ready = images.filter((i) => i.processedBlob);
     if (ready.length === 0) return;
     setIsZipping(true);
@@ -165,6 +193,17 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
     } finally {
       setIsZipping(false);
     }
+  };
+
+  // 🆕 Public download functions — ad gated
+  const downloadSingle = (item: ImageItem) => {
+    requestDownload(item.file.name, () => actualDownloadSingle(item));
+  };
+
+  const downloadZip = () => {
+    const ready = images.filter((i) => i.processedBlob);
+    if (ready.length === 0) return;
+    requestDownload(`All ${ready.length} images (ZIP)`, actualDownloadZip);
   };
 
   // ── Remove image ──
@@ -375,7 +414,6 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
                   {images.map((img) => (
                     <div key={img.id} className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
 
-                      {/* Header bar */}
                       <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
                         <div className="flex items-center gap-2 min-w-0">
                           <ImageIcon className="w-4 h-4 text-amber-400 flex-shrink-0" />
@@ -402,9 +440,7 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
                         </div>
                       </div>
 
-                      {/* A4-style side-by-side preview */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-900">
-                        {/* BEFORE - A4 style */}
                         <div className="relative bg-white rounded-lg border-2 border-slate-700 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-600">
                             BEFORE
@@ -418,7 +454,6 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        {/* AFTER - A4 style (live) */}
                         <div className="relative bg-white rounded-lg border-2 border-amber-500 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-amber-500 text-slate-950 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
                             AFTER
@@ -437,7 +472,6 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
                         </div>
                       </div>
 
-                      {/* Download button */}
                       <div className="p-3 border-t border-slate-800">
                         <button
                           onClick={() => downloadSingle(img)}
@@ -472,7 +506,6 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
           onClick={() => setFullscreenImg(null)}
         >
           <div className="min-h-screen flex flex-col p-4">
-            {/* Header */}
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <ImageIcon className="w-5 h-5 text-amber-400" />
@@ -488,12 +521,10 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
               </button>
             </div>
 
-            {/* Side-by-side fullscreen */}
             <div
               className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* BEFORE */}
               <div className="relative bg-white rounded-xl overflow-hidden border-2 border-slate-700 flex items-center justify-center p-4">
                 <div className="absolute top-3 left-3 z-10 bg-slate-950/90 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-slate-600">
                   BEFORE
@@ -505,7 +536,6 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
                 />
               </div>
 
-              {/* AFTER */}
               <div className="relative bg-white rounded-xl overflow-hidden border-2 border-amber-500 flex items-center justify-center p-4">
                 <div className="absolute top-3 left-3 z-10 bg-amber-500 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
                   AFTER
@@ -522,7 +552,6 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
               </div>
             </div>
 
-            {/* Download button */}
             <div className="flex justify-center mt-4 flex-shrink-0">
               <button
                 onClick={(e) => {
@@ -537,6 +566,15 @@ const BrightnessContrast: React.FC<BrightnessContrastProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
       )}
     </>
   );
