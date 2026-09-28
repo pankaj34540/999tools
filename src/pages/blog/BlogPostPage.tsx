@@ -9,6 +9,7 @@ import {
 } from '../../data/blogPosts';
 import { AdsterraBanner } from '../../components/common/AdsterraBanner';
 import { Footer } from '../../components/common/Footer';
+import BlogToolEmbed from '../../components/blog/BlogToolEmbed';
 
 const BlogPostPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -153,6 +154,16 @@ const BlogPostPage: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
+        );
+
+      case 'tool':
+        return (
+          <BlogToolEmbed
+            key={index}
+            toolId={block.toolId}
+            heading={block.heading}
+            description={block.description}
+          />
         );
 
       default:
