@@ -5,6 +5,9 @@ import {
   Scissors, Upload, Download, X, Trash2, Loader2,
   FileText, Check, Split, File,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface PdfInfo {
   file: File;
@@ -20,6 +23,7 @@ interface PdfSplitProps {
 type SplitMode = 'range' | 'each' | 'custom';
 
 const PdfSplit: React.FC<PdfSplitProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [pdf, setPdf] = useState<PdfInfo | null>(null);
   const [mode, setMode] = useState<SplitMode>('range');
   const [rangeInput, setRangeInput] = useState('1-1');
@@ -28,6 +32,30 @@ const PdfSplit: React.FC<PdfSplitProps> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
 
   // ── Handle PDF upload ──
   const handleFile = async (files: FileList | null) => {
@@ -79,7 +107,7 @@ const PdfSplit: React.FC<PdfSplitProps> = ({ onClose }) => {
     return Array.from(new Set(pages)).sort((a, b) => a - b);
   };
 
-  // ── Download single PDF ──
+  // ── Trigger download ──
   const triggerDownload = (bytes: Uint8Array, name: string) => {
     const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' });
     const link = document.createElement('a');
@@ -89,8 +117,8 @@ const PdfSplit: React.FC<PdfSplitProps> = ({ onClose }) => {
     URL.revokeObjectURL(link.href);
   };
 
-  // ── Split by range ──
-  const splitByRange = async () => {
+  // ⚡ ACTUAL split by range (runs after ad gate)
+  const actualSplitByRange = async () => {
     if (!pdf) return;
     const pages = parseRange(rangeInput, pdf.pageCount);
     if (pages.length === 0) {
@@ -120,8 +148,8 @@ const PdfSplit: React.FC<PdfSplitProps> = ({ onClose }) => {
     }
   };
 
-  // ── Split each page (ZIP) ──
-  const splitEachPage = async () => {
+  // ⚡ ACTUAL split each page (runs after ad gate)
+  const actualSplitEachPage = async () => {
     if (!pdf) return;
     setIsProcessing(true);
     setError(null);
@@ -156,8 +184,8 @@ const PdfSplit: React.FC<PdfSplitProps> = ({ onClose }) => {
     }
   };
 
-  // ── Split selected pages (ZIP) ──
-  const splitSelected = async () => {
+  // ⚡ ACTUAL split selected (runs after ad gate)
+  const actualSplitSelected = async () => {
     if (!pdf || selectedPages.size === 0) {
       setError('Please select at least one page');
       return;
@@ -197,6 +225,39 @@ const PdfSplit: React.FC<PdfSplitProps> = ({ onClose }) => {
     }
   };
 
+  // 🆕 Public wrappers — ad gated
+  const splitByRange = () => {
+    if (!pdf) return;
+    const pages = parseRange(rangeInput, pdf.pageCount);
+    if (pages.length === 0) {
+      setError('Invalid page range. Example: 1-3, 5, 7-9');
+      return;
+    }
+    requestDownload(
+      `Extract ${pages.length} page(s)`,
+      actualSplitByRange
+    );
+  };
+
+  const splitEachPage = () => {
+    if (!pdf) return;
+    requestDownload(
+      `Split into ${pdf.pageCount} PDFs (ZIP)`,
+      actualSplitEachPage
+    );
+  };
+
+  const splitSelected = () => {
+    if (!pdf || selectedPages.size === 0) {
+      setError('Please select at least one page');
+      return;
+    }
+    requestDownload(
+      `Split ${selectedPages.size} selected page(s) (ZIP)`,
+      actualSplitSelected
+    );
+  };
+
   // ── Toggle page selection ──
   const togglePage = (pageNum: number) => {
     setSelectedPages((prev) => {
@@ -232,222 +293,233 @@ const PdfSplit: React.FC<PdfSplitProps> = ({ onClose }) => {
   const parsedRange = pdf ? parseRange(rangeInput, pdf.pageCount) : [];
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md overflow-y-auto">
-      <div className="min-h-screen py-6 px-4">
-        <div className="max-w-6xl mx-auto bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
+    <>
+      <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md overflow-y-auto">
+        <div className="min-h-screen py-6 px-4">
+          <div className="max-w-6xl mx-auto bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
 
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-gradient-to-r from-slate-950 to-slate-900 sticky top-0 z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                <Scissors className="w-5 h-5 text-white" />
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-gradient-to-r from-slate-950 to-slate-900 sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                  <Scissors className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    PDF Split
+                    <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
+                      FREE
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Extract pages or split into multiple PDFs</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  PDF Split
-                  <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
-                    FREE
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-400">Extract pages or split into multiple PDFs</p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="p-5 space-y-5">
-
-            {/* Upload */}
-            {!pdf ? (
-              <div
-                onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files); }}
-                onDragOver={(e) => e.preventDefault()}
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-700 hover:border-violet-500 rounded-xl p-12 text-center cursor-pointer transition bg-slate-950/50"
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
               >
-                <div className="w-16 h-16 mx-auto rounded-full bg-violet-500/10 flex items-center justify-center mb-4">
-                  <Upload className="w-7 h-7 text-violet-400" />
-                </div>
-                <p className="text-white font-bold mb-1">Drop PDF file here or click to upload</p>
-                <p className="text-xs text-slate-400">Single .pdf file</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={(e) => handleFile(e.target.files)}
-                  className="hidden"
-                />
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex-1 min-w-[200px] bg-slate-950 rounded-lg border border-slate-800 p-3 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded bg-red-500/10 border border-red-500/30 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-5 h-5 text-red-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-white font-bold truncate">{pdf.file.name}</p>
-                    <p className="text-[10px] text-slate-400">
-                      {pdf.pageCount} {pdf.pageCount === 1 ? 'page' : 'pages'} · {formatSize(pdf.size)}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={resetAll}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-900/40 hover:bg-red-900/60 text-red-400 text-sm font-bold rounded-lg transition"
-                >
-                  <Trash2 className="w-4 h-4" /> Clear
-                </button>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 text-sm">
-                ⚠️ {error}
-              </div>
-            )}
-
-            {/* Split Options */}
-            {pdf && (
-              <div className="bg-slate-950 rounded-xl border border-slate-800 p-5 space-y-5">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Split className="w-4 h-4 text-violet-400" />
-                  Split Mode
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {[
-                    { id: 'range', label: 'Extract Range', desc: 'e.g. 1-3, 5, 7-9' },
-                    { id: 'each', label: 'Split Each Page', desc: 'One PDF per page' },
-                    { id: 'custom', label: 'Select Pages', desc: 'Click to choose' },
-                  ].map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => setMode(m.id as SplitMode)}
-                      className={`p-3 rounded-lg border-2 transition text-left ${
-                        mode === m.id
-                          ? 'border-violet-500 bg-violet-500/10'
-                          : 'border-slate-800 hover:border-slate-700 bg-slate-900'
-                      }`}
-                    >
-                      <div className={`text-xs font-bold ${mode === m.id ? 'text-violet-300' : 'text-slate-300'}`}>
-                        {m.label}
-                      </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{m.desc}</div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Range Mode */}
-                {mode === 'range' && (
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-2">
-                      Page Range (max: {pdf.pageCount})
-                    </label>
-                    <input
-                      type="text"
-                      value={rangeInput}
-                      onChange={(e) => setRangeInput(e.target.value)}
-                      placeholder="e.g. 1-3, 5, 7-9"
-                      className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-violet-500 outline-none"
-                    />
-                    <div className="mt-2 text-xs text-slate-400">
-                      {parsedRange.length > 0 ? (
-                        <span className="text-emerald-400">
-                          ✅ {parsedRange.length} pages selected: {parsedRange.slice(0, 10).join(', ')}
-                          {parsedRange.length > 10 ? `...+${parsedRange.length - 10}` : ''}
-                        </span>
-                      ) : (
-                        <span className="text-amber-400">⚠️ No valid pages</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Custom Mode */}
-                {mode === 'custom' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-bold text-slate-300">
-                        Click pages to select ({selectedPages.size}/{pdf.pageCount})
-                      </label>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={selectAll}
-                          className="text-[10px] font-bold text-violet-400 hover:text-violet-300"
-                        >
-                          Select All
-                        </button>
-                        <button
-                          onClick={deselectAll}
-                          className="text-[10px] font-bold text-slate-400 hover:text-slate-300"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-6 sm:grid-cols-10 gap-2 max-h-64 overflow-y-auto p-2 bg-slate-900 rounded-lg border border-slate-800">
-                      {Array.from({ length: pdf.pageCount }, (_, i) => i + 1).map((p) => (
-                        <button
-                          key={p}
-                          onClick={() => togglePage(p)}
-                          className={`aspect-square rounded text-xs font-bold transition ${
-                            selectedPages.has(p)
-                              ? 'bg-violet-500 text-white'
-                              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Split Button */}
-                <button
-                  onClick={
-                    mode === 'range'
-                      ? splitByRange
-                      : mode === 'each'
-                      ? splitEachPage
-                      : splitSelected
-                  }
-                  disabled={isProcessing || (mode === 'range' && parsedRange.length === 0)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg transition"
-                >
-                  {isProcessing ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> {progress || 'Processing...'}</>
-                  ) : (
-                    <>
-                      <Scissors className="w-4 h-4" />
-                      {mode === 'range'
-                        ? `Extract ${parsedRange.length} Page(s)`
-                        : mode === 'each'
-                        ? `Split into ${pdf.pageCount} PDFs (ZIP)`
-                        : `Split ${selectedPages.size} Selected Page(s) (ZIP)`}
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {/* Info */}
-            <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-300 flex gap-2">
-              <File className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <div>
-                <strong>Tip:</strong> Use "Extract Range" for specific pages, "Split Each" for one PDF per page, or "Select Pages" to pick interactively. All processing is local — files never leave your device.
-              </div>
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
+            <div className="p-5 space-y-5">
+
+              {/* Upload */}
+              {!pdf ? (
+                <div
+                  onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-700 hover:border-violet-500 rounded-xl p-12 text-center cursor-pointer transition bg-slate-950/50"
+                >
+                  <div className="w-16 h-16 mx-auto rounded-full bg-violet-500/10 flex items-center justify-center mb-4">
+                    <Upload className="w-7 h-7 text-violet-400" />
+                  </div>
+                  <p className="text-white font-bold mb-1">Drop PDF file here or click to upload</p>
+                  <p className="text-xs text-slate-400">Single .pdf file</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    onChange={(e) => handleFile(e.target.files)}
+                    className="hidden"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex-1 min-w-[200px] bg-slate-950 rounded-lg border border-slate-800 p-3 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded bg-red-500/10 border border-red-500/30 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-5 h-5 text-red-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white font-bold truncate">{pdf.file.name}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {pdf.pageCount} {pdf.pageCount === 1 ? 'page' : 'pages'} · {formatSize(pdf.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={resetAll}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-900/40 hover:bg-red-900/60 text-red-400 text-sm font-bold rounded-lg transition"
+                  >
+                    <Trash2 className="w-4 h-4" /> Clear
+                  </button>
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 text-sm">
+                  ⚠️ {error}
+                </div>
+              )}
+
+              {/* Split Options */}
+              {pdf && (
+                <div className="bg-slate-950 rounded-xl border border-slate-800 p-5 space-y-5">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Split className="w-4 h-4 text-violet-400" />
+                    Split Mode
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {[
+                      { id: 'range', label: 'Extract Range', desc: 'e.g. 1-3, 5, 7-9' },
+                      { id: 'each', label: 'Split Each Page', desc: 'One PDF per page' },
+                      { id: 'custom', label: 'Select Pages', desc: 'Click to choose' },
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => setMode(m.id as SplitMode)}
+                        className={`p-3 rounded-lg border-2 transition text-left ${
+                          mode === m.id
+                            ? 'border-violet-500 bg-violet-500/10'
+                            : 'border-slate-800 hover:border-slate-700 bg-slate-900'
+                        }`}
+                      >
+                        <div className={`text-xs font-bold ${mode === m.id ? 'text-violet-300' : 'text-slate-300'}`}>
+                          {m.label}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{m.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Range Mode */}
+                  {mode === 'range' && (
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-2">
+                        Page Range (max: {pdf.pageCount})
+                      </label>
+                      <input
+                        type="text"
+                        value={rangeInput}
+                        onChange={(e) => setRangeInput(e.target.value)}
+                        placeholder="e.g. 1-3, 5, 7-9"
+                        className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-violet-500 outline-none"
+                      />
+                      <div className="mt-2 text-xs text-slate-400">
+                        {parsedRange.length > 0 ? (
+                          <span className="text-emerald-400">
+                            ✅ {parsedRange.length} pages selected: {parsedRange.slice(0, 10).join(', ')}
+                            {parsedRange.length > 10 ? `...+${parsedRange.length - 10}` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-amber-400">⚠️ No valid pages</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Custom Mode */}
+                  {mode === 'custom' && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-300">
+                          Click pages to select ({selectedPages.size}/{pdf.pageCount})
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={selectAll}
+                            className="text-[10px] font-bold text-violet-400 hover:text-violet-300"
+                          >
+                            Select All
+                          </button>
+                          <button
+                            onClick={deselectAll}
+                            className="text-[10px] font-bold text-slate-400 hover:text-slate-300"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-6 sm:grid-cols-10 gap-2 max-h-64 overflow-y-auto p-2 bg-slate-900 rounded-lg border border-slate-800">
+                        {Array.from({ length: pdf.pageCount }, (_, i) => i + 1).map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => togglePage(p)}
+                            className={`aspect-square rounded text-xs font-bold transition ${
+                              selectedPages.has(p)
+                                ? 'bg-violet-500 text-white'
+                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Split Button */}
+                  <button
+                    onClick={
+                      mode === 'range'
+                        ? splitByRange
+                        : mode === 'each'
+                        ? splitEachPage
+                        : splitSelected
+                    }
+                    disabled={isProcessing || (mode === 'range' && parsedRange.length === 0)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg transition"
+                  >
+                    {isProcessing ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> {progress || 'Processing...'}</>
+                    ) : (
+                      <>
+                        <Scissors className="w-4 h-4" />
+                        {mode === 'range'
+                          ? `Extract ${parsedRange.length} Page(s)`
+                          : mode === 'each'
+                          ? `Split into ${pdf.pageCount} PDFs (ZIP)`
+                          : `Split ${selectedPages.size} Selected Page(s) (ZIP)`}
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Info */}
+              <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-300 flex gap-2">
+                <File className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Tip:</strong> Use "Extract Range" for specific pages, "Split Each" for one PDF per page, or "Select Pages" to pick interactively. All processing is local — files never leave your device.
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
+      )}
+    </>
   );
 };
 
