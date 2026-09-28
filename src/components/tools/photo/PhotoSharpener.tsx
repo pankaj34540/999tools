@@ -4,6 +4,9 @@ import {
   Sparkles, Upload, Download, X, Loader2, Trash2,
   Image as ImageIcon, Maximize2, Crown,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface ImageItem {
   id: string;
@@ -20,6 +23,7 @@ interface PhotoSharpenerProps {
 }
 
 const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [images, setImages] = useState<ImageItem[]>([]);
   const [intensity, setIntensity] = useState(50);
   const [radius, setRadius] = useState(1);
@@ -27,6 +31,30 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
 
   // ── Unsharp mask sharpening algorithm ──
   const applyToCanvas = useCallback(
@@ -44,10 +72,8 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
       const w = canvas.width;
       const h = canvas.height;
 
-      // ── Step 1: Create blurred version (simple box blur) ──
       const blurred = new Uint8ClampedArray(src.length);
       const rInt = Math.max(1, Math.round(r));
-      const kernelSize = rInt * 2 + 1;
 
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
@@ -73,7 +99,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
         }
       }
 
-      // ── Step 2: Unsharp mask = original + amount * (original - blurred) ──
       const factor = amount / 100;
       const data = imageData.data;
 
@@ -103,7 +128,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
             img.onload = () => {
               if (cancelled) return resolve(item);
 
-              // Limit preview size for performance (max 1200px)
               const maxPreview = 1200;
               let srcImg: HTMLImageElement | HTMLCanvasElement = img;
               if (img.naturalWidth > maxPreview || img.naturalHeight > maxPreview) {
@@ -126,7 +150,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
                   })()
                 : img;
 
-              // For simplicity, if we made a canvas, use it directly
               let canvas: HTMLCanvasElement;
               if (srcImg instanceof HTMLCanvasElement) {
                 const ctx2 = srcImg.getContext('2d');
@@ -136,7 +159,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
                 const w = srcImg.width;
                 const h = srcImg.height;
 
-                // Fast blur
                 const blurred = new Uint8ClampedArray(src.length);
                 const rInt = Math.max(1, Math.round(radius));
                 for (let y = 0; y < h; y++) {
@@ -235,7 +257,8 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
     }
   };
 
-  const downloadSingle = (item: ImageItem) => {
+  // ⚡ ACTUAL download single
+  const actualDownloadSingle = (item: ImageItem) => {
     if (!item.processedUrl) return;
     const link = document.createElement('a');
     link.href = item.processedUrl;
@@ -243,7 +266,8 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
     link.click();
   };
 
-  const downloadZip = async () => {
+  // ⚡ ACTUAL download ZIP
+  const actualDownloadZip = async () => {
     const ready = images.filter((i) => i.processedBlob);
     if (ready.length === 0) return;
     setIsZipping(true);
@@ -266,6 +290,17 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
     } finally {
       setIsZipping(false);
     }
+  };
+
+  // 🆕 Public download functions — ad gated
+  const downloadSingle = (item: ImageItem) => {
+    requestDownload(item.file.name, () => actualDownloadSingle(item));
+  };
+
+  const downloadZip = () => {
+    const ready = images.filter((i) => i.processedBlob);
+    if (ready.length === 0) return;
+    requestDownload(`All ${ready.length} images (ZIP)`, actualDownloadZip);
   };
 
   const removeImage = (id: string) => {
@@ -337,7 +372,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
                   </span>
                 </div>
 
-                {/* Intensity */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -363,7 +397,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                {/* Radius */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold text-slate-300">Radius (Detail Size)</label>
@@ -387,7 +420,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                {/* Presets */}
                 {images.length > 0 && (
                   <div>
                     <label className="text-xs font-bold text-slate-300 block mb-2">Quick Presets</label>
@@ -491,7 +523,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
                   {images.map((img) => (
                     <div key={img.id} className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
 
-                      {/* Header bar */}
                       <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
                         <div className="flex items-center gap-2 min-w-0">
                           <ImageIcon className="w-4 h-4 text-amber-400 flex-shrink-0" />
@@ -518,9 +549,7 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
                         </div>
                       </div>
 
-                      {/* A4 side-by-side */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-900">
-                        {/* BEFORE */}
                         <div className="relative bg-white rounded-lg border-2 border-slate-700 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-600">
                             ORIGINAL
@@ -534,7 +563,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        {/* AFTER */}
                         <div className="relative bg-white rounded-lg border-2 border-amber-500 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-amber-500 text-slate-950 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
                             SHARPENED
@@ -556,7 +584,6 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
                         </div>
                       </div>
 
-                      {/* Download */}
                       <div className="p-3 border-t border-slate-800">
                         <button
                           onClick={() => downloadSingle(img)}
@@ -651,6 +678,15 @@ const PhotoSharpener: React.FC<PhotoSharpenerProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
       )}
     </>
   );
