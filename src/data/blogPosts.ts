@@ -403,6 +403,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bannerGradient: 'from-rose-500 to-pink-600',
     content: [
       { type: 'p', text: 'Har sarkari form, exam registration, ya social media platform ke liye image ka size alag hota hai. Photo galat size ki ho to form reject ho jaata hai, ya upload hi nahi hoti. Isliye image resize karna ek basic skill ban gaya hai — aur 999tools pe ye kaam 10 second mein ho jaata hai, bilkul free.' },
+      { type: 'tool', toolId: 'image_resizer', heading: 'Khud Try Karo — Image Resizer Live', description: 'Photo upload karo, size set karo, aur 10 second mein download karo. 100% free — koi signup nahi, koi watermark nahi.' },
       { type: 'h2', text: 'Image Resize Kyun Zaroori Hai?' },
       { type: 'ul', items: [
         'Sarkari exam forms mein exact dimension chahiye hoti hai',
@@ -462,6 +463,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bannerGradient: 'from-orange-500 to-red-600',
     content: [
       { type: 'p', text: 'Har exam form mein photo aur signature ke liye exact KB size likha hota hai — "Photo: 20-50 KB, Signature: 10-20 KB". Agar tumhari photo 200 KB hai ya 15 KB hai, dono cases mein form reject ho sakta hai. Isliye target KB pe compress karna ek must-have skill hai.' },
+            { type: 'tool', toolId: 'image_compressor', heading: 'Image ko Exact 20KB / 50KB Mein Compress Karo', description: 'Target KB daalo → binary search algorithm best quality dhundhega → download karo. Exam form accept hone ka 100% chance.' },
       { type: 'h2', text: 'Exam Form Ki Common Requirements' },
       { type: 'ul', items: [
         'SSC CGL / CHSL — Photo: 20-50 KB, Sign: 10-20 KB',
@@ -530,6 +532,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bannerGradient: 'from-teal-500 to-cyan-600',
     content: [
       { type: 'p', text: 'Photo crop karna sabse basic skill hai — chahe aap passport photo banana chahte ho, exam form ki photo trim karni ho, ya Instagram post ke liye perfect square chahiye. Achhi khabar ye hai ki ab koi Photoshop nahi chahiye. Browser mein hi 30 second mein crop ho jaata hai.' },
+            { type: 'tool', toolId: 'photo_crop', heading: 'Interactive Crop — Live Try Karo', description: 'Drag karo, resize handles se adjust karo, aur 8 presets (Passport, 1:1, 16:9, A4) se exact crop karo. Real-time preview ke saath.' },
       { type: 'h2', text: 'Photo Crop Kab Zaroori Hota Hai?' },
       { type: 'ul', items: [
         'Passport size photo (35×45 mm)',
@@ -608,6 +611,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bannerGradient: 'from-blue-500 to-indigo-600',
     content: [
       { type: 'p', text: 'Kabhi kabhi 2-3 PDFs ko ek PDF mein combine karna padta hai — jaise aadhaar front + back, ya multiple documents bank ke liye. Adobe Acrobat paid hai, aur free online tools mein watermark lag jata hai. 999tools ka PDF Merge tool bilkul free hai, watermark-free hai, aur sab kuch browser mein karta hai.' },
+            { type: 'tool', toolId: 'pdf_merge', heading: 'Multi-PDF Merge Karo — Live', description: 'PDFs upload karo → order set karo → merge karo → download karo. Koi watermark, koi signup, koi file size limit. Sab browser mein.' },
       { type: 'h2', text: 'PDF Merge Kab Kaam Aata Hai?' },
       { type: 'ul', items: [
         'Aadhaar front + back ek PDF mein',
