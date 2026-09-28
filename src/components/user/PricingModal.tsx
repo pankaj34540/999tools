@@ -118,179 +118,191 @@ export const PricingModal: React.FC<PricingModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8">
+      <div className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 relative my-8 flex flex-col max-h-[92vh]">
 
-        {/* 🆕 BACK BUTTON — Top Left */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition z-10"
-          title="Back"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Back</span>
-        </button>
+        {/* 🆕 STICKY HEADER — Back + Close always visible */}
+        <div className="sticky top-0 z-20 flex items-center justify-between px-4 sm:px-6 py-3 bg-white/98 backdrop-blur-md rounded-t-3xl border-b border-slate-100">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+            title="Back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Back</span>
+          </button>
 
-        {/* CLOSE BUTTON — Top Right */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center font-bold z-10"
-          title="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <div className="text-center mb-8 pt-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold mb-3">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
             Choose Your Plan
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">
-            Unlock the Full Power of 999tools
-          </h2>
-          <p className="text-sm text-slate-500 max-w-2xl mx-auto">
-            Upgrade to remove ads, unlock 299+ premium tools, and access unlimited usage.
-            Cancel anytime. <strong>Pay securely via Cashfree.</strong>
-          </p>
+
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center font-bold transition"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Billing Cycle Toggle */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-slate-100 p-1 rounded-2xl inline-flex">
-            <button
-              onClick={() => setBillingCycle('monthly')}
-              className={`px-5 py-2 rounded-xl text-xs font-bold transition ${
-                billingCycle === 'monthly'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600'
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingCycle('yearly')}
-              className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                billingCycle === 'yearly'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600'
-              }`}
-            >
-              Yearly
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-700">
-                SAVE 32%
-              </span>
-            </button>
+        {/* SCROLLABLE BODY */}
+        <div className="p-6 sm:p-8 overflow-y-auto flex-1">
+
+          {/* Hero text */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold mb-3">
+              <Sparkles className="w-3.5 h-3.5" />
+              Choose Your Plan
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">
+              Unlock the Full Power of 999tools
+            </h2>
+            <p className="text-sm text-slate-500 max-w-2xl mx-auto">
+              Upgrade to remove ads, unlock 299+ premium tools, and access unlimited usage.
+              Cancel anytime. <strong>Pay securely via Cashfree.</strong>
+            </p>
           </div>
-        </div>
 
-        {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {plans.map((plan) => {
-            const Icon = plan.icon;
-            const price = billingCycle === 'monthly' ? plan.price : plan.priceYearly;
-            const isFree = plan.id === 'free';
-
-            return (
-              <div
-                key={plan.id}
-                className={`relative rounded-3xl border-2 p-6 flex flex-col ${
-                  plan.popular
-                    ? 'border-amber-400 bg-gradient-to-b from-amber-50/50 to-white shadow-xl scale-[1.02]'
-                    : `${getColorClasses(plan.color, 'border')} bg-white`
+          {/* Billing Cycle Toggle */}
+          <div className="flex justify-center mb-8">
+            <div className="bg-slate-100 p-1 rounded-2xl inline-flex">
+              <button
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-5 py-2 rounded-xl text-xs font-bold transition ${
+                  billingCycle === 'monthly'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600'
                 }`}
               >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md">
-                      ⭐ Most Popular
-                    </span>
-                  </div>
-                )}
+                Monthly
+              </button>
+              <button
+                onClick={() => setBillingCycle('yearly')}
+                className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                  billingCycle === 'yearly'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600'
+                }`}
+              >
+                Yearly
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-700">
+                  SAVE 32%
+                </span>
+              </button>
+            </div>
+          </div>
 
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-11 h-11 rounded-xl ${getColorClasses(plan.color, 'bg')} ${getColorClasses(plan.color, 'text')} flex items-center justify-center`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900">{plan.name}</h3>
-                    <p className="text-[11px] text-slate-500">{plan.tagline}</p>
-                  </div>
-                </div>
+          {/* Plans Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {plans.map((plan) => {
+              const Icon = plan.icon;
+              const price = billingCycle === 'monthly' ? plan.price : plan.priceYearly;
+              const isFree = plan.id === 'free';
 
-                <div className="mb-5 pb-5 border-b border-slate-100">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-slate-900">
-                      ₹{price}
-                    </span>
-                    <span className="text-xs text-slate-500 font-semibold">
-                      {isFree ? 'forever' : billingCycle === 'monthly' ? '/month' : '/year'}
-                    </span>
-                  </div>
-                  {!isFree && billingCycle === 'yearly' && (
-                    <p className="text-[11px] text-emerald-600 font-bold mt-1">
-                      Only ₹{Math.round(price / 12)}/month billed annually
-                    </p>
+              return (
+                <div
+                  key={plan.id}
+                  className={`relative rounded-3xl border-2 p-6 flex flex-col ${
+                    plan.popular
+                      ? 'border-amber-400 bg-gradient-to-b from-amber-50/50 to-white shadow-xl scale-[1.02]'
+                      : `${getColorClasses(plan.color, 'border')} bg-white`
+                  }`}
+                >
+                  {plan.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md">
+                        ⭐ Most Popular
+                      </span>
+                    </div>
                   )}
-                  {isFree && (
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      No credit card required
-                    </p>
+
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-11 h-11 rounded-xl ${getColorClasses(plan.color, 'bg')} ${getColorClasses(plan.color, 'text')} flex items-center justify-center`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900">{plan.name}</h3>
+                      <p className="text-[11px] text-slate-500">{plan.tagline}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-5 pb-5 border-b border-slate-100">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-black text-slate-900">
+                        ₹{price}
+                      </span>
+                      <span className="text-xs text-slate-500 font-semibold">
+                        {isFree ? 'forever' : billingCycle === 'monthly' ? '/month' : '/year'}
+                      </span>
+                    </div>
+                    {!isFree && billingCycle === 'yearly' && (
+                      <p className="text-[11px] text-emerald-600 font-bold mt-1">
+                        Only ₹{Math.round(price / 12)}/month billed annually
+                      </p>
+                    )}
+                    {isFree && (
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        No credit card required
+                      </p>
+                    )}
+                  </div>
+
+                  <ul className="space-y-2.5 mb-6 flex-1">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-slate-700">
+                        <Check className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${plan.popular ? 'text-amber-600' : 'text-emerald-600'}`} />
+                        <span className="leading-relaxed">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {plan.disabled ? (
+                    <button
+                      disabled
+                      className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed"
+                    >
+                      ✓ {plan.cta}
+                    </button>
+                  ) : isFree ? (
+                    <button
+                      onClick={onClose}
+                      className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition"
+                    >
+                      {plan.cta}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onSelectPlan(plan.id as 'premium' | 'vle', billingCycle)}
+                      className={`w-full py-3 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 ${
+                        plan.id === 'premium'
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950'
+                          : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white'
+                      }`}
+                    >
+                      {plan.id === 'premium' ? <Zap className="w-4 h-4" /> : <Store className="w-4 h-4" />}
+                      {plan.cta}
+                    </button>
                   )}
                 </div>
-
-                <ul className="space-y-2.5 mb-6 flex-1">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-slate-700">
-                      <Check className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${plan.popular ? 'text-amber-600' : 'text-emerald-600'}`} />
-                      <span className="leading-relaxed">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {plan.disabled ? (
-                  <button
-                    disabled
-                    className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed"
-                  >
-                    ✓ {plan.cta}
-                  </button>
-                ) : isFree ? (
-                  <button
-                    onClick={onClose}
-                    className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition"
-                  >
-                    {plan.cta}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onSelectPlan(plan.id as 'premium' | 'vle', billingCycle)}
-                    className={`w-full py-3 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 ${
-                      plan.id === 'premium'
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950'
-                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white'
-                    }`}
-                  >
-                    {plan.id === 'premium' ? <Zap className="w-4 h-4" /> : <Store className="w-4 h-4" />}
-                    {plan.cta}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-center gap-6 text-[11px] text-slate-500">
-          <div className="flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Secure Cashfree Payment</span>
+              );
+            })}
           </div>
-          <div className="flex items-center gap-1.5">
-            <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
-            <span>Cancel Anytime</span>
+
+          {/* Footer badges */}
+          <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-center gap-6 text-[11px] text-slate-500">
+            <div className="flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Secure Cashfree Payment</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
+              <span>Cancel Anytime</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-amber-600" />
+              <span>Instant Activation</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-amber-600" />
-            <span>Instant Activation</span>
-          </div>
+
         </div>
       </div>
     </div>
