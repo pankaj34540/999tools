@@ -1,9 +1,16 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
+import { useSEO } from '../../hooks/useSEO';
 
 const PrivacyPage: React.FC = () => {
   const navigate = useNavigate();
+
+  useSEO({
+    title: 'Privacy Policy — 999tools | Client-Side File Processing',
+    description:
+      'Read 999tools privacy policy. Your files are processed client-side in browser — never uploaded to our servers. Learn how we protect your data.',
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
@@ -39,7 +46,7 @@ const PrivacyPage: React.FC = () => {
               <li><strong>Account Information:</strong> Name, email, phone number (when you register).</li>
               <li><strong>Usage Data:</strong> Tools used, timestamps, browser type, IP address.</li>
               <li><strong>Files You Upload:</strong> Images/documents processed through our tools are processed in your browser (client-side) and are NOT stored on our servers.</li>
-              <li><strong>Payment Information:</strong> UPI transaction IDs (for manual verification). We do NOT store card/bank details.</li>
+              <li><strong>Payment Information:</strong> Payments are processed securely via Cashfree. We do NOT store card/bank details.</li>
             </ul>
           </section>
 
@@ -68,6 +75,7 @@ const PrivacyPage: React.FC = () => {
             <p>We use the following third-party services:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>Google Firebase:</strong> Authentication and database services</li>
+              <li><strong>Cashfree:</strong> Payment gateway</li>
               <li><strong>Adsterra:</strong> Advertisement delivery</li>
               <li><strong>Vercel:</strong> Website hosting</li>
             </ul>
