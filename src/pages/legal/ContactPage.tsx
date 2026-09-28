@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, MessageCircle, MapPin, Send } from 'lucide-react';
+import { useSEO } from '../../hooks/useSEO';
 
 const ContactPage: React.FC = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
 
+  useSEO({
+    title: 'Contact Us — 999tools | Support, Help & Business Inquiries',
+    description:
+      'Get in touch with 999tools support team. WhatsApp +91 9124231432, email support@tools999.store. Response within 24 hours.',
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Open mailto with pre-filled data
     const subject = encodeURIComponent(`Contact from ${form.name}`);
-    const body = encodeURIComponent(`Name: ${form.name}\nEmail: ${form.email}\n\nMessage:\n${form.message}`);
+    const body = encodeURIComponent(
+      `Name: ${form.name}\nEmail: ${form.email}\n\nMessage:\n${form.message}`
+    );
     window.location.href = `mailto:support@tools999.store?subject=${subject}&body=${body}`;
     setSubmitted(true);
   };
@@ -47,7 +55,12 @@ const ContactPage: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
             <MessageCircle className="text-green-400 mb-2" size={24} />
             <h3 className="font-semibold text-white mb-1">WhatsApp</h3>
-            <a href="https://wa.me/919124231432" target="_blank" rel="noopener noreferrer" className="text-green-400 text-sm">
+            <a
+              href="https://wa.me/919124231432"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-400 text-sm"
+            >
               +91 9124231432
             </a>
           </div>
