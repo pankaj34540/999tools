@@ -4,6 +4,9 @@ import {
   RotateCw, RotateCcw, Upload, Download, X, Loader2,
   Trash2, Image as ImageIcon, Maximize2, RefreshCw,
 } from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import DownloadAdModal from '../../common/DownloadAdModal';
+import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
 
 interface ImageItem {
   id: string;
@@ -20,12 +23,37 @@ interface PhotoRotatorProps {
 }
 
 const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
+  const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
   const [images, setImages] = useState<ImageItem[]>([]);
   const [angle, setAngle] = useState(0);
   const [isZipping, setIsZipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<ImageItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 Ad gate state
+  const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
+
+  const isPaidUser = !shouldShowAdsToUser(
+    ownerAuthenticated,
+    currentUser,
+    isUserPremium,
+    activeVle
+  );
+
+  const requestDownload = (label: string, action: () => void) => {
+    if (isPaidUser) {
+      action();
+      return;
+    }
+    setPendingDownload({ label, action });
+  };
+
+  const handleAdComplete = () => {
+    const action = pendingDownload?.action;
+    setPendingDownload(null);
+    action?.();
+  };
 
   // ── Apply rotation to canvas ──
   const applyToCanvas = useCallback(
@@ -43,7 +71,6 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return canvas;
 
-      // White background fill
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, newW, newH);
 
@@ -130,7 +157,8 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
     }
   };
 
-  const downloadSingle = (item: ImageItem) => {
+  // ⚡ ACTUAL download
+  const actualDownloadSingle = (item: ImageItem) => {
     if (!item.processedUrl) return;
     const link = document.createElement('a');
     link.href = item.processedUrl;
@@ -138,7 +166,7 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
     link.click();
   };
 
-  const downloadZip = async () => {
+  const actualDownloadZip = async () => {
     const ready = images.filter((i) => i.processedBlob);
     if (ready.length === 0) return;
     setIsZipping(true);
@@ -161,6 +189,17 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
     } finally {
       setIsZipping(false);
     }
+  };
+
+  // 🆕 Public download functions — ad gated
+  const downloadSingle = (item: ImageItem) => {
+    requestDownload(item.file.name, () => actualDownloadSingle(item));
+  };
+
+  const downloadZip = () => {
+    const ready = images.filter((i) => i.processedBlob);
+    if (ready.length === 0) return;
+    requestDownload(`All ${ready.length} images (ZIP)`, actualDownloadZip);
   };
 
   const removeImage = (id: string) => {
@@ -238,7 +277,6 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                   </span>
                 </div>
 
-                {/* Quick Angles */}
                 <div className="grid grid-cols-4 gap-2">
                   {quickAngles.map((q) => (
                     <button
@@ -255,7 +293,6 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                   ))}
                 </div>
 
-                {/* Fine Angle Slider */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -281,7 +318,6 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 {images.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -376,7 +412,6 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                   {images.map((img) => (
                     <div key={img.id} className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
 
-                      {/* Header bar */}
                       <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
                         <div className="flex items-center gap-2 min-w-0">
                           <ImageIcon className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -403,9 +438,7 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                         </div>
                       </div>
 
-                      {/* A4 side-by-side */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-900">
-                        {/* BEFORE */}
                         <div className="relative bg-white rounded-lg border-2 border-slate-700 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-600">
                             BEFORE
@@ -419,7 +452,6 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        {/* AFTER */}
                         <div className="relative bg-white rounded-lg border-2 border-emerald-500 overflow-hidden shadow-lg">
                           <div className="absolute top-2 left-2 z-10 bg-emerald-500 text-slate-950 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
                             AFTER
@@ -438,7 +470,6 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
                         </div>
                       </div>
 
-                      {/* Download */}
                       <div className="p-3 border-t border-slate-800">
                         <button
                           onClick={() => downloadSingle(img)}
@@ -533,6 +564,15 @@ const PhotoRotator: React.FC<PhotoRotatorProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🆕 DOWNLOAD AD MODAL — only for free users */}
+      {!isPaidUser && pendingDownload && (
+        <DownloadAdModal
+          fileName={pendingDownload.label}
+          onComplete={handleAdComplete}
+          onCancel={() => setPendingDownload(null)}
+        />
       )}
     </>
   );
