@@ -189,7 +189,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       }
     }
 
-    if (!access.allowed || access.remaining <= 0) {
+    if (!access.allowed) {
       promptUpgrade('❌ Daily free limit reached (3/day). Upgrade to Premium.');
       return;
     }
