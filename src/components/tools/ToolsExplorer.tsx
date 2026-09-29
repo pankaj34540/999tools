@@ -34,7 +34,7 @@ import { UpgradePaymentModal } from '../user/UpgradePaymentModal';
 // ============================================
 import ImageFormatConverter from './photo/ImageFormatConverter';
 import ImageResizer from './photo/ImageResizer';
-import ImageCompressor from './photo/ImageCompressor';   // ← YE ADD KARO
+import ImageCompressor from './photo/ImageCompressor';
 import PhotoRotator from './photo/PhotoRotator';
 import PhotoFlip from './photo/PhotoFlip';
 import BrightnessContrast from './photo/BrightnessContrast';
@@ -189,6 +189,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       }
     }
 
+    // ✅ FIX: Sirf 'allowed' check karo — remaining '-1' = unlimited
     if (!access.allowed) {
       promptUpgrade('❌ Daily free limit reached (3/day). Upgrade to Premium.');
       return;
@@ -200,11 +201,14 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       console.error('recordUsage failed:', e);
     }
 
-    const newRemaining = Math.max(0, access.remaining - 1);
-    setToolAccessMap(prev => ({
-      ...prev,
-      [toolId]: { ...access!, remaining: newRemaining, allowed: newRemaining > 0 }
-    }));
+    // Only decrement if not unlimited
+    if (access.remaining > 0) {
+      const newRemaining = Math.max(0, access.remaining - 1);
+      setToolAccessMap(prev => ({
+        ...prev,
+        [toolId]: { ...access!, remaining: newRemaining, allowed: newRemaining > 0 }
+      }));
+    }
 
     openTool(toolId);
   };
@@ -304,56 +308,22 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
     if (!currentActiveTool) return null;
 
     switch (currentActiveTool.componentKey) {
-      // Tool #001
       case 'ImageFormatConverter': return <ImageFormatConverter onClose={handleCloseTool} />;
-      
-      // Tool #002
       case 'ImageResizer': return <ImageResizer onClose={handleCloseTool} />;
-      
-        // Tool #003
       case 'ImageCompressor': return <ImageCompressor onClose={handleCloseTool} />;
-
-        //Tool #004
-      case 'PhotoRotator': return <PhotoRotator onClose={handleCloseTool} />; 
-
-        //Tool #005
+      case 'PhotoRotator': return <PhotoRotator onClose={handleCloseTool} />;
       case 'PhotoFlip': return <PhotoFlip onClose={handleCloseTool} />;
-
-        //Tool #006
       case 'BrightnessContrast': return <BrightnessContrast onClose={handleCloseTool} />;
-
-        //Tool #007
       case 'BlackWhiteConverter': return <BlackWhiteConverter onClose={handleCloseTool} />;
-
-        //Tool #008
       case 'PhotoBlur': return <PhotoBlur onClose={handleCloseTool} />;
-
-       //Tool #009
       case 'PhotoSharpener': return <PhotoSharpener onClose={handleCloseTool} />;
-
-      //Tool #010
       case 'PhotoCrop': return <PhotoCrop onClose={handleCloseTool} />;
-
-     //Tool #011
       case 'ImageToPdf': return <ImageToPdf onClose={handleCloseTool} />;
-
-    //Tool #012
       case 'PdfMerge': return <PdfMerge onClose={handleCloseTool} />;
-
-   //Tool #013
       case 'PdfSplit': return <PdfSplit onClose={handleCloseTool} />;
-
-  //Tool #014
       case 'PdfCompress': return <PdfCompress onClose={handleCloseTool} />;
-
-  //Tool #015
       case 'PdfToImage': return <PdfToImage onClose={handleCloseTool} />;
-
-  //Tool #016
       case 'PdfRotate': return <PdfRotate onClose={handleCloseTool} />;
-
-        
-      // 🆕 Add new tools here
 
       default:
         return (
