@@ -48,6 +48,7 @@ import PdfSplit from './pdf/PdfSplit';
 import PdfCompress from './pdf/PdfCompress';
 import PdfToImage from './pdf/PdfToImage';
 import PdfRotate from './pdf/PdfRotate';
+import AgeCalculator from './utility/AgeCalculator';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
