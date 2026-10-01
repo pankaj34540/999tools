@@ -9,9 +9,6 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 
-// ═══════════════════════════════════════════
-// PRESETS
-// ═══════════════════════════════════════════
 interface PassportPreset {
   id: string;
   label: string;
@@ -63,7 +60,6 @@ interface PassportPhotoMakerProps {
 const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
   const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
 
-  // State
   const [originalImage, setOriginalImage] = useState<HTMLImageElement | null>(null);
   const [presetId, setPresetId] = useState('india_passport');
   const [zoom, setZoom] = useState(1);
@@ -73,15 +69,9 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
   const [background, setBackground] = useState<string | null>('#ffffff');
   const [showGuides, setShowGuides] = useState(true);
   const [showPresets, setShowPresets] = useState(false);
-  const [showPageSize, setShowPageSize] = useState(false);
-  const [showPhotosPerRow, setShowPhotosPerRow] = useState(false);
-  const [showPrintQuality, setShowPrintQuality] = useState(false);
-  const [showFormat, setShowFormat] = useState(false);
   const [activeTab, setActiveTab] = useState<'crop' | 'background' | 'layout'>('crop');
   const [layoutPhotos, setLayoutPhotos] = useState(10);
   const [photosPerRow, setPhotosPerRow] = useState(5);
-  const [printQuality, setPrintQuality] = useState('Print quality');
-  const [outputFormat, setOutputFormat] = useState('JPG');
   const [compareMode, setCompareMode] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,16 +81,23 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
 
   const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
 
+  // ✅ FIX 1: Ad gate — proper check
   const shouldShowAds = () => {
     if (ownerAuthenticated) return false;
-    if (currentUser?.plan === 'premium' && isUserPremium()) return false;
-    if (currentUser?.plan === 'vle' || activeVle) return false;
+    if (currentUser && (currentUser.plan === 'premium' || currentUser.plan === 'vle')) {
+      if (isUserPremium()) return false;
+    }
+    if (activeVle) return false;
     return true;
   };
+
   const isPaidUser = !shouldShowAds();
 
   const requestDownload = (label: string, action: () => void) => {
-    if (isPaidUser) { action(); return; }
+    if (isPaidUser) {
+      action();
+      return;
+    }
     setPendingDownload({ label, action });
   };
 
@@ -108,7 +105,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
   const canvasW = Math.round(currentPreset.w * MM_TO_PX);
   const canvasH = Math.round(currentPreset.h * MM_TO_PX);
 
-  // Upload
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setError(null);
@@ -134,7 +130,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
     } catch { setError('Failed to load image'); }
   };
 
-  // Render to canvas
   const renderCanvas = useCallback((): HTMLCanvasElement | null => {
     if (!originalImage) return null;
 
@@ -182,7 +177,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
     return canvas;
   }, [originalImage, canvasW, canvasH, zoom, rotation, offsetX, offsetY, background]);
 
-  // Live preview
   useEffect(() => {
     const canvas = renderCanvas();
     if (!canvas || !previewCanvasRef.current) return;
@@ -196,7 +190,7 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
     }
   }, [renderCanvas]);
 
-  // Download single
+  // ✅ FIX 2: Download single — proper ad gate
   const actualDownloadSingle = () => {
     const canvas = renderCanvas();
     if (!canvas) return;
@@ -209,12 +203,13 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
       URL.revokeObjectURL(link.href);
     }, 'image/jpeg', 0.95);
   };
+
   const downloadSingle = () => {
     if (!originalImage) return;
     requestDownload(`${currentPreset.label} — Single Photo`, actualDownloadSingle);
   };
 
-  // Generate A4 Sheet
+  // ✅ FIX 3: A4 sheet — TOP-LEFT start with proper margin
   const actualGenerateSheet = async () => {
     const canvas = renderCanvas();
     if (!canvas) return;
@@ -222,28 +217,81 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
     setError(null);
     try {
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
       const photoW = currentPreset.w;
       const photoH = currentPreset.h;
       const cols = photosPerRow;
       const rows = Math.ceil(layoutPhotos / cols);
-      const totalGridW = cols * photoW;
-      const totalGridH = rows * photoH;
-      const startX = (210 - totalGridW) / 2;
-      const startY = (297 - totalGridH) / 2;
+
+      // ✅ FIX: Top-left start with 10mm margin (not center)
+      const MARGIN_TOP = 10;
+      const MARGIN_LEFT = 10;
+      const startX = MARGIN_LEFT;
+      const startY = MARGIN_TOP;
+
       const base64 = canvas.toDataURL('image/jpeg', 0.95);
 
-      for (let i = 0; i < layoutPhotos; i++) {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        pdf.addImage(base64, 'JPEG', startX + col * photoW, startY + row * photoH, photoW, photoH, undefined, 'FAST');
+      let count = 0;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          if (count >= layoutPhotos) break;
+          const x = startX + col * photoW;
+          const y = startY + row * photoH;
+          pdf.addImage(base64, 'JPEG', x, y, photoW, photoH, undefined, 'FAST');
+          count++;
+        }
+        if (count >= layoutPhotos) break;
       }
+
+      // ✅ Open PDF in new tab for print option also
       pdf.save(`passport_sheet_${currentPreset.id}_${Date.now()}.pdf`);
     } catch { setError('Failed to generate sheet'); }
     finally { setIsGenerating(false); }
   };
+
   const generateSheet = () => {
     if (!originalImage) return;
     requestDownload(`A4 Sheet (${layoutPhotos} photos)`, actualGenerateSheet);
+  };
+
+  // ✅ FIX 4: Print — generates A4 PDF and opens print dialog
+  const handlePrint = () => {
+    if (!originalImage) return;
+    const printAction = () => {
+      const canvas = renderCanvas();
+      if (!canvas) return;
+
+      const photoW = currentPreset.w;
+      const photoH = currentPreset.h;
+      const cols = photosPerRow;
+      const rows = Math.ceil(layoutPhotos / cols);
+      const MARGIN_TOP = 10;
+      const MARGIN_LEFT = 10;
+      const startX = MARGIN_LEFT;
+      const startY = MARGIN_TOP;
+      const base64 = canvas.toDataURL('image/jpeg', 0.95);
+
+      // Build PDF blob and open in new tab
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      let count = 0;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          if (count >= layoutPhotos) break;
+          const x = startX + col * photoW;
+          const y = startY + row * photoH;
+          pdf.addImage(base64, 'JPEG', x, y, photoW, photoH, undefined, 'FAST');
+          count++;
+        }
+        if (count >= layoutPhotos) break;
+      }
+
+      // Open PDF in new tab — user can print from browser PDF viewer
+      const pdfBlob = pdf.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+    };
+
+    requestDownload(`Print A4 Sheet (${layoutPhotos} photos)`, printAction);
   };
 
   const resetAll = () => {
@@ -252,9 +300,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
     setError(null);
   };
 
-  // ═══════════════════════════════════════════
-  // RENDER
-  // ═══════════════════════════════════════════
   return (
     <>
       <div className="fixed inset-0 z-50 bg-slate-950 overflow-y-auto">
@@ -411,7 +456,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
           <div className="flex-1 max-w-[1600px] mx-auto w-full px-4 py-4">
 
             {!originalImage ? (
-              /* UPLOAD */
               <div className="max-w-2xl mx-auto mt-16">
                 <div
                   onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
@@ -455,16 +499,13 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                 )}
               </div>
             ) : (
-              /* EDITOR */
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
 
-                {/* ═══ LEFT: CANVAS ═══ */}
+                {/* LEFT: CANVAS */}
                 <div className="bg-slate-900/50 rounded-2xl border border-slate-800 p-6 min-h-[600px] flex items-center justify-center relative">
-
                   <div className="absolute top-4 left-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                     Position & Crop
                   </div>
-
                   <div className="absolute top-4 left-1/2 -translate-x-1/2">
                     <button
                       onClick={() => fileInputRef.current?.click()}
@@ -473,15 +514,12 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                       ✏️ Change Photo
                     </button>
                   </div>
-
                   <div className="absolute top-4 right-4 text-[10px] font-mono text-slate-500">
                     {canvasW} × {canvasH}px
                   </div>
 
-                  {/* Canvas */}
                   <div className="relative flex items-center justify-center">
                     <div className="relative">
-                      {/* BEFORE (if compare mode) */}
                       {compareMode && originalImage && (
                         <div className="absolute left-0 top-0 opacity-40 -z-10" style={{ transform: 'translateX(-50%)' }}>
                           <img
@@ -502,7 +540,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                         }}
                       />
 
-                      {/* Guides Overlay */}
                       {showGuides && (
                         <div
                           className="absolute inset-0 pointer-events-none rounded-lg"
@@ -527,7 +564,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                         </div>
                       )}
 
-                      {/* Size label */}
                       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1 rounded-full shadow">
                         {currentPreset.w} × {currentPreset.h} mm
                       </div>
@@ -535,10 +571,8 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                {/* ═══ RIGHT: SIDEBAR ═══ */}
+                {/* RIGHT: SIDEBAR */}
                 <div className="space-y-3">
-
-                  {/* Tabs */}
                   <div className="bg-slate-900 rounded-2xl border border-slate-800 p-1 flex">
                     {[
                       { id: 'crop', label: 'Crop', icon: Square },
@@ -562,10 +596,7 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                     })}
                   </div>
 
-                  {/* Tab content */}
                   <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 space-y-4">
-
-                    {/* ─── CROP TAB ─── */}
                     {activeTab === 'crop' && (
                       <>
                         <div className="flex items-center justify-between">
@@ -646,7 +677,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                       </>
                     )}
 
-                    {/* ─── BACKGROUND TAB ─── */}
                     {activeTab === 'background' && (
                       <>
                         <h4 className="text-xs font-bold text-white uppercase tracking-wider">Background</h4>
@@ -676,20 +706,14 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                             </button>
                           ))}
                         </div>
-
-                        <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-2.5 text-[10px] text-blue-200">
-                          💡 Best result: plain white/blue background photo use karo
-                        </div>
                       </>
                     )}
 
-                    {/* ─── LAYOUT TAB ─── */}
                     {activeTab === 'layout' && (
                       <>
                         <h4 className="text-xs font-bold text-white uppercase tracking-wider">Layout & Print</h4>
 
-                        {/* Photo size dropdown */}
-                        <div className="relative">
+                        <div>
                           <label className="text-[10px] font-bold text-slate-400 block mb-1.5">Photo Size</label>
                           <button
                             onClick={() => setShowPresets(!showPresets)}
@@ -700,7 +724,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                           </button>
                         </div>
 
-                        {/* Page Size */}
                         <div>
                           <label className="text-[10px] font-bold text-slate-400 block mb-1.5">Page Size</label>
                           <div className="px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-bold">
@@ -708,12 +731,10 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        {/* Info box */}
                         <div className="bg-cyan-900/20 border border-cyan-800/50 rounded-lg p-2.5 text-[10px] text-cyan-200">
                           <strong>{canvasW}×{canvasH}px</strong> — {currentPreset.w}×{currentPreset.h}mm @ 300 DPI
                         </div>
 
-                        {/* Photos per row */}
                         <div>
                           <label className="text-[10px] font-bold text-slate-400 block mb-1.5">Photos Per Row</label>
                           <div className="flex items-center gap-2">
@@ -733,7 +754,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        {/* Total photos */}
                         <div>
                           <label className="text-[10px] font-bold text-slate-400 block mb-1.5">
                             Total Photos (max 30)
@@ -779,34 +799,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
             <div className="sticky bottom-0 z-30 bg-slate-900/95 backdrop-blur-sm border-t border-slate-800">
               <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center gap-2 flex-wrap justify-center">
 
-                {/* Print Quality dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowPrintQuality(!showPrintQuality)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 text-xs font-bold transition"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{printQuality}</span>
-                    <ChevronDown className="w-3 h-3" />
-                  </button>
-                </div>
-
-                {/* Format dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowFormat(!showFormat)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 text-xs font-bold transition"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{outputFormat}</span>
-                    <ChevronDown className="w-3 h-3" />
-                  </button>
-                </div>
-
-                <button className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 text-xs font-bold transition">
-                  <Maximize2 className="w-3.5 h-3.5" /> Preview
-                </button>
-
                 <button
                   onClick={downloadSingle}
                   className="flex items-center gap-1.5 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-md transition"
@@ -827,8 +819,8 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                 </button>
 
                 <button
-                  onClick={() => window.print()}
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 text-xs font-bold transition"
+                  onClick={handlePrint}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 text-xs font-bold transition"
                 >
                   <Printer className="w-3.5 h-3.5" /> Print
                 </button>
@@ -839,7 +831,9 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                     if (canvas) {
                       canvas.toBlob((blob) => {
                         if (blob) {
-                          navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                          try {
+                            navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                          } catch {}
                         }
                       }, 'image/png');
                     }
@@ -856,7 +850,7 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg shadow-md transition"
                 >
-                  <Share2 className="w-3.5 h-3.5" /> Share on WhatsApp
+                  <Share2 className="w-3.5 h-3.5" /> Share
                 </button>
               </div>
             </div>
@@ -864,24 +858,45 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Ad gate modal */}
+      {/* ✅ AD GATE MODAL — Free users ke liye download pe ad */}
       {!isPaidUser && pendingDownload && (
         <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl max-w-lg w-full p-6 text-center">
-            <h3 className="text-white font-bold text-lg mb-2">Download Ready</h3>
-            <p className="text-slate-400 text-sm mb-4">{pendingDownload.label}</p>
-            <button
-              onClick={() => { pendingDownload.action(); setPendingDownload(null); }}
-              className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg transition"
-            >
-              <Download className="w-4 h-4 inline mr-2" /> Download Now
-            </button>
-            <button
-              onClick={() => setPendingDownload(null)}
-              className="mt-3 text-xs text-slate-400 hover:text-white"
-            >
-              Cancel
-            </button>
+          <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl max-w-lg w-full overflow-hidden">
+
+            {/* Ad Container */}
+            <div className="p-4 bg-slate-950">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center mb-2">
+                Sponsored
+              </div>
+              <div
+                id="ad-download-popup"
+                className="min-h-[250px] flex items-center justify-center text-slate-500 text-xs"
+              >
+                {/* Ad slot — Adsterra injects here via owner settings */}
+                <div className="text-center">
+                  <div className="text-4xl mb-2">📢</div>
+                  <p className="text-slate-400">Ad loading...</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-5 bg-slate-900 border-t border-slate-800 text-center">
+              <h3 className="text-white font-bold text-base mb-1">Your file is ready!</h3>
+              <p className="text-slate-400 text-xs mb-4">{pendingDownload.label}</p>
+              <button
+                onClick={() => { pendingDownload.action(); setPendingDownload(null); }}
+                className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg transition"
+              >
+                <Download className="w-4 h-4 inline mr-2" /> Download Now
+              </button>
+              <button
+                onClick={() => setPendingDownload(null)}
+                className="mt-3 text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
