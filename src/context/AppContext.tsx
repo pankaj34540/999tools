@@ -107,13 +107,11 @@ interface AppContextType {
   removeLedgerEntry: (id: string) => Promise<boolean>;
   getKhatabookStats: () => KhatabookStats;
   getCustomerSummaries: () => CustomerLedgerSummary[];
-  // Customer CRM
   customers: Customer[];
   customersLoading: boolean;
   addCustomer: (data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'totalOrders' | 'totalSpent' | 'firstVisitDate'>) => Promise<Customer | null>;
   updateCustomerById: (id: string, updates: Partial<Customer>) => Promise<boolean>;
   deleteCustomerById: (id: string) => Promise<boolean>;
-  // 🆕 Recharge Orders (Phase 2)
   rechargeOrders: RechargeOrder[];
   rechargeOrdersLoading: boolean;
   addRechargeOrder: (data: Omit<RechargeOrder, 'id' | 'tokenNumber' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<RechargeOrder | null>;
@@ -144,9 +142,19 @@ const STORAGE_VERSION = '3.0.0';
 const STORAGE_VERSION_KEY = '999tools_storage_version';
 const FORCE_RESET_FLAG = '999tools_force_firebase_reset';
 
+// ✅ FIXED: Fresh browser pe reset NAHI karo — sirf version set karo
 const clearOldStorageIfNeeded = (): boolean => {
   try {
     const currentVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+    
+    // ✅ Fresh browser (first visit) — just set version, DON'T reset Firebase
+    if (currentVersion === null) {
+      localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
+      console.log(`✅ Fresh browser — version set to ${STORAGE_VERSION} (no reset)`);
+      return false;
+    }
+    
+    // Only reset if version was set AND is different (actual upgrade)
     if (currentVersion !== STORAGE_VERSION) {
       console.log(`🧹 Version mismatch: was ${currentVersion}, now ${STORAGE_VERSION}`);
       const keysToRemove: string[] = [];
@@ -287,11 +295,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
-  // Customer CRM state
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customersLoading, setCustomersLoading] = useState(false);
 
-  // 🆕 Recharge Orders state
   const [rechargeOrders, setRechargeOrders] = useState<RechargeOrder[]>([]);
   const [rechargeOrdersLoading, setRechargeOrdersLoading] = useState(false);
 
@@ -1046,7 +1052,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => { unsubPromise.then(unsub => unsub && unsub()); };
   }, [activeVle]);
 
-  // CUSTOMERS SUBSCRIPTION
   useEffect(() => {
     if (!activeVle?.vleId) {
       setCustomers([]);
@@ -1077,11 +1082,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return await deleteCustomer(id);
   };
 
-  // 🆕 RECHARGE ORDERS SUBSCRIPTION
-  // - Owner: subscribe to ALL orders
-  // - VLE: subscribe to their own orders
   useEffect(() => {
-    // Owner case
     if (ownerAuthenticated) {
       setRechargeOrdersLoading(true);
       const unsub = subscribeToAllRechargeOrders((list) => {
@@ -1090,7 +1091,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       return () => unsub();
     }
-    // VLE case
     if (activeVle?.vleId) {
       setRechargeOrdersLoading(true);
       const unsub = subscribeToVleRechargeOrders(activeVle.vleId, (list) => {
@@ -1099,7 +1099,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       return () => unsub();
     }
-    // No context
     setRechargeOrders([]);
   }, [ownerAuthenticated, activeVle?.vleId]);
 
@@ -1144,7 +1143,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getKhatabookStats, getCustomerSummaries,
         customers, customersLoading,
         addCustomer, updateCustomerById, deleteCustomerById,
-        // 🆕 Recharge
         rechargeOrders, rechargeOrdersLoading,
         addRechargeOrder, updateRechargeOrderById, completeRechargeOrderById, deleteRechargeOrderById,
       }}
