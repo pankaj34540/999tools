@@ -1,7 +1,7 @@
 import { ToolDefinition, ToolCategory, ToolRequestItem } from '../types';
 
 export const TOOL_CATEGORIES: { id: ToolCategory; label: string; count: number; description: string; icon: string }[] = [
-  { id: 'photo_exam', label: '📸 Photo & Image', count: 10, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
+  { id: 'photo_exam', label: '📸 Photo & Image', count: 11, description: 'Passport photo, resize, compress, convert', icon: 'Camera' },
   { id: 'pvc_print', label: '🆔 ID Card & Print', count: 0, description: 'Aadhaar, PAN, Voter ID formatters', icon: 'CreditCard' },
   { id: 'pdf_doc', label: '📄 PDF & Document', count: 6, description: 'Merge, split, compress PDF', icon: 'FileText' },
   { id: 'calculators', label: '🎓 Student & Exam', count: 2, description: 'Age calculator, bio-data, resume', icon: 'GraduationCap' },
@@ -287,6 +287,22 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'SignatureCropper',
     active: true,
   },
+    {
+    num: 19,
+    id: 'passport_photo_maker',
+    name: 'Passport Photo Maker',
+    shortName: 'Passport Photo',
+    category: 'photo_exam',
+    description: 'Professional passport photo maker with crop guides, 20+ presets (India/UK/US visa, UPSC/SSC/IBPS), background options, and A4 sheet generator (up to 30 photos).',
+    badge: 'POPULAR',
+    tags: ['passport', 'photo', 'a4 sheet', '35x45', 'visa', 'exam form', 'print'],
+    popular: true,
+    vleEssential: true,
+    isPremium: false,
+    iconName: 'UserSquare2',
+    componentKey: 'PassportPhotoMaker',
+    active: true,
+  },
 ];
 
 export const PREMIUM_TOOL_IDS: string[] = [
@@ -313,6 +329,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'pdf_rotate',
   'age_calculator',
   'signature_cropper',
+  'passport_photo_maker',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
