@@ -49,6 +49,7 @@ import PdfCompress from './pdf/PdfCompress';
 import PdfToImage from './pdf/PdfToImage';
 import PdfRotate from './pdf/PdfRotate';
 import AgeCalculator from './utility/AgeCalculator';
+import SignatureCropper from './utility/SignatureCropper';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -326,6 +327,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       case 'PdfToImage': return <PdfToImage onClose={handleCloseTool} />;
       case 'PdfRotate': return <PdfRotate onClose={handleCloseTool} />;
       case 'AgeCalculator': return <AgeCalculator onClose={handleCloseTool} />;
+      case 'SignatureCropper': return <SignatureCropper onClose={handleCloseTool} />;
 
       default:
         return (
