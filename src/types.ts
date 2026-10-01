@@ -323,6 +323,24 @@ export interface SiteConfig {
   freeUserDailyLimit: number;
 }
 
+// ============================================
+// CUSTOM PROMOTIONS (Download Popup)
+// ============================================
+export interface Promotion {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
+  ctaText: string;
+  active: boolean;
+  displayMode: 'side-by-side' | 'replace' | 'fallback';
+  category: string;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ImportantLink {
   id: string;
   title: string;
