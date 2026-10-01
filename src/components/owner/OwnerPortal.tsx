@@ -37,6 +37,7 @@ import {
   BarChart3,
   UserCog,
   Package,
+  Sparkles,
 } from 'lucide-react';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
@@ -51,6 +52,7 @@ import { OwnerAnalytics } from './OwnerAnalytics';
 import { StaffManager } from './StaffManager';
 import ServiceSettingsManager from './ServiceSettingsManager';
 import ServiceOrdersManager from './ServiceOrdersManager';
+import PromotionsManager from './PromotionsManager';
 
 export const OwnerPortal: React.FC = () => {
   const { 
@@ -100,6 +102,7 @@ export const OwnerPortal: React.FC = () => {
     | 'orders' 
     | 'settings' 
     | 'monetization'
+    | 'promotions'
   >('overview');
 
   // Service modal
@@ -261,6 +264,7 @@ export const OwnerPortal: React.FC = () => {
             { id: 'staff', label: `👥 Staff Management`, icon: UserCog },
             { id: 'orders', label: `Customer Orders (${orders.length})`, icon: FileText, badge: pendingOrders },
             { id: 'monetization', label: 'Adsterra Ads', icon: Megaphone },
+            { id: 'promotions', label: '🎯 Promotions', icon: Sparkles, badge: 0 },
             { id: 'settings', label: 'Security & Settings', icon: Settings },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -981,6 +985,11 @@ export const OwnerPortal: React.FC = () => {
       {/* TAB: ADSTERRA MONETIZATION */}
       {activeTab === 'monetization' && (
         <AdsterraManager />
+      )}
+
+      {/* 🆕 TAB: PROMOTIONS */}
+      {activeTab === 'promotions' && (
+        <PromotionsManager />
       )}
 
       {/* MODAL: Add New Service */}
