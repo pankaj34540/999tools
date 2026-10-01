@@ -255,7 +255,7 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'PdfRotate',
     active: true,
   },
-    {
+  {
     num: 17,
     id: 'age_calculator',
     name: 'Age Calculator',
@@ -271,7 +271,7 @@ export const TOOLS_REGISTRY: ToolDefinition[] = [
     componentKey: 'AgeCalculator',
     active: true,
   },
-    {
+  {
     num: 18,
     id: 'signature_cropper',
     name: 'Signature Cropper',
@@ -293,8 +293,8 @@ export const PREMIUM_TOOL_IDS: string[] = [
   'image_compressor',
   'photo_sharpener',
   'pdf_compress',
-                          // ← YE ADD KARO
 ];
+
 export const VLE_ESSENTIAL_IDS: string[] = [
   'image_format_converter',
   'image_resizer',
@@ -311,6 +311,8 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'pdf_compress',
   'pdf_to_image',
   'pdf_rotate',
+  'age_calculator',
+  'signature_cropper',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
