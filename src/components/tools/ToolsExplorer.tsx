@@ -325,6 +325,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       case 'PdfCompress': return <PdfCompress onClose={handleCloseTool} />;
       case 'PdfToImage': return <PdfToImage onClose={handleCloseTool} />;
       case 'PdfRotate': return <PdfRotate onClose={handleCloseTool} />;
+      case 'AgeCalculator': return <AgeCalculator onClose={handleCloseTool} />;
 
       default:
         return (
