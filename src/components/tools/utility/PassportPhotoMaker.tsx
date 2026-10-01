@@ -5,7 +5,7 @@ import {
   RotateCw, RotateCcw, ZoomIn, ZoomOut, RefreshCw,
   Eye, EyeOff, ChevronDown, FileText, Grid3X3, Palette,
   Undo2, Redo2, Maximize2, Smartphone, Layers, Printer,
-  Copy, Share2, Settings, Sparkles, Check, Square,
+  Copy, Share2, Sparkles, Square, UserPlus, User, Users,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 
@@ -25,7 +25,6 @@ const PRESETS: PassportPreset[] = [
   { id: 'uk_passport', label: 'UK Passport', w: 35, h: 45, category: 'passport', bg: '#f0f0f0' },
   { id: 'schengen', label: 'EU / Schengen', w: 35, h: 45, category: 'visa', bg: '#f0f0f0' },
   { id: 'australia', label: 'Australia Passport', w: 35, h: 45, category: 'passport', bg: '#ffffff' },
-  { id: 'newzealand', label: 'New Zealand Passport', w: 35, h: 45, category: 'passport', bg: '#ffffff' },
   { id: 'canada', label: 'Canada Passport', w: 50, h: 70, category: 'passport', bg: '#ffffff' },
   { id: 'uae_visa', label: 'UAE / Dubai Visa', w: 43, h: 55, category: 'visa', bg: '#ffffff' },
   { id: 'saudi_visa', label: 'Saudi Arabia Visa', w: 51, h: 51, category: 'visa', bg: '#ffffff' },
@@ -53,6 +52,20 @@ const BG_COLORS = [
   { id: 'black', label: 'Black', color: '#1a1a1a' },
 ];
 
+// ═══════════════════════════════════════════
+// Customer (for Multi Mode)
+// ═══════════════════════════════════════════
+interface Customer {
+  id: string;
+  name: string;
+  image: HTMLImageElement | null;
+  zoom: number;
+  rotation: number;
+  offsetX: number;
+  offsetY: number;
+  background: string | null;
+}
+
 interface PassportPhotoMakerProps {
   onClose: () => void;
 }
@@ -60,13 +73,23 @@ interface PassportPhotoMakerProps {
 const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
   const { currentUser, isUserPremium, activeVle, ownerAuthenticated } = useApp();
 
+  // Mode
+  const [mode, setMode] = useState<'single' | 'multi'>('single');
+
+  // Single Mode State
   const [originalImage, setOriginalImage] = useState<HTMLImageElement | null>(null);
-  const [presetId, setPresetId] = useState('india_passport');
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
   const [background, setBackground] = useState<string | null>('#ffffff');
+
+  // Multi Mode State
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [activeCustomerId, setActiveCustomerId] = useState<string | null>(null);
+
+  // Common State
+  const [presetId, setPresetId] = useState('india_passport');
   const [showGuides, setShowGuides] = useState(true);
   const [showPresets, setShowPresets] = useState(false);
   const [activeTab, setActiveTab] = useState<'crop' | 'background' | 'layout'>('crop');
@@ -77,11 +100,12 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const customerFileInputRef = useRef<HTMLInputElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const pendingCustomerIdxRef = useRef<number | null>(null);
 
   const [pendingDownload, setPendingDownload] = useState<{ label: string; action: () => void } | null>(null);
 
-  // ✅ FIX 1: Ad gate — proper check
   const shouldShowAds = () => {
     if (ownerAuthenticated) return false;
     if (currentUser && (currentUser.plan === 'premium' || currentUser.plan === 'vle')) {
@@ -90,14 +114,10 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
     if (activeVle) return false;
     return true;
   };
-
   const isPaidUser = !shouldShowAds();
 
   const requestDownload = (label: string, action: () => void) => {
-    if (isPaidUser) {
-      action();
-      return;
-    }
+    if (isPaidUser) { action(); return; }
     setPendingDownload({ label, action });
   };
 
@@ -105,6 +125,12 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
   const canvasW = Math.round(currentPreset.w * MM_TO_PX);
   const canvasH = Math.round(currentPreset.h * MM_TO_PX);
 
+  // Active customer (multi mode)
+  const activeCustomer = customers.find((c) => c.id === activeCustomerId) || null;
+
+  // ═══════════════════════════════════════════
+  // UPLOAD HANDLERS
+  // ═══════════════════════════════════════════
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setError(null);
@@ -130,8 +156,96 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
     } catch { setError('Failed to load image'); }
   };
 
-  const renderCanvas = useCallback((): HTMLCanvasElement | null => {
-    if (!originalImage) return null;
+  // ═══════════════════════════════════════════
+  // MULTI-CUSTOMER HANDLERS
+  // ═══════════════════════════════════════════
+  const addCustomer = () => {
+    if (customers.length >= 6) {
+      setError('Max 6 customers per A4 sheet. Download & start new sheet.');
+      return;
+    }
+    const newCustomer: Customer = {
+      id: `cust_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: `Customer ${customers.length + 1}`,
+      image: null,
+      zoom: 1,
+      rotation: 0,
+      offsetX: 0,
+      offsetY: 0,
+      background: currentPreset.bg,
+    };
+    setCustomers([...customers, newCustomer]);
+    setActiveCustomerId(newCustomer.id);
+    // Trigger file upload for this customer
+    pendingCustomerIdxRef.current = customers.length;
+    setTimeout(() => customerFileInputRef.current?.click(), 100);
+  };
+
+  const handleCustomerFile = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    if (pendingCustomerIdxRef.current === null) return;
+    const idx = pendingCustomerIdxRef.current;
+    setError(null);
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload a valid image');
+      return;
+    }
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        setCustomers((prev) => {
+          const updated = [...prev];
+          if (updated[idx]) {
+            updated[idx] = {
+              ...updated[idx],
+              image: img,
+              zoom: 1,
+              rotation: 0,
+              offsetX: 0,
+              offsetY: 0,
+              background: currentPreset.bg,
+            };
+          }
+          return updated;
+        });
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = () => { setError('Failed to load image'); URL.revokeObjectURL(url); };
+      img.src = url;
+      pendingCustomerIdxRef.current = null;
+    } catch { setError('Failed to load image'); }
+  };
+
+  const updateCustomer = (id: string, updates: Partial<Customer>) => {
+    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+  };
+
+  const removeCustomer = (id: string) => {
+    setCustomers((prev) => prev.filter((c) => c.id !== id));
+    if (activeCustomerId === id) {
+      setActiveCustomerId(null);
+    }
+  };
+
+  const changeCustomerPhoto = (idx: number) => {
+    pendingCustomerIdxRef.current = idx;
+    customerFileInputRef.current?.click();
+  };
+
+  // ═══════════════════════════════════════════
+  // RENDER CANVAS (SINGLE)
+  // ═══════════════════════════════════════════
+  const renderCanvas = useCallback((
+    image: HTMLImageElement | null,
+    z: number,
+    r: number,
+    ox: number,
+    oy: number,
+    bg: string | null
+  ): HTMLCanvasElement | null => {
+    if (!image) return null;
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasW;
@@ -139,15 +253,15 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    if (background) {
-      ctx.fillStyle = background;
+    if (bg) {
+      ctx.fillStyle = bg;
       ctx.fillRect(0, 0, canvasW, canvasH);
     }
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    const srcW = originalImage.naturalWidth;
-    const srcH = originalImage.naturalHeight;
+    const srcW = image.naturalWidth;
+    const srcH = image.naturalHeight;
     const srcRatio = srcW / srcH;
     const destRatio = canvasW / canvasH;
 
@@ -155,30 +269,61 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
     let cropH: number;
 
     if (srcRatio > destRatio) {
-      cropH = srcH / zoom;
+      cropH = srcH / z;
       cropW = cropH * destRatio;
     } else {
-      cropW = srcW / zoom;
+      cropW = srcW / z;
       cropH = cropW / destRatio;
     }
 
     const availW = srcW - cropW;
     const availH = srcH - cropH;
-    const cropX = Math.max(0, Math.min(availW, availW / 2 + (offsetX * availW) / 2));
-    const cropY = Math.max(0, Math.min(availH, availH / 2 + (offsetY * availH) / 2));
+    const cropX = Math.max(0, Math.min(availW, availW / 2 + (ox * availW) / 2));
+    const cropY = Math.max(0, Math.min(availH, availH / 2 + (oy * availH) / 2));
 
     ctx.save();
     ctx.translate(canvasW / 2, canvasH / 2);
-    ctx.rotate((rotation * Math.PI) / 180);
+    ctx.rotate((r * Math.PI) / 180);
     ctx.translate(-canvasW / 2, -canvasH / 2);
-    ctx.drawImage(originalImage, cropX, cropY, cropW, cropH, 0, 0, canvasW, canvasH);
+    ctx.drawImage(image, cropX, cropY, cropW, cropH, 0, 0, canvasW, canvasH);
     ctx.restore();
 
     return canvas;
-  }, [originalImage, canvasW, canvasH, zoom, rotation, offsetX, offsetY, background]);
+  }, [canvasW, canvasH]);
 
+  // Active image data (single vs multi)
+  const activeImage = mode === 'single' ? originalImage : activeCustomer?.image || null;
+  const activeZoom = mode === 'single' ? zoom : activeCustomer?.zoom || 1;
+  const activeRotation = mode === 'single' ? rotation : activeCustomer?.rotation || 0;
+  const activeOffsetX = mode === 'single' ? offsetX : activeCustomer?.offsetX || 0;
+  const activeOffsetY = mode === 'single' ? offsetY : activeCustomer?.offsetY || 0;
+  const activeBackground = mode === 'single' ? background : activeCustomer?.background ?? currentPreset.bg;
+
+  // Setters that work in both modes
+  const setActiveZoom = (v: number) => {
+    if (mode === 'single') setZoom(v);
+    else if (activeCustomer) updateCustomer(activeCustomer.id, { zoom: v });
+  };
+  const setActiveRotation = (v: number) => {
+    if (mode === 'single') setRotation(v);
+    else if (activeCustomer) updateCustomer(activeCustomer.id, { rotation: v });
+  };
+  const setActiveOffsetX = (v: number) => {
+    if (mode === 'single') setOffsetX(v);
+    else if (activeCustomer) updateCustomer(activeCustomer.id, { offsetX: v });
+  };
+  const setActiveOffsetY = (v: number) => {
+    if (mode === 'single') setOffsetY(v);
+    else if (activeCustomer) updateCustomer(activeCustomer.id, { offsetY: v });
+  };
+  const setActiveBackground = (v: string | null) => {
+    if (mode === 'single') setBackground(v);
+    else if (activeCustomer) updateCustomer(activeCustomer.id, { background: v });
+  };
+
+  // Live preview
   useEffect(() => {
-    const canvas = renderCanvas();
+    const canvas = renderCanvas(activeImage, activeZoom, activeRotation, activeOffsetX, activeOffsetY, activeBackground);
     if (!canvas || !previewCanvasRef.current) return;
     const preview = previewCanvasRef.current;
     preview.width = canvas.width;
@@ -188,11 +333,13 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
       pCtx.clearRect(0, 0, preview.width, preview.height);
       pCtx.drawImage(canvas, 0, 0);
     }
-  }, [renderCanvas]);
+  }, [activeImage, activeZoom, activeRotation, activeOffsetX, activeOffsetY, activeBackground, renderCanvas]);
 
-  // ✅ FIX 2: Download single — proper ad gate
+  // ═══════════════════════════════════════════
+  // DOWNLOADS
+  // ═══════════════════════════════════════════
   const actualDownloadSingle = () => {
-    const canvas = renderCanvas();
+    const canvas = renderCanvas(activeImage, activeZoom, activeRotation, activeOffsetX, activeOffsetY, activeBackground);
     if (!canvas) return;
     canvas.toBlob((blob) => {
       if (!blob) return;
@@ -205,101 +352,104 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
   };
 
   const downloadSingle = () => {
-    if (!originalImage) return;
+    if (!activeImage) return;
     requestDownload(`${currentPreset.label} — Single Photo`, actualDownloadSingle);
   };
 
-  // ✅ FIX 3: A4 sheet — TOP-LEFT start with proper margin
-  const actualGenerateSheet = async () => {
-    const canvas = renderCanvas();
-    if (!canvas) return;
-    setIsGenerating(true);
-    setError(null);
-    try {
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  // ═══════════════════════════════════════════
+  // A4 SHEET — Single & Multi Mode
+  // ═══════════════════════════════════════════
+  const buildSheetPDF = (): jsPDF | null => {
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const photoW = currentPreset.w;
+    const photoH = currentPreset.h;
+    const cols = photosPerRow;
+    const MARGIN_TOP = 10;
+    const MARGIN_LEFT = 10;
 
-      const photoW = currentPreset.w;
-      const photoH = currentPreset.h;
-      const cols = photosPerRow;
-      const rows = Math.ceil(layoutPhotos / cols);
-
-      // ✅ FIX: Top-left start with 10mm margin (not center)
-      const MARGIN_TOP = 10;
-      const MARGIN_LEFT = 10;
-      const startX = MARGIN_LEFT;
-      const startY = MARGIN_TOP;
-
+    if (mode === 'single') {
+      // Single mode: same photo repeated
+      const canvas = renderCanvas(originalImage, zoom, rotation, offsetX, offsetY, background);
+      if (!canvas) return null;
       const base64 = canvas.toDataURL('image/jpeg', 0.95);
-
+      const rows = Math.ceil(layoutPhotos / cols);
       let count = 0;
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           if (count >= layoutPhotos) break;
-          const x = startX + col * photoW;
-          const y = startY + row * photoH;
-          pdf.addImage(base64, 'JPEG', x, y, photoW, photoH, undefined, 'FAST');
+          pdf.addImage(base64, 'JPEG', MARGIN_LEFT + col * photoW, MARGIN_TOP + row * photoH, photoW, photoH, undefined, 'FAST');
           count++;
         }
         if (count >= layoutPhotos) break;
       }
+    } else {
+      // Multi mode: each customer gets 1 row
+      customers.forEach((customer, idx) => {
+        if (!customer.image) return;
+        const canvas = renderCanvas(
+          customer.image,
+          customer.zoom,
+          customer.rotation,
+          customer.offsetX,
+          customer.offsetY,
+          customer.background
+        );
+        if (!canvas) return;
+        const base64 = canvas.toDataURL('image/jpeg', 0.95);
+        const y = MARGIN_TOP + idx * photoH;
+        for (let col = 0; col < cols; col++) {
+          pdf.addImage(base64, 'JPEG', MARGIN_LEFT + col * photoW, y, photoW, photoH, undefined, 'FAST');
+        }
+      });
+    }
 
-      // ✅ Open PDF in new tab for print option also
+    return pdf;
+  };
+
+  const actualGenerateSheet = async () => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const pdf = buildSheetPDF();
+      if (!pdf) {
+        setError('Please add at least one photo');
+        return;
+      }
       pdf.save(`passport_sheet_${currentPreset.id}_${Date.now()}.pdf`);
     } catch { setError('Failed to generate sheet'); }
     finally { setIsGenerating(false); }
   };
 
   const generateSheet = () => {
-    if (!originalImage) return;
-    requestDownload(`A4 Sheet (${layoutPhotos} photos)`, actualGenerateSheet);
+    if (mode === 'single' && !originalImage) return;
+    if (mode === 'multi' && customers.filter((c) => c.image).length === 0) {
+      setError('Please add at least one customer photo');
+      return;
+    }
+    requestDownload('A4 Sheet', actualGenerateSheet);
   };
 
-  // ✅ FIX 4: Print — generates A4 PDF and opens print dialog
   const handlePrint = () => {
-    if (!originalImage) return;
-    const printAction = () => {
-      const canvas = renderCanvas();
-      if (!canvas) return;
-
-      const photoW = currentPreset.w;
-      const photoH = currentPreset.h;
-      const cols = photosPerRow;
-      const rows = Math.ceil(layoutPhotos / cols);
-      const MARGIN_TOP = 10;
-      const MARGIN_LEFT = 10;
-      const startX = MARGIN_LEFT;
-      const startY = MARGIN_TOP;
-      const base64 = canvas.toDataURL('image/jpeg', 0.95);
-
-      // Build PDF blob and open in new tab
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      let count = 0;
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          if (count >= layoutPhotos) break;
-          const x = startX + col * photoW;
-          const y = startY + row * photoH;
-          pdf.addImage(base64, 'JPEG', x, y, photoW, photoH, undefined, 'FAST');
-          count++;
-        }
-        if (count >= layoutPhotos) break;
-      }
-
-      // Open PDF in new tab — user can print from browser PDF viewer
+    requestDownload('Print A4 Sheet', () => {
+      const pdf = buildSheetPDF();
+      if (!pdf) return;
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');
-    };
-
-    requestDownload(`Print A4 Sheet (${layoutPhotos} photos)`, printAction);
+    });
   };
 
   const resetAll = () => {
     setOriginalImage(null);
     setZoom(1); setRotation(0); setOffsetX(0); setOffsetY(0);
+    setCustomers([]);
+    setActiveCustomerId(null);
     setError(null);
   };
 
+  // ═══════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════
   return (
     <>
       <div className="fixed inset-0 z-50 bg-slate-950 overflow-y-auto">
@@ -320,77 +470,83 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                 </h2>
               </div>
 
+              {/* MODE TOGGLE */}
+              <div className="flex bg-slate-800 rounded-lg p-1 gap-1">
+                <button
+                  onClick={() => setMode('single')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition ${
+                    mode === 'single'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5" /> Single
+                </button>
+                <button
+                  onClick={() => setMode('multi')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition ${
+                    mode === 'multi'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" /> Multi-Customer
+                </button>
+              </div>
+
               <div className="flex items-center gap-2 flex-wrap">
-                <button className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
-                  <Smartphone className="w-3.5 h-3.5" /> Mobile Version
-                </button>
-                <button className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
-                  <Layers className="w-3.5 h-3.5" /> Multiple Photos
-                </button>
                 <button
                   onClick={onClose}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
                 >
-                  <X className="w-3.5 h-3.5" /> Exit Full Screen
+                  <X className="w-3.5 h-3.5" /> Exit
                 </button>
               </div>
             </div>
           </div>
 
           {/* ═══ TOOLBAR ═══ */}
-          {originalImage && (
+          {(mode === 'single' && originalImage) || (mode === 'multi' && customers.length > 0) ? (
             <div className="sticky top-[60px] z-30 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800">
               <div className="max-w-[1600px] mx-auto px-4 py-2 flex items-center gap-1.5 flex-wrap">
-                <button className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition" title="Undo">
-                  <Undo2 className="w-4 h-4" />
-                </button>
-                <button className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition" title="Redo">
-                  <Redo2 className="w-4 h-4" />
-                </button>
                 <button
                   onClick={resetAll}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> Reset all
+                  <RefreshCw className="w-3.5 h-3.5" /> Reset
                 </button>
 
                 <div className="w-px h-6 bg-slate-700 mx-1" />
 
                 <button
-                  onClick={() => setZoom((z) => Math.max(0.5, z - 0.05))}
+                  onClick={() => setActiveZoom(Math.max(0.5, activeZoom - 0.05))}
                   className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
                 >
                   <ZoomOut className="w-4 h-4" />
                 </button>
                 <span className="text-xs font-mono font-bold text-slate-200 px-2 min-w-[46px] text-center">
-                  {Math.round(zoom * 100)}%
+                  {Math.round(activeZoom * 100)}%
                 </span>
                 <button
-                  onClick={() => setZoom((z) => Math.min(3, z + 0.05))}
+                  onClick={() => setActiveZoom(Math.min(3, activeZoom + 0.05))}
                   className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
                 >
                   <ZoomIn className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => { setZoom(1); setOffsetX(0); setOffsetY(0); }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
-                >
-                  Fit
                 </button>
 
                 <div className="w-px h-6 bg-slate-700 mx-1" />
 
                 <button
-                  onClick={() => setRotation((r) => r - 90)}
+                  onClick={() => setActiveRotation(activeRotation - 90)}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Rotate left</span>
+                  <RotateCcw className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => setRotation((r) => r + 90)}
+                  onClick={() => setActiveRotation(activeRotation + 90)}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
                 >
-                  <RotateCw className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Rotate right</span>
+                  <RotateCw className="w-3.5 h-3.5" />
                 </button>
 
                 <div className="w-px h-6 bg-slate-700 mx-1" />
@@ -403,14 +559,6 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                 >
                   {showGuides ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   <span className="hidden sm:inline">{showGuides ? 'Hide guides' : 'Show guides'}</span>
-                </button>
-                <button
-                  onClick={() => setCompareMode(!compareMode)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition ${
-                    compareMode ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  <Copy className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Compare</span>
                 </button>
 
                 <div className="ml-auto relative">
@@ -433,7 +581,8 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                               key={p.id}
                               onClick={() => {
                                 setPresetId(p.id);
-                                setBackground(p.bg);
+                                if (mode === 'single') setBackground(p.bg);
+                                else if (activeCustomer) updateCustomer(activeCustomer.id, { background: p.bg });
                                 setShowPresets(false);
                               }}
                               className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-800 transition ${
@@ -450,12 +599,13 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* ═══ MAIN BODY ═══ */}
           <div className="flex-1 max-w-[1600px] mx-auto w-full px-4 py-4">
 
-            {!originalImage ? (
+            {/* SINGLE MODE + NO IMAGE */}
+            {mode === 'single' && !originalImage && (
               <div className="max-w-2xl mx-auto mt-16">
                 <div
                   onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
@@ -467,23 +617,14 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                   </div>
                   <p className="text-2xl font-bold text-white mb-2">Upload your photo</p>
                   <p className="text-xs text-slate-400 mb-6">
-                    JPG, PNG, WEBP or iPhone HEIC up to 10 MB.<br />
-                    You can also paste an image anywhere on this page.
+                    JPG, PNG, WEBP up to 10 MB
                   </p>
-                  <div className="flex items-center justify-center gap-3 flex-wrap">
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-bold rounded-xl shadow-lg transition"
-                    >
-                      <Upload className="w-4 h-4" /> Choose Photo
-                    </button>
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-2 px-6 py-3 bg-white hover:bg-slate-100 text-slate-900 text-sm font-bold rounded-xl shadow-lg transition border border-slate-300"
-                    >
-                      <Camera className="w-4 h-4" /> Take Photo
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-bold rounded-xl shadow-lg transition mx-auto"
+                  >
+                    <Upload className="w-4 h-4" /> Choose Photo
+                  </button>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -492,83 +633,139 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                     className="hidden"
                   />
                 </div>
-                {error && (
-                  <div className="mt-4 bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 text-sm">
-                    ⚠️ {error}
-                  </div>
-                )}
               </div>
-            ) : (
+            )}
+
+            {/* MULTI MODE — no customers yet */}
+            {mode === 'multi' && customers.length === 0 && (
+              <div className="max-w-2xl mx-auto mt-16">
+                <div className="border-2 border-dashed border-slate-700 rounded-2xl p-16 text-center bg-slate-900/50">
+                  <div className="w-20 h-20 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center mb-5">
+                    <Users className="w-9 h-9 text-amber-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-white mb-2">Multi-Customer Sheet</p>
+                  <p className="text-xs text-slate-400 mb-6 max-w-md mx-auto">
+                    Har customer ka photo ek row pe (5 copies). Max 6 customers per A4 sheet.
+                    Perfect for cyber cafe / CSC operators.
+                  </p>
+                  <button
+                    onClick={addCustomer}
+                    className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-bold rounded-xl shadow-lg transition mx-auto"
+                  >
+                    <UserPlus className="w-4 h-4" /> Add First Customer
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* EDITOR (single mode + image, or multi mode + customers) */}
+            {((mode === 'single' && originalImage) || (mode === 'multi' && customers.length > 0)) && (
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
 
                 {/* LEFT: CANVAS */}
                 <div className="bg-slate-900/50 rounded-2xl border border-slate-800 p-6 min-h-[600px] flex items-center justify-center relative">
-                  <div className="absolute top-4 left-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    Position & Crop
-                  </div>
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2">
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-[11px] text-amber-400 hover:text-amber-300 font-bold"
-                    >
-                      ✏️ Change Photo
-                    </button>
-                  </div>
-                  <div className="absolute top-4 right-4 text-[10px] font-mono text-slate-500">
-                    {canvasW} × {canvasH}px
-                  </div>
 
-                  <div className="relative flex items-center justify-center">
-                    <div className="relative">
-                      {compareMode && originalImage && (
-                        <div className="absolute left-0 top-0 opacity-40 -z-10" style={{ transform: 'translateX(-50%)' }}>
-                          <img
-                            src={originalImage.src}
-                            alt="before"
-                            className="max-w-[300px] max-h-[500px] object-contain rounded"
-                          />
-                        </div>
-                      )}
-
-                      <canvas
-                        ref={previewCanvasRef}
-                        className="rounded-lg shadow-2xl border-4 border-slate-950 bg-white"
-                        style={{
-                          width: `${Math.min(400, canvasW)}px`,
-                          height: 'auto',
-                          display: 'block',
-                        }}
-                      />
-
-                      {showGuides && (
-                        <div
-                          className="absolute inset-0 pointer-events-none rounded-lg"
-                          style={{ width: `${Math.min(400, canvasW)}px`, height: `${(Math.min(400, canvasW) * canvasH) / canvasW}px` }}
+                  {/* MULTI MODE — Customer List (top of canvas) */}
+                  {mode === 'multi' && (
+                    <div className="absolute top-4 left-4 right-4 flex items-center gap-2 flex-wrap bg-slate-950/80 backdrop-blur-sm border border-slate-800 rounded-lg p-2 z-10">
+                      {customers.map((c, idx) => (
+                        <button
+                          key={c.id}
+                          onClick={() => setActiveCustomerId(c.id)}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                            activeCustomerId === c.id
+                              ? 'bg-amber-500 text-slate-950'
+                              : c.image
+                              ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                              : 'bg-rose-900/40 text-rose-300 border border-rose-700'
+                          }`}
+                          title={c.name}
                         >
-                          <div className="absolute left-0 right-0 border-t-2 border-dashed border-emerald-500" style={{ top: '15%' }}>
-                            <span className="absolute -top-3 left-2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
-                              Crown
-                            </span>
-                          </div>
-                          <div className="absolute left-0 right-0 border-t-2 border-dashed border-emerald-500" style={{ top: '40%' }}>
-                            <span className="absolute -top-3 left-2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
-                              Eye line
-                            </span>
-                          </div>
-                          <div className="absolute left-0 right-0 border-t-2 border-dashed border-emerald-500" style={{ top: '72%' }}>
-                            <span className="absolute -top-3 left-2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
-                              Chin
-                            </span>
-                          </div>
-                          <div className="absolute top-0 bottom-0 left-1/2 border-l border-dashed border-cyan-500/40" />
-                        </div>
+                          <span className="w-5 h-5 rounded-full bg-slate-900 text-white text-[10px] font-black flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <span className="truncate max-w-[80px]">{c.name}</span>
+                          {!c.image && <span className="text-[10px]">📷</span>}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeCustomer(c.id); }}
+                            className="ml-1 hover:text-rose-500"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </button>
+                      ))}
+                      {customers.length < 6 && (
+                        <button
+                          onClick={addCustomer}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" /> Add
+                        </button>
                       )}
+                      <span className="text-[10px] text-slate-500 ml-auto">
+                        {customers.length}/6 · 1 row each
+                      </span>
+                    </div>
+                  )}
 
-                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1 rounded-full shadow">
-                        {currentPreset.w} × {currentPreset.h} mm
+                  {/* Empty state if no active customer */}
+                  {mode === 'multi' && !activeCustomer && (
+                    <div className="text-center mt-16">
+                      <Users className="w-16 h-16 text-slate-600 mx-auto mb-3" />
+                      <p className="text-slate-400 text-sm">Click a customer above to edit</p>
+                    </div>
+                  )}
+
+                  {/* Canvas */}
+                  {activeImage && (
+                    <div className={`relative flex items-center justify-center ${mode === 'multi' ? 'mt-16' : ''}`}>
+                      <div className="relative">
+                        <div className="absolute top-4 left-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          Position & Crop
+                        </div>
+                        <div className="absolute top-4 right-4 text-[10px] font-mono text-slate-500">
+                          {canvasW} × {canvasH}px
+                        </div>
+
+                        <canvas
+                          ref={previewCanvasRef}
+                          className="rounded-lg shadow-2xl border-4 border-slate-950 bg-white"
+                          style={{ width: `${Math.min(400, canvasW)}px`, height: 'auto', display: 'block' }}
+                        />
+
+                        {showGuides && (
+                          <div
+                            className="absolute inset-0 pointer-events-none rounded-lg"
+                            style={{ width: `${Math.min(400, canvasW)}px`, height: `${(Math.min(400, canvasW) * canvasH) / canvasW}px` }}
+                          >
+                            <div className="absolute left-0 right-0 border-t-2 border-dashed border-emerald-500" style={{ top: '15%' }}>
+                              <span className="absolute -top-3 left-2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">Crown</span>
+                            </div>
+                            <div className="absolute left-0 right-0 border-t-2 border-dashed border-emerald-500" style={{ top: '40%' }}>
+                              <span className="absolute -top-3 left-2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">Eye line</span>
+                            </div>
+                            <div className="absolute left-0 right-0 border-t-2 border-dashed border-emerald-500" style={{ top: '72%' }}>
+                              <span className="absolute -top-3 left-2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">Chin</span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1 rounded-full shadow">
+                          {currentPreset.w} × {currentPreset.h} mm
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Change photo button for active customer */}
+                  {mode === 'multi' && activeCustomer && (
+                    <button
+                      onClick={() => changeCustomerPhoto(customers.findIndex((c) => c.id === activeCustomer.id))}
+                      className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow"
+                    >
+                      <Camera className="w-3.5 h-3.5" /> {activeCustomer.image ? 'Change Photo' : 'Upload Photo'}
+                    </button>
+                  )}
                 </div>
 
                 {/* RIGHT: SIDEBAR */}
@@ -585,9 +782,7 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                           key={t.id}
                           onClick={() => setActiveTab(t.id as any)}
                           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition ${
-                            activeTab === t.id
-                              ? 'bg-amber-500 text-slate-950'
-                              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                            activeTab === t.id ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white hover:bg-slate-800'
                           }`}
                         >
                           <Icon className="w-3.5 h-3.5" /> {t.label}
@@ -597,29 +792,20 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                   </div>
 
                   <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 space-y-4">
-                    {activeTab === 'crop' && (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">Preview</h4>
-                          <span className="text-[10px] font-mono text-slate-500">{canvasW} × {canvasH}px</span>
-                        </div>
 
+                    {activeTab === 'crop' && activeImage && (
+                      <>
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                               <ZoomIn className="w-3.5 h-3.5 text-amber-400" /> Zoom
                             </label>
-                            <span className="text-xs font-mono font-bold text-amber-400">
-                              {zoom.toFixed(2)}×
-                            </span>
+                            <span className="text-xs font-mono font-bold text-amber-400">{activeZoom.toFixed(2)}×</span>
                           </div>
                           <input
-                            type="range"
-                            min={0.5}
-                            max={3}
-                            step={0.05}
-                            value={zoom}
-                            onChange={(e) => setZoom(Number(e.target.value))}
+                            type="range" min={0.5} max={3} step={0.05}
+                            value={activeZoom}
+                            onChange={(e) => setActiveZoom(Number(e.target.value))}
                             className="w-full accent-amber-500"
                           />
                         </div>
@@ -629,17 +815,12 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                             <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                               <RotateCw className="w-3.5 h-3.5 text-amber-400" /> Straighten
                             </label>
-                            <span className="text-xs font-mono font-bold text-amber-400">
-                              {rotation}°
-                            </span>
+                            <span className="text-xs font-mono font-bold text-amber-400">{activeRotation}°</span>
                           </div>
                           <input
-                            type="range"
-                            min={-45}
-                            max={45}
-                            step={1}
-                            value={rotation}
-                            onChange={(e) => setRotation(Number(e.target.value))}
+                            type="range" min={-45} max={45} step={1}
+                            value={activeRotation}
+                            onChange={(e) => setActiveRotation(Number(e.target.value))}
                             className="w-full accent-amber-500"
                           />
                         </div>
@@ -647,30 +828,16 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                         <details className="group">
                           <summary className="cursor-pointer text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1">
                             <ChevronDown className="w-3.5 h-3.5 transition group-open:rotate-180" />
-                            Advanced (pan by percentage)
+                            Advanced (pan)
                           </summary>
                           <div className="mt-3 space-y-3 pl-4">
                             <div>
-                              <label className="text-[10px] text-slate-400 font-bold block mb-1">
-                                Horizontal: {offsetX.toFixed(2)}
-                              </label>
-                              <input
-                                type="range" min={-1} max={1} step={0.05}
-                                value={offsetX}
-                                onChange={(e) => setOffsetX(Number(e.target.value))}
-                                className="w-full accent-amber-500"
-                              />
+                              <label className="text-[10px] text-slate-400 font-bold block mb-1">Horizontal: {activeOffsetX.toFixed(2)}</label>
+                              <input type="range" min={-1} max={1} step={0.05} value={activeOffsetX} onChange={(e) => setActiveOffsetX(Number(e.target.value))} className="w-full accent-amber-500" />
                             </div>
                             <div>
-                              <label className="text-[10px] text-slate-400 font-bold block mb-1">
-                                Vertical: {offsetY.toFixed(2)}
-                              </label>
-                              <input
-                                type="range" min={-1} max={1} step={0.05}
-                                value={offsetY}
-                                onChange={(e) => setOffsetY(Number(e.target.value))}
-                                className="w-full accent-amber-500"
-                              />
+                              <label className="text-[10px] text-slate-400 font-bold block mb-1">Vertical: {activeOffsetY.toFixed(2)}</label>
+                              <input type="range" min={-1} max={1} step={0.05} value={activeOffsetY} onChange={(e) => setActiveOffsetY(Number(e.target.value))} className="w-full accent-amber-500" />
                             </div>
                           </div>
                         </details>
@@ -684,25 +851,13 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                           {BG_COLORS.map((bg) => (
                             <button
                               key={bg.id}
-                              onClick={() => setBackground(bg.color)}
+                              onClick={() => setActiveBackground(bg.color)}
                               className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border-2 transition ${
-                                background === bg.color
-                                  ? 'border-amber-500 bg-amber-500/10'
-                                  : 'border-slate-700 hover:border-slate-600'
+                                activeBackground === bg.color ? 'border-amber-500 bg-amber-500/10' : 'border-slate-700 hover:border-slate-600'
                               }`}
                             >
-                              <div
-                                className="w-10 h-10 rounded-lg border border-slate-600"
-                                style={{
-                                  backgroundColor: bg.color || 'transparent',
-                                  backgroundImage: bg.color ? undefined : 'linear-gradient(45deg, #333 25%, transparent 25%, transparent 75%, #333 75%), linear-gradient(45deg, #333 25%, #222 25%, #222 75%, #333 75%)',
-                                  backgroundSize: bg.color ? undefined : '10px 10px',
-                                  backgroundPosition: bg.color ? undefined : '0 0, 5px 5px',
-                                }}
-                              />
-                              <span className={`text-[9px] font-bold ${background === bg.color ? 'text-amber-300' : 'text-slate-400'}`}>
-                                {bg.label}
-                              </span>
+                              <div className="w-10 h-10 rounded-lg border border-slate-600" style={{ backgroundColor: bg.color || '#222', backgroundImage: bg.color ? undefined : 'linear-gradient(45deg, #333 25%, transparent 25%, transparent 75%, #333 75%)', backgroundSize: '10px 10px' }} />
+                              <span className={`text-[9px] font-bold ${activeBackground === bg.color ? 'text-amber-300' : 'text-slate-400'}`}>{bg.label}</span>
                             </button>
                           ))}
                         </div>
@@ -711,7 +866,7 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
 
                     {activeTab === 'layout' && (
                       <>
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Layout & Print</h4>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Layout</h4>
 
                         <div>
                           <label className="text-[10px] font-bold text-slate-400 block mb-1.5">Photo Size</label>
@@ -719,7 +874,7 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                             onClick={() => setShowPresets(!showPresets)}
                             className="w-full px-3 py-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-bold flex items-center justify-between transition"
                           >
-                            <span className="truncate">{currentPreset.label} ({currentPreset.w}×{currentPreset.h}mm)</span>
+                            <span className="truncate">{currentPreset.label}</span>
                             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                           </button>
                         </div>
@@ -731,54 +886,43 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                           </div>
                         </div>
 
-                        <div className="bg-cyan-900/20 border border-cyan-800/50 rounded-lg p-2.5 text-[10px] text-cyan-200">
-                          <strong>{canvasW}×{canvasH}px</strong> — {currentPreset.w}×{currentPreset.h}mm @ 300 DPI
-                        </div>
-
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 block mb-1.5">Photos Per Row</label>
+                          <label className="text-[10px] font-bold text-slate-400 block mb-1.5">Photos Per Row (Max 5)</label>
                           <div className="flex items-center gap-2">
                             {[3, 4, 5].map((n) => (
                               <button
                                 key={n}
                                 onClick={() => setPhotosPerRow(n)}
                                 className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition ${
-                                  photosPerRow === n
-                                    ? 'bg-amber-500 text-slate-950 border-amber-500'
-                                    : 'bg-slate-950 text-slate-300 border-slate-700 hover:border-slate-600'
+                                  photosPerRow === n ? 'bg-amber-500 text-slate-950 border-amber-500' : 'bg-slate-950 text-slate-300 border-slate-700 hover:border-slate-600'
                                 }`}
                               >
                                 {n}
                               </button>
                             ))}
                           </div>
+                          <p className="text-[9px] text-slate-500 mt-1.5">
+                            ⚠️ 5 max — 6 photos pe printer cut karega
+                          </p>
                         </div>
 
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 block mb-1.5">
-                            Total Photos (max 30)
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setLayoutPhotos((p) => Math.max(1, p - 1))}
-                              className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold transition"
-                            >
-                              −
-                            </button>
-                            <div className="flex-1 py-2 text-center bg-slate-950 border border-slate-700 rounded-lg text-white text-sm font-bold">
-                              {layoutPhotos}
+                        {mode === 'single' && (
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 block mb-1.5">Total Photos</label>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => setLayoutPhotos((p) => Math.max(1, p - 1))} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold transition">−</button>
+                              <div className="flex-1 py-2 text-center bg-slate-950 border border-slate-700 rounded-lg text-white text-sm font-bold">{layoutPhotos}</div>
+                              <button onClick={() => setLayoutPhotos((p) => Math.min(30, p + 1))} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold transition">+</button>
                             </div>
-                            <button
-                              onClick={() => setLayoutPhotos((p) => Math.min(30, p + 1))}
-                              className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold transition"
-                            >
-                              +
-                            </button>
                           </div>
-                        </div>
+                        )}
 
                         <div className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[10px] text-slate-400 text-center">
-                          📄 {Math.ceil(layoutPhotos / photosPerRow)} rows × {photosPerRow} photos
+                          {mode === 'single' ? (
+                            <>📄 {Math.ceil(layoutPhotos / photosPerRow)} rows × {photosPerRow} photos</>
+                          ) : (
+                            <>📄 {customers.length} customer(s) · {customers.length} row(s) × {photosPerRow} = <strong className="text-amber-400">{customers.length * photosPerRow} photos</strong></>
+                          )}
                         </div>
                       </>
                     )}
@@ -787,7 +931,7 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
               </div>
             )}
 
-            {error && originalImage && (
+            {error && (
               <div className="mt-4 bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 text-sm max-w-2xl mx-auto">
                 ⚠️ {error}
               </div>
@@ -795,13 +939,14 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
           </div>
 
           {/* ═══ BOTTOM ACTION BAR ═══ */}
-          {originalImage && (
+          {((mode === 'single' && originalImage) || (mode === 'multi' && customers.length > 0)) && (
             <div className="sticky bottom-0 z-30 bg-slate-900/95 backdrop-blur-sm border-t border-slate-800">
               <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center gap-2 flex-wrap justify-center">
 
                 <button
                   onClick={downloadSingle}
-                  className="flex items-center gap-1.5 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-md transition"
+                  disabled={!activeImage}
+                  className="flex items-center gap-1.5 px-5 py-2 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-950 text-xs font-bold rounded-lg shadow-md transition"
                 >
                   <Download className="w-3.5 h-3.5" /> Download Single
                 </button>
@@ -814,7 +959,7 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
                   {isGenerating ? (
                     <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating...</>
                   ) : (
-                    <><FileText className="w-3.5 h-3.5" /> Download A4 Sheet ({layoutPhotos})</>
+                    <><FileText className="w-3.5 h-3.5" /> Download A4 Sheet</>
                   )}
                 </button>
 
@@ -827,13 +972,11 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
 
                 <button
                   onClick={() => {
-                    const canvas = renderCanvas();
+                    const canvas = renderCanvas(activeImage, activeZoom, activeRotation, activeOffsetX, activeOffsetY, activeBackground);
                     if (canvas) {
                       canvas.toBlob((blob) => {
                         if (blob) {
-                          try {
-                            navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                          } catch {}
+                          try { navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); } catch {}
                         }
                       }, 'image/png');
                     }
@@ -858,29 +1001,28 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* ✅ AD GATE MODAL — Free users ke liye download pe ad */}
+      {/* Hidden input for customer photo */}
+      <input
+        ref={customerFileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => handleCustomerFile(e.target.files)}
+        className="hidden"
+      />
+
+      {/* Ad gate modal */}
       {!isPaidUser && pendingDownload && (
         <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl max-w-lg w-full overflow-hidden">
-
-            {/* Ad Container */}
             <div className="p-4 bg-slate-950">
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center mb-2">
-                Sponsored
-              </div>
-              <div
-                id="ad-download-popup"
-                className="min-h-[250px] flex items-center justify-center text-slate-500 text-xs"
-              >
-                {/* Ad slot — Adsterra injects here via owner settings */}
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center mb-2">Sponsored</div>
+              <div className="min-h-[250px] flex items-center justify-center text-slate-500 text-xs">
                 <div className="text-center">
                   <div className="text-4xl mb-2">📢</div>
                   <p className="text-slate-400">Ad loading...</p>
                 </div>
               </div>
             </div>
-
-            {/* Actions */}
             <div className="p-5 bg-slate-900 border-t border-slate-800 text-center">
               <h3 className="text-white font-bold text-base mb-1">Your file is ready!</h3>
               <p className="text-slate-400 text-xs mb-4">{pendingDownload.label}</p>
@@ -890,10 +1032,7 @@ const PassportPhotoMaker: React.FC<PassportPhotoMakerProps> = ({ onClose }) => {
               >
                 <Download className="w-4 h-4 inline mr-2" /> Download Now
               </button>
-              <button
-                onClick={() => setPendingDownload(null)}
-                className="mt-3 text-xs text-slate-400 hover:text-white"
-              >
+              <button onClick={() => setPendingDownload(null)} className="mt-3 text-xs text-slate-400 hover:text-white">
                 Cancel
               </button>
             </div>
