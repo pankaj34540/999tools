@@ -75,6 +75,15 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
   } = useApp();
 
   const [activeToolId, setActiveToolId] = useState<string | null>(initialToolId || null);
+  
+  // 🆕 URL change hone pe tool bhi change ho (browser back/forward support)
+  useEffect(() => {
+    if (initialToolId !== activeToolId) {
+      setActiveToolId(initialToolId || null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialToolId]);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [vleOnlyMode, setVleOnlyMode] = useState(false);
