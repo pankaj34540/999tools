@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Header } from '../components/common/Header';
 import { MarqueeNotice } from '../components/common/MarqueeNotice';
@@ -10,11 +11,30 @@ import { User, Store } from 'lucide-react';
 
 export const PublicPage: React.FC = () => {
   const { role, setRole, showNotification } = useApp();
+  const { toolId } = useParams<{ toolId?: string }>();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (role === 'owner') setRole('user');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 🆕 Agar URL mein tool hai → auto switch to user role
+  useEffect(() => {
+    if (toolId && role !== 'user') {
+      setRole('user');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toolId]);
+
+  // 🆕 Tool open hone pe URL update karo
+  const handleSelectTool = (id: string | null) => {
+    if (id) {
+      navigate(`/tools/${id}`, { replace: false });
+    } else {
+      navigate('/', { replace: false });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950">
@@ -27,7 +47,14 @@ export const PublicPage: React.FC = () => {
       </div>
 
       <main className="flex-1">
-        {role === 'vle' ? <VlePortal /> : <UserPortal />}
+        {role === 'vle' ? (
+          <VlePortal />
+        ) : (
+          <UserPortal
+            initialToolId={toolId || null}
+            onSelectTool={handleSelectTool}
+          />
+        )}
       </main>
 
       <Footer />
