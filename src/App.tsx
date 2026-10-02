@@ -21,16 +21,34 @@ export default function App() {
         <NotificationToast />
         <InstallPrompt />
         <Routes>
+          {/* 🏠 Homepage */}
           <Route path="/" element={<PublicPage />} />
+
+          {/* 🛠️ Individual Tool Pages — SEO-friendly URLs */}
+          <Route path="/tools/:toolId" element={<PublicPage />} />
+
+          {/* 📄 Static Pages */}
+          <Route path="/pricing" element={<PublicPage />} />
+          <Route path="/services" element={<PublicPage />} />
+
+          {/* 👑 Owner & Admin */}
           <Route path="/owner" element={<OwnerPage />} />
           <Route path="/admin" element={<AdminPage />} />
+
+          {/* 💳 Payment */}
           <Route path="/payment-success" element={<PaymentSuccessPage />} />
+
+          {/* 📝 Blog */}
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/blog/:slug" element={<BlogPostPage />} />
+
+          {/* ⚖️ Legal Pages */}
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/refund" element={<RefundPage />} />
           <Route path="/contact" element={<ContactPage />} />
+
+          {/* 🔄 Fallback — Unknown URLs → Homepage */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
