@@ -23,7 +23,16 @@ import { ToolsExplorer } from '../tools/ToolsExplorer';
 import { AdsterraBanner } from '../common/AdsterraBanner';
 import ServiceOrderButton from '../services/ServiceOrderButton';
 
-export const UserPortal: React.FC = () => {
+// 🆕 Props interface — URL se tool open karne ke liye
+interface UserPortalProps {
+  initialToolId?: string | null;
+  onSelectTool?: (id: string | null) => void;
+}
+
+export const UserPortal: React.FC<UserPortalProps> = ({ 
+  initialToolId, 
+  onSelectTool 
+}) => {
   const { 
     siteConfig, 
     services, 
@@ -41,6 +50,15 @@ export const UserPortal: React.FC = () => {
   const [trackQuery, setTrackQuery] = useState('');
   const [trackedOrder, setTrackedOrder] = useState<any | null>(null);
   const [trackSearched, setTrackSearched] = useState(false);
+
+  // 🆕 Effective tool ID — prop (URL) ko priority, warna context fallback
+  const effectiveToolId = initialToolId !== undefined ? initialToolId : activeTool;
+
+  // 🆕 Handler — context + URL dono update karega
+  const handleSelectTool = (id: string | null) => {
+    setActiveTool(id);
+    if (onSelectTool) onSelectTool(id);
+  };
 
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,9 +145,12 @@ export const UserPortal: React.FC = () => {
         </div>
       </section>
 
-      {/* 50-TOOL ENGINE */}
+      {/* 50-TOOL ENGINE — 🆕 URL se tool open hoga */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <ToolsExplorer initialToolId={activeTool} onSelectTool={setActiveTool} />
+        <ToolsExplorer 
+          initialToolId={effectiveToolId} 
+          onSelectTool={handleSelectTool} 
+        />
       </section>
 
       {/* NATIVE BANNER AD */}
