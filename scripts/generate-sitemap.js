@@ -1,11 +1,15 @@
 // ============================================
-// SITEMAP AUTO-GENERATOR
+// SITEMAP AUTO-GENERATOR (ES Module version)
 // Runs on every Vercel build (via prebuild script)
 // Reads toolsRegistry.ts + blogPosts.ts → sitemap.xml
 // ============================================
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, '..');
 const SITE_URL = 'https://tools999.store';
@@ -17,7 +21,7 @@ const TODAY = new Date().toISOString().split('T')[0];
 const registryPath = path.join(ROOT, 'src', 'data', 'toolsRegistry.ts');
 const registryContent = fs.readFileSync(registryPath, 'utf-8');
 
-const toolIdRegex = /\bid:\s*'([a-z_]+)'/g;
+const toolIdRegex = /num:\s*\d+,\s*\n\s*id:\s*'([a-z_]+)'/g;
 const toolIds = [];
 let match;
 while ((match = toolIdRegex.exec(registryContent)) !== null) {
