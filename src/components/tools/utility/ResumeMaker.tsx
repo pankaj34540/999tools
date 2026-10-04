@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  FileText, X, Download, Upload, Plus, Trash2, Eye, Printer,
+  FileText, X, Download, Upload, Plus, Trash2, Printer,
   User, GraduationCap, Briefcase, Sparkles, Palette, Heart,
-  Phone, Mail, MapPin, Calendar, ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { shouldShowAdsToUser } from '../../common/AdsterraBanner';
@@ -30,7 +30,6 @@ interface Experience {
 }
 
 interface ResumeData {
-  // Personal
   fullName: string;
   fatherName: string;
   dob: string;
@@ -39,8 +38,6 @@ interface ResumeData {
   email: string;
   address: string;
   photoUrl: string | null;
-
-  // Bio-Data specific
   timeOfBirth: string;
   placeOfBirth: string;
   height: string;
@@ -54,8 +51,6 @@ interface ResumeData {
   brothers: string;
   sisters: string;
   aboutFamily: string;
-
-  // Professional
   objective: string;
   education: Education[];
   experience: Experience[];
@@ -279,7 +274,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
 
   const renderClassicTemplate = () => (
     <div className="bg-white text-slate-900 p-8" style={{ width: '210mm', minHeight: '297mm', fontFamily: 'Georgia, serif' }}>
-      {/* Header */}
       <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
         {data.photoUrl && (
           <img src={data.photoUrl} alt="profile" className="w-24 h-24 rounded-full object-cover mx-auto mb-3 border-2 border-slate-800" />
@@ -294,7 +288,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Objective */}
       {data.objective && (
         <section className="mb-5">
           <h2 className="text-sm font-bold uppercase tracking-wider border-b border-slate-400 pb-1 mb-2 text-slate-800">
@@ -304,7 +297,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
         </section>
       )}
 
-      {/* Education */}
       {data.education.some((e) => e.degree || e.institution) && (
         <section className="mb-5">
           <h2 className="text-sm font-bold uppercase tracking-wider border-b border-slate-400 pb-1 mb-2 text-slate-800">
@@ -327,7 +319,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
         </section>
       )}
 
-      {/* Experience */}
       {data.experience.some((e) => e.company || e.role) && (
         <section className="mb-5">
           <h2 className="text-sm font-bold uppercase tracking-wider border-b border-slate-400 pb-1 mb-2 text-slate-800">
@@ -348,7 +339,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
         </section>
       )}
 
-      {/* Skills */}
       {data.skills.length > 0 && (
         <section className="mb-5">
           <h2 className="text-sm font-bold uppercase tracking-wider border-b border-slate-400 pb-1 mb-2 text-slate-800">
@@ -360,7 +350,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
         </section>
       )}
 
-      {/* Languages & Hobbies */}
       <div className="grid grid-cols-2 gap-4">
         {data.languages.length > 0 && (
           <section>
@@ -380,7 +369,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
         )}
       </div>
 
-      {/* References */}
       {data.references && (
         <section className="mt-5">
           <h2 className="text-sm font-bold uppercase tracking-wider border-b border-slate-400 pb-1 mb-2 text-slate-800">
@@ -394,7 +382,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
 
   const renderModernTemplate = () => (
     <div className="bg-white text-slate-900 flex" style={{ width: '210mm', minHeight: '297mm' }}>
-      {/* Sidebar */}
       <div className="w-1/3 bg-slate-800 text-white p-6">
         {data.photoUrl && (
           <img src={data.photoUrl} alt="profile" className="w-28 h-28 rounded-full object-cover mx-auto mb-4 border-4 border-white/20" />
@@ -456,7 +443,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="w-2/3 p-8">
         {data.objective && (
           <section className="mb-5">
@@ -521,11 +507,9 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
     </div>
   );
 
-        const renderBiodataTemplate = () => (
+  const renderBiodataTemplate = () => (
     <div className="bg-white text-slate-900 p-8" style={{ width: '210mm', minHeight: '297mm', fontFamily: 'Georgia, serif' }}>
-      {/* Decorative Border */}
       <div className="border-4 border-double border-pink-700 p-6">
-        {/* Header */}
         <div className="text-center mb-6 pb-4 border-b-2 border-pink-700">
           <h1 className="text-3xl font-bold tracking-widest uppercase text-pink-800">
             Bio-Data
@@ -535,7 +519,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
           </div>
         </div>
 
-        {/* Photo */}
         {data.photoUrl && (
           <div className="flex justify-center mb-6">
             <img
@@ -546,7 +529,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
           </div>
         )}
 
-        {/* Personal Details */}
         <section className="mb-5">
           <h2 className="text-sm font-bold uppercase tracking-wider bg-pink-700 text-white px-3 py-1 mb-3">
             Personal Details
@@ -566,7 +548,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
           </table>
         </section>
 
-        {/* Religious Info */}
         {(data.religion || data.caste || data.subCaste || data.gotra) && (
           <section className="mb-5">
             <h2 className="text-sm font-bold uppercase tracking-wider bg-pink-700 text-white px-3 py-1 mb-3">
@@ -583,7 +564,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
           </section>
         )}
 
-        {/* Family */}
         <section className="mb-5">
           <h2 className="text-sm font-bold uppercase tracking-wider bg-pink-700 text-white px-3 py-1 mb-3">
             Family Details
@@ -603,7 +583,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
           )}
         </section>
 
-        {/* Education & Occupation */}
         {data.education.some((e) => e.degree) && (
           <section className="mb-5">
             <h2 className="text-sm font-bold uppercase tracking-wider bg-pink-700 text-white px-3 py-1 mb-3">
@@ -637,7 +616,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
           </section>
         )}
 
-        {/* Contact */}
         <section className="mb-5">
           <h2 className="text-sm font-bold uppercase tracking-wider bg-pink-700 text-white px-3 py-1 mb-3">
             Contact Details
@@ -651,7 +629,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
           </table>
         </section>
 
-        {/* Hobbies */}
         {data.hobbies.length > 0 && (
           <section className="mb-5">
             <h2 className="text-sm font-bold uppercase tracking-wider bg-pink-700 text-white px-3 py-1 mb-3">
@@ -661,7 +638,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
           </section>
         )}
 
-        {/* Footer */}
         <div className="text-center text-[10px] text-pink-600 mt-8 pt-3 border-t border-pink-300">
           Generated with 999tools.store — Free Bio-Data Maker
         </div>
@@ -771,7 +747,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
             <ToolSidebarAd slotKey="tool_sidebar_left" />
 
             <div className="w-full max-w-7xl flex-1 min-w-0 bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
-              {/* Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-gradient-to-r from-slate-950 to-slate-900 sticky top-0 z-10">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
@@ -796,9 +771,7 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
               </div>
 
               <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* LEFT — FORM */}
                 <div className="space-y-3">
-                  {/* Actions Bar */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={loadDemo}
@@ -817,7 +790,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
                     </span>
                   </div>
 
-                  {/* Template Selector */}
                   <div className="bg-slate-950 rounded-xl border border-slate-800 p-4">
                     <label className="text-xs font-bold text-slate-300 block mb-2 flex items-center gap-1.5">
                       <Palette className="w-3.5 h-3.5 text-purple-400" /> Choose Template
@@ -842,7 +814,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
                     </div>
                   </div>
 
-                  {/* Sections */}
                   {sections.map((s) => {
                     const Icon = s.icon;
                     const isOpen = activeSection === s.id;
@@ -1047,7 +1018,6 @@ const ResumeMaker: React.FC<ResumeMakerProps> = ({ onClose }) => {
                   )}
                 </div>
 
-                {/* RIGHT — PREVIEW */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Live Preview</span>
@@ -1191,5 +1161,3 @@ const TagInput: React.FC<{
 );
 
 export default ResumeMaker;
-
- esumeMaker;
