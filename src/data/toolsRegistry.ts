@@ -346,6 +346,7 @@ export const VLE_ESSENTIAL_IDS: string[] = [
   'age_calculator',
   'signature_cropper',
   'passport_photo_maker',
+  'resume_maker',
 ];
 
 export const getToolsByCategory = (category: ToolCategory): ToolDefinition[] =>
