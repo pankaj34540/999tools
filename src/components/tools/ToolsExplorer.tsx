@@ -51,6 +51,7 @@ import PdfRotate from './pdf/PdfRotate';
 import AgeCalculator from './utility/AgeCalculator';
 import SignatureCropper from './utility/SignatureCropper';
 import PassportPhotoMaker from './utility/PassportPhotoMaker';
+import ResumeMaker from './utility/ResumeMaker';
 
 interface ToolsExplorerProps {
   initialToolId?: string | null;
@@ -339,6 +340,7 @@ export const ToolsExplorer: React.FC<ToolsExplorerProps> = ({ initialToolId, onS
       case 'AgeCalculator': return <AgeCalculator onClose={handleCloseTool} />;
       case 'SignatureCropper': return <SignatureCropper onClose={handleCloseTool} />;
       case 'PassportPhotoMaker': return <PassportPhotoMaker onClose={handleCloseTool} />;
+      case 'ResumeMaker': return <ResumeMaker onClose={handleCloseTool} />;
 
       default:
         return (
