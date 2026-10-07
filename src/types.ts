@@ -323,6 +323,33 @@ export interface SiteConfig {
   freeUserDailyLimit: number;
 }
 
+
+// ============================================
+// TRIAL COUPONS (VLE Registration)
+// ============================================
+export interface Coupon {
+  id: string;
+  code: string;
+  trialDays: number;
+  maxUses: number;
+  usedCount: number;
+  usedBy: string[];
+  validFrom: string;
+  validUntil: string;
+  active: boolean;
+  notes: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CouponValidation {
+  valid: boolean;
+  error?: string;
+  coupon?: Coupon;
+}
+
+
 // ============================================
 // CUSTOM PROMOTIONS (Download Popup)
 // ============================================
