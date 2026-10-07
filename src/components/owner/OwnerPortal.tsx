@@ -38,6 +38,7 @@ import {
   UserCog,
   Package,
   Sparkles,
+  Ticket,
 } from 'lucide-react';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
@@ -53,6 +54,7 @@ import { StaffManager } from './StaffManager';
 import ServiceSettingsManager from './ServiceSettingsManager';
 import ServiceOrdersManager from './ServiceOrdersManager';
 import PromotionsManager from './PromotionsManager';
+import CouponManager from './CouponManager';
 
 export const OwnerPortal: React.FC = () => {
   const { 
@@ -103,6 +105,7 @@ export const OwnerPortal: React.FC = () => {
     | 'settings' 
     | 'monetization'
     | 'promotions'
+    | 'coupons'
   >('overview');
 
   // Service modal
@@ -265,6 +268,7 @@ export const OwnerPortal: React.FC = () => {
             { id: 'orders', label: `Customer Orders (${orders.length})`, icon: FileText, badge: pendingOrders },
             { id: 'monetization', label: 'Adsterra Ads', icon: Megaphone },
             { id: 'promotions', label: '🎯 Promotions', icon: Sparkles, badge: 0 },
+            { id: 'coupons', label: '🎟️ VLE Coupons', icon: Ticket, badge: 0 },
             { id: 'settings', label: 'Security & Settings', icon: Settings },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -990,6 +994,12 @@ export const OwnerPortal: React.FC = () => {
       {/* 🆕 TAB: PROMOTIONS */}
       {activeTab === 'promotions' && (
         <PromotionsManager />
+      )}
+
+      
+      {/* 🆕 TAB: VLE TRIAL COUPONS */}
+      {activeTab === 'coupons' && (
+        <CouponManager />
       )}
 
       {/* MODAL: Add New Service */}
