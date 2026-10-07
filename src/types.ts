@@ -37,6 +37,9 @@ export interface UserAccount {
   createdAt: string;
   lastLoginAt?: string;
   vleData?: VleData;
+  isTrial?: boolean;
+  trialCouponCode?: string;
+  trialStartedAt?: string;
 }
 
 // ============================================
@@ -161,13 +164,11 @@ export interface PaymentRequest {
   billingCycle: BillingCycle;
   amount: number;
 
-  // ✅ Cashfree fields (new)
   cashfreeOrderId?: string;
   cashfreePaymentId?: string;
   verifiedVia?: 'cashfree_webhook' | 'cashfree_success_page' | 'manual';
   webhookReceivedAt?: string;
 
-  // ⚠️ Deprecated (manual UPI — removed)
   utr?: string;
   screenshotUrl?: string;
 
@@ -290,7 +291,6 @@ export interface AdsterraConfig {
   toolSidebarActive: boolean;
   downloadPopupActive: boolean;
 
-  // ⚠️ Deprecated
   headerBannerCode?: string;
   toolBannerCode?: string;
   sidebarAdCode?: string;
@@ -323,6 +323,23 @@ export interface SiteConfig {
   freeUserDailyLimit: number;
 }
 
+// ============================================
+// CUSTOM PROMOTIONS (Download Popup)
+// ============================================
+export interface Promotion {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
+  ctaText: string;
+  active: boolean;
+  displayMode: 'side-by-side' | 'replace' | 'fallback';
+  category: string;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // ============================================
 // TRIAL COUPONS (VLE Registration)
@@ -349,25 +366,6 @@ export interface CouponValidation {
   coupon?: Coupon;
 }
 
-
-// ============================================
-// CUSTOM PROMOTIONS (Download Popup)
-// ============================================
-export interface Promotion {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  linkUrl: string;
-  ctaText: string;
-  active: boolean;
-  displayMode: 'side-by-side' | 'replace' | 'fallback';
-  category: string;
-  priority: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface ImportantLink {
   id: string;
   title: string;
@@ -389,19 +387,23 @@ export interface VleApplication {
   address: string;
   cscId?: string;
 
-  // Payment info
-  paymentMethod?: 'cashfree' | 'manual';
+  paymentMethod?: 'cashfree' | 'manual' | 'trial_coupon';
   paymentStatus?: 'pending' | 'paid' | 'failed';
   paymentAmount: number;
 
-  // Cashfree fields
   cashfreeOrderId?: string;
   cashfreePaymentId?: string;
   webhookReceivedAt?: string;
   verifiedAt?: string;
 
-  // ⚠️ Deprecated (manual UPI — removed)
   paymentUtr?: string;
+
+  // 🆕 Trial fields
+  trialCouponCode?: string;
+  trialCouponId?: string;
+  isTrial?: boolean;
+  trialStartedAt?: string;
+  trialEndsAt?: string;
 
   status: 'pending' | 'approved' | 'rejected';
   appliedDate: string;
@@ -453,7 +455,6 @@ export interface ToolRequestItem {
   createdAt: string;
 }
 
-// ⚠️ Purana ServiceItem aur ServiceCategory — VLE Portal ke liye
 export type ServiceCategory = 
   | 'photo_tools'
   | 'govt_schemes'
@@ -507,9 +508,6 @@ export interface WalletTransaction {
   status: 'completed' | 'pending' | 'rejected';
 }
 
-// ============================================
-// SUPPORT SYSTEM TYPES
-// ============================================
 export type SupportTicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type SupportTicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type SupportTicketCategory = 
@@ -585,9 +583,6 @@ export interface GovtExamPreset {
   notes: string;
 }
 
-// ============================================
-// CUSTOMER CRM TYPES (Phase 1)
-// ============================================
 export type CustomerTag = 'regular' | 'vip' | 'defaulter' | 'new' | 'wholesale' | 'followup';
 
 export interface Customer {
@@ -632,9 +627,6 @@ export interface CustomerFilterOptions {
   dateTo?: string;
 }
 
-// ============================================
-// RECHARGE ORDERS (Phase 2)
-// ============================================
 export type RechargeType = 'mobile' | 'dth' | 'utility';
 
 export type MobileOperator = 
@@ -725,9 +717,6 @@ export interface RechargeOperatorPreset {
   popular?: boolean;
 }
 
-// ============================================
-// STAFF MANAGEMENT (Phase 2 — Admin Panel)
-// ============================================
 export type StaffRole = 'support' | 'vle' | 'payment' | 'recharge' | 'content';
 
 export type StaffPermission = 
@@ -801,10 +790,6 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   recharge: '📱 Recharge Admin',
   content: '📝 Content Admin',
 };
-
-// ============================================
-// SERVICE ORDER SYSTEM (NEW — separate from VLE ServiceItem)
-// ============================================
 
 export interface ServiceDefinition {
   id: string;
