@@ -142,19 +142,16 @@ const STORAGE_VERSION = '3.0.0';
 const STORAGE_VERSION_KEY = '999tools_storage_version';
 const FORCE_RESET_FLAG = '999tools_force_firebase_reset';
 
-// ✅ FIXED: Fresh browser pe reset NAHI karo — sirf version set karo
 const clearOldStorageIfNeeded = (): boolean => {
   try {
     const currentVersion = localStorage.getItem(STORAGE_VERSION_KEY);
     
-    // ✅ Fresh browser (first visit) — just set version, DON'T reset Firebase
     if (currentVersion === null) {
       localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
       console.log(`✅ Fresh browser — version set to ${STORAGE_VERSION} (no reset)`);
       return false;
     }
     
-    // Only reset if version was set AND is different (actual upgrade)
     if (currentVersion !== STORAGE_VERSION) {
       console.log(`🧹 Version mismatch: was ${currentVersion}, now ${STORAGE_VERSION}`);
       const keysToRemove: string[] = [];
@@ -806,6 +803,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createdAt: existing?.createdAt || new Date().toISOString(),
         lastLoginAt: new Date().toISOString(),
         vleData: userData.vleData || existing?.vleData,
+        isTrial: userData.isTrial !== undefined ? userData.isTrial : existing?.isTrial,
+        trialCouponCode: userData.trialCouponCode || existing?.trialCouponCode,
+        trialStartedAt: userData.trialStartedAt || existing?.trialStartedAt,
       };
       const { saveUserAccount } = await import('../services/subscriptionService');
       await saveUserAccount(newUser);
@@ -847,6 +847,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return true;
   };
+
+  // 🆕 Trial expiry auto-downgrade check
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!currentUser.isTrial) return;
+    if (currentUser.plan === 'free') return;
+    if (!currentUser.subscriptionEnd) return;
+
+    const now = new Date();
+    const endDate = new Date(currentUser.subscriptionEnd);
+
+    // Trial expired
+    if (endDate < now) {
+      console.log('⏰ Trial expired for', currentUser.email);
+
+      const downgrade = async () => {
+        try {
+          const { saveUserAccount } = await import('../services/subscriptionService');
+          const downgradedUser: UserAccount = {
+            ...currentUser,
+            plan: 'free',
+            subscriptionStatus: 'expired',
+            isTrial: false,
+          };
+          await saveUserAccount(downgradedUser);
+          setCurrentUser(downgradedUser);
+          showNotification('⏰ Trial khatam ho gaya. Upgrade to continue VLE access.');
+        } catch (err) {
+          console.error('Trial downgrade failed:', err);
+        }
+      };
+
+      downgrade();
+      return;
+    }
+
+    // Trial expiring soon (within 2 days)
+    const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    if (endDate < twoDaysFromNow) {
+      const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+      if (daysLeft > 0) {
+        showNotification(`⚠️ Trial ${daysLeft} din mein khatam ho jayega. Upgrade karo!`);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, currentUser?.subscriptionEnd, currentUser?.isTrial]);
 
   useEffect(() => {
     if (!currentUser?.id) return;
