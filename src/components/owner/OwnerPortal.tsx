@@ -39,6 +39,7 @@ import {
   Package,
   Sparkles,
   Ticket,
+  Gift,
 } from 'lucide-react';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
@@ -81,6 +82,7 @@ export const OwnerPortal: React.FC = () => {
     allTools,
     paymentRequests,
     rechargeOrders,
+    setVles,
   } = useApp();
 
   if (!ownerAuthenticated) {
@@ -588,6 +590,7 @@ export const OwnerPortal: React.FC = () => {
                   <th className="p-3">Location</th>
                   <th className="p-3">Wallet Balance</th>
                   <th className="p-3">Jobs Completed</th>
+                  <th className="p-3">Trial Expires</th>
                   <th className="p-3">Status</th>
                   <th className="p-3 text-right">Owner Actions</th>
                 </tr>
@@ -615,6 +618,61 @@ export const OwnerPortal: React.FC = () => {
                         <div className="font-bold font-mono text-emerald-700 text-sm">₹{vle.walletBalance.toLocaleString()}</div>
                       </td>
                       <td className="p-3 font-semibold text-slate-700">{vle.totalOrdersCompleted} jobs</td>
+                      <td className="p-3">
+                        {vle.subscriptionEnd ? (
+                          <div className="space-y-1">
+                            <div className={`text-xs font-bold ${
+                              new Date(vle.subscriptionEnd) < new Date()
+                                ? 'text-rose-600'
+                                : new Date(vle.subscriptionEnd) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+                                ? 'text-amber-600'
+                                : 'text-emerald-600'
+                            }`}>
+                              {new Date(vle.subscriptionEnd).toLocaleDateString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </div>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => {
+                                  const current = vle.subscriptionEnd ? new Date(vle.subscriptionEnd) : new Date();
+                                  const extended = new Date(current.getTime() + 7 * 24 * 60 * 60 * 1000);
+                                  setVles((prev) =>
+                                    prev.map((v) =>
+                                      v.id === vle.id ? { ...v, subscriptionEnd: extended.toISOString() } : v
+                                    )
+                                  );
+                                  showNotification(`✅ ${vle.centerName} trial extended by 7 days`);
+                                }}
+                                className="text-[10px] px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold rounded"
+                                title="Extend by 7 days"
+                              >
+                                +7d
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const current = vle.subscriptionEnd ? new Date(vle.subscriptionEnd) : new Date();
+                                  const reduced = new Date(current.getTime() - 7 * 24 * 60 * 60 * 1000);
+                                  setVles((prev) =>
+                                    prev.map((v) =>
+                                      v.id === vle.id ? { ...v, subscriptionEnd: reduced.toISOString() } : v
+                                    )
+                                  );
+                                  showNotification(`⏸️ ${vle.centerName} trial reduced by 7 days`);
+                                }}
+                                className="text-[10px] px-2 py-0.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded"
+                                title="Reduce by 7 days"
+                              >
+                                -7d
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">No trial</span>
+                        )}
+                      </td>
                       <td className="p-3">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
                           vle.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
@@ -702,667 +760,4 @@ export const OwnerPortal: React.FC = () => {
                   )
                   .map((order) => (
                     <tr key={order.id} className="hover:bg-slate-50/80 transition">
-                      <td className="p-3">
-                        <div className="font-mono font-bold text-slate-900">{order.tokenNumber}</div>
-                        <div className="text-[10px] text-slate-500">{order.date}</div>
-                      </td>
-                      <td className="p-3">
-                        <div className="font-bold text-slate-900">{order.customerName}</div>
-                        <div className="text-[11px] text-slate-500">{order.customerMobile}</div>
-                      </td>
-                      <td className="p-3">
-                        <div className="font-semibold text-slate-800">{order.serviceName}</div>
-                        {order.notes && (
-                          <div className="text-[10px] text-slate-500 italic mt-0.5">Note: {order.notes}</div>
-                        )}
-                      </td>
-                      <td className="p-3 text-slate-600">
-                        {order.vleCenterName || <span className="text-slate-400">Direct Online</span>}
-                      </td>
-                      <td className="p-3 font-mono font-bold text-slate-900">₹{order.amount}</td>
-                      <td className="p-3">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                          order.status === 'completed' ? 'bg-emerald-100 text-emerald-800'
-                          : order.status === 'processing' ? 'bg-blue-100 text-blue-800'
-                          : order.status === 'approved' ? 'bg-purple-100 text-purple-800'
-                          : order.status === 'rejected' ? 'bg-rose-100 text-rose-800'
-                          : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right">
-                        <select
-                          value={order.status}
-                          onChange={(e) => updateOrderStatus(order.id, e.target.value as any)}
-                          className="px-2 py-1 border border-slate-200 rounded-lg text-xs bg-white font-semibold text-slate-700"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="processing">Processing</option>
-                          <option value="approved">Approved</option>
-                          <option value="completed">Completed</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════ */}
-      {/* TAB: WEBSITE GLOBAL SETTINGS */}
-      {/* ═══════════════════════════════════════════ */}
-      {activeTab === 'settings' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Website Global Control & Configuration</h2>
-            <p className="text-xs text-slate-500">
-              Live configuration for brand name, marquee alerts, UPI payment gateway, and contact information.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Branding & Helpdesk Details</h3>
-
-              <div>
-                <label className="text-[11px] text-slate-500 font-semibold">Website Title / Brand Name:</label>
-                <input
-                  type="text"
-                  value={siteConfig.siteName}
-                  onChange={(e) => updateSiteConfig({ siteName: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-500 font-semibold">Tagline / Subtitle:</label>
-                <input
-                  type="text"
-                  value={siteConfig.tagline}
-                  onChange={(e) => updateSiteConfig({ tagline: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] text-slate-500 font-semibold">Support Phone:</label>
-                  <input
-                    type="text"
-                    value={siteConfig.supportPhone}
-                    onChange={(e) => updateSiteConfig({ supportPhone: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-500 font-semibold">WhatsApp Number:</label>
-                  <input
-                    type="text"
-                    value={siteConfig.supportWhatsApp}
-                    onChange={(e) => updateSiteConfig({ supportWhatsApp: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-500 font-semibold">Official Support Email:</label>
-                <input
-                  type="email"
-                  value={siteConfig.supportEmail}
-                  onChange={(e) => updateSiteConfig({ supportEmail: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Breaking News Marquee & Payments</h3>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] text-slate-500 font-semibold">Marquee Scrolling Ticker Text:</label>
-                  <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-amber-600">
-                    <input
-                      type="checkbox"
-                      checked={siteConfig.noticeEnabled}
-                      onChange={(e) => updateSiteConfig({ noticeEnabled: e.target.checked })}
-                      className="rounded accent-amber-600"
-                    />
-                    Enabled
-                  </label>
-                </div>
-                <textarea
-                  rows={2}
-                  value={siteConfig.noticeMarquee}
-                  onChange={(e) => updateSiteConfig({ noticeMarquee: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-500 font-semibold">UPI ID for Direct Payments / Wallet:</label>
-                <input
-                  type="text"
-                  value={siteConfig.upiId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    updateSiteConfig({ 
-                      upiId: id,
-                      upiQrUrl: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${id}&pn=999tools%20Services&cu=INR`
-                    });
-                  }}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono font-bold bg-white"
-                />
-              </div>
-
-              <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-slate-800">System Maintenance Mode</div>
-                  <div className="text-[10px] text-slate-500">Temporarily show maintenance banner to public users</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => updateSiteConfig({ maintenanceMode: !siteConfig.maintenanceMode })}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    siteConfig.maintenanceMode ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-700'
-                  }`}
-                >
-                  {siteConfig.maintenanceMode ? 'Active' : 'OFF'}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4 bg-blue-50/50 p-5 rounded-xl border border-blue-200 md:col-span-2">
-              <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
-                <CreditCard className="w-4 h-4 text-blue-600" />
-                Subscription Pricing & Plans
-              </h3>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">Premium Monthly (₹):</label>
-                  <input
-                    type="number"
-                    value={siteConfig.premiumMonthlyPrice || 49}
-                    onChange={(e) => updateSiteConfig({ premiumMonthlyPrice: parseFloat(e.target.value) || 49 })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">Premium Yearly (₹):</label>
-                  <input
-                    type="number"
-                    value={siteConfig.premiumYearlyPrice || 399}
-                    onChange={(e) => updateSiteConfig({ premiumYearlyPrice: parseFloat(e.target.value) || 399 })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">VLE Monthly (₹):</label>
-                  <input
-                    type="number"
-                    value={siteConfig.vleMonthlyPrice || 199}
-                    onChange={(e) => updateSiteConfig({ vleMonthlyPrice: parseFloat(e.target.value) || 199 })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">VLE Yearly (₹):</label>
-                  <input
-                    type="number"
-                    value={siteConfig.vleYearlyPrice || 1499}
-                    onChange={(e) => updateSiteConfig({ vleYearlyPrice: parseFloat(e.target.value) || 1499 })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold block mb-1">Free User Daily Limit (uses per premium tool):</label>
-                <input
-                  type="number"
-                  value={siteConfig.freeUserDailyLimit || 3}
-                  onChange={(e) => updateSiteConfig({ freeUserDailyLimit: parseInt(e.target.value) || 3 })}
-                  className="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold bg-white"
-                />
-                <span className="text-[11px] text-slate-500 ml-3">Free users can use premium tools this many times per day</span>
-              </div>
-            </div>
-
-            <div className="space-y-4 bg-amber-50/50 p-5 rounded-xl border border-amber-200 md:col-span-2">
-              <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-amber-600" />
-                Owner Panel Security
-              </h3>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs">
-                <div className="font-bold text-blue-800 mb-1">🔒 Firebase Auth Active</div>
-                <div className="text-blue-700 text-[11px]">
-                  Owner login is now protected by Google Firebase. Password is encrypted on Firebase servers.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB: VLE REGISTRATION APPLICATIONS */}
-      {activeTab === 'vle_approvals' && (
-        <VleApprovalsManager />
-      )}
-
-      {/* TAB: PAYMENT APPROVALS */}
-      {activeTab === 'payment_approvals' && (
-        <PaymentApprovalsManager />
-      )}
-
-      {/* TAB: RECHARGE ORDERS QUEUE */}
-      {activeTab === 'recharge_queue' && (
-        <OwnerRechargeQueue />
-      )}
-
-      {/* 🆕 TAB: STAFF MANAGEMENT */}
-      {activeTab === 'staff' && (
-        <StaffManager />
-      )}
-
-      {/* TAB: SUPPORT TICKETS */}
-      {activeTab === 'support' && (
-        <OwnerSupportManager />
-      )}
-
-      {/* TAB: 50+ TOOLS REGISTRY */}
-      {activeTab === 'tools_hub' && (
-        <ToolsManager />
-      )}
-
-      {/* TAB: IMPORTANT GOVT LINKS */}
-      {activeTab === 'links' && (
-        <ImportantLinksManager />
-      )}
-
-      {/* TAB: ADSTERRA MONETIZATION */}
-      {activeTab === 'monetization' && (
-        <AdsterraManager />
-      )}
-
-      {/* 🆕 TAB: PROMOTIONS */}
-      {activeTab === 'promotions' && (
-        <PromotionsManager />
-      )}
-
-      
-      {/* 🆕 TAB: VLE TRIAL COUPONS */}
-      {activeTab === 'coupons' && (
-        <CouponManager />
-      )}
-
-      {/* MODAL: Add New Service */}
-      {showAddServiceModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">Add New Service / Tool</h3>
-              <button onClick={() => setShowAddServiceModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateService} className="space-y-3">
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Service Name:</label>
-                <input
-                  type="text"
-                  required
-                  value={serviceForm.name}
-                  onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Category:</label>
-                <select
-                  value={serviceForm.category}
-                  onChange={(e) => setServiceForm({ ...serviceForm, category: e.target.value as ServiceCategory })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white"
-                >
-                  <option value="photo_tools">Photo & Signature Tools</option>
-                  <option value="pan_aadhaar">PAN & Aadhaar Services</option>
-                  <option value="certificates">Certificates</option>
-                  <option value="govt_schemes">Government Schemes</option>
-                  <option value="exam_admit">Exams & Admit Cards</option>
-                  <option value="banking_utility">Banking & Utility</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Description:</label>
-                <input
-                  type="text"
-                  value={serviceForm.description}
-                  onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">User Price (₹):</label>
-                  <input
-                    type="number"
-                    value={serviceForm.userPrice}
-                    onChange={(e) => setServiceForm({ ...serviceForm, userPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">VLE Cost (₹):</label>
-                  <input
-                    type="number"
-                    value={serviceForm.vlePrice}
-                    onChange={(e) => setServiceForm({ ...serviceForm, vlePrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">Commission (₹):</label>
-                  <input
-                    type="number"
-                    value={serviceForm.vleCommission}
-                    onChange={(e) => setServiceForm({ ...serviceForm, vleCommission: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-emerald-600"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddServiceModal(false)}
-                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-sm"
-                >
-                  Save Service
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Edit Service */}
-      {editingService && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">Edit Pricing & Details</h3>
-              <button onClick={() => setEditingService(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateServiceSubmit} className="space-y-3">
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Service Name:</label>
-                <input
-                  type="text"
-                  value={editingService.name}
-                  onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Description:</label>
-                <input
-                  type="text"
-                  value={editingService.description}
-                  onChange={(e) => setEditingService({ ...editingService, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">Customer Fee (₹):</label>
-                  <input
-                    type="number"
-                    value={editingService.userPrice}
-                    onChange={(e) => setEditingService({ ...editingService, userPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">VLE Price (₹):</label>
-                  <input
-                    type="number"
-                    value={editingService.vlePrice}
-                    onChange={(e) => setEditingService({ ...editingService, vlePrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">VLE Margin (₹):</label>
-                  <input
-                    type="number"
-                    value={editingService.vleCommission}
-                    onChange={(e) => setEditingService({ ...editingService, vleCommission: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-emerald-600"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingService(null)}
-                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Wallet Top-Up */}
-      {walletModalVle && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">Wallet Top-Up / Deduction</h3>
-              <button onClick={() => setWalletModalVle(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleWalletSubmit} className="space-y-3">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
-                <div className="text-slate-500">Center:</div>
-                <div className="font-bold text-slate-800">{walletModalVle.centerName}</div>
-                <div className="text-blue-600 font-mono text-[11px] font-semibold">{walletModalVle.vleId}</div>
-                <div className="text-slate-500 mt-1">Balance: <strong className="text-emerald-700 font-mono">₹{walletModalVle.walletBalance}</strong></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setWalletType('credit')}
-                  className={`py-2 text-xs font-bold rounded-lg border ${
-                    walletType === 'credit' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  + Credit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWalletType('debit')}
-                  className={`py-2 text-xs font-bold rounded-lg border ${
-                    walletType === 'debit' ? 'bg-rose-600 text-white border-rose-600' : 'bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  - Debit
-                </button>
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Amount (₹):</label>
-                <input
-                  type="number"
-                  required
-                  value={walletAmount}
-                  onChange={(e) => setWalletAmount(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Reason / Reference:</label>
-                <input
-                  type="text"
-                  value={walletReason}
-                  onChange={(e) => setWalletReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setWalletModalVle(null)}
-                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={`flex-1 py-2 text-white text-xs font-bold rounded-lg shadow-sm ${
-                    walletType === 'credit' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
-                  }`}
-                >
-                  Confirm
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Register New VLE */}
-      {showAddVleModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">Register New CSC VLE Center</h3>
-              <button onClick={() => setShowAddVleModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateVle} className="space-y-3">
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Center / Cyber Cafe Name:</label>
-                <input
-                  type="text"
-                  required
-                  value={vleForm.centerName}
-                  onChange={(e) => setVleForm({ ...vleForm, centerName: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">Operator Name:</label>
-                  <input
-                    type="text"
-                    required
-                    value={vleForm.operatorName}
-                    onChange={(e) => setVleForm({ ...vleForm, operatorName: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">Mobile Number:</label>
-                  <input
-                    type="text"
-                    required
-                    value={vleForm.mobile}
-                    onChange={(e) => setVleForm({ ...vleForm, mobile: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">State:</label>
-                  <input
-                    type="text"
-                    value={vleForm.state}
-                    onChange={(e) => setVleForm({ ...vleForm, state: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-600 font-semibold">District:</label>
-                  <input
-                    type="text"
-                    required
-                    value={vleForm.district}
-                    onChange={(e) => setVleForm({ ...vleForm, district: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-semibold">Initial Wallet Balance (₹):</label>
-                <input
-                  type="number"
-                  value={vleForm.walletBalance}
-                  onChange={(e) => setVleForm({ ...vleForm, walletBalance: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddVleModal(false)}
-                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm"
-                >
-                  Add Operator
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+                      <td className="p
