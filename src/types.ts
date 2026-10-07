@@ -321,6 +321,7 @@ export interface SiteConfig {
   vleMonthlyPrice: number;
   vleYearlyPrice: number;
   freeUserDailyLimit: number;
+  defaultVleTrialDays: number;
 }
 
 // ============================================
