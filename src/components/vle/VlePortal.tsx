@@ -16,6 +16,7 @@ import {
   Users,
   Smartphone,
   Wrench,
+  Zap,
 } from 'lucide-react';
 import { ToolsExplorer } from '../tools/ToolsExplorer';
 import { ShopBrandingManager } from './ShopBrandingManager';
@@ -25,6 +26,7 @@ import { KhatabookManager } from './KhatabookManager';
 import { BillingManager } from './BillingManager';
 import { CustomerCrm } from './CustomerCrm';
 import { RechargeOrderForm } from './RechargeOrderForm';
+import VleSpecialPortal from './VleSpecialPortal';
 
 export const VlePortal: React.FC = () => {
   const { 
@@ -43,7 +45,7 @@ export const VlePortal: React.FC = () => {
     customers,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'tools' | 'customers' | 'recharge' | 'khatabook' | 'billing' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
+  const [activeTab, setActiveTab] = useState<'tools' | 'vle_special' | 'customers' | 'recharge' | 'khatabook' | 'billing' | 'apply' | 'orders' | 'branding' | 'formats'>('tools');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -314,6 +316,7 @@ export const VlePortal: React.FC = () => {
         <div className="mt-8 pt-4 border-t border-white/10 flex flex-wrap gap-2">
           {[
             { id: 'tools', label: '🔧 Tools', icon: Wrench },
+            { id: 'vle_special', label: '⚡ VLE Special', icon: Zap },
             { id: 'customers', label: '👥 Customers', icon: Users, badge: customers.length },
             { id: 'recharge', label: '📱 Recharge', icon: Smartphone },
             { id: 'khatabook', label: '📖 Khatabook', icon: BookOpen, badge: receivableCount },
@@ -369,6 +372,11 @@ export const VlePortal: React.FC = () => {
 
           <ToolsExplorer />
         </div>
+      )}
+
+      {/* 🆕 TAB: VLE SPECIAL */}
+      {activeTab === 'vle_special' && (
+        <VleSpecialPortal />
       )}
 
       {/* TAB: CUSTOMERS (CRM) */}
