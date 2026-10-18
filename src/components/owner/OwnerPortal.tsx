@@ -42,6 +42,8 @@ import {
   Gift,
   Zap,
 } from 'lucide-react';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
 import { OwnerSecurityGate } from './OwnerSecurityGate';
@@ -58,7 +60,6 @@ import ServiceOrdersManager from './ServiceOrdersManager';
 import PromotionsManager from './PromotionsManager';
 import CouponManager from './CouponManager';
 import ServiceFieldsBuilder from './ServiceFieldsBuilder';
-import { db } from '../../config/firebase';
 import VleOrdersManager from './VleOrdersManager';
 
 export const OwnerPortal: React.FC = () => {
@@ -136,6 +137,7 @@ export const OwnerPortal: React.FC = () => {
   // VLE Special Service Builder
   const [showServiceBuilder, setShowServiceBuilder] = useState(false);
   const [editingVleService, setEditingVleService] = useState<any>(null);
+  const [vleSpecialServices, setVleSpecialServices] = useState<any[]>([]);
 
   // VLE Add modal
   const [showAddVleModal, setShowAddVleModal] = useState(false);
@@ -161,7 +163,6 @@ export const OwnerPortal: React.FC = () => {
   const [orderSearch, setOrderSearch] = useState('');
   const [vleSearch, setVleSearch] = useState('');
   const [serviceSearch, setServiceSearch] = useState('');
-  const [vleSpecialServices, setVleSpecialServices] = useState<any[]>([]);
 
   // Stats calculations
   const totalRevenue = orders.reduce((sum, o) => sum + o.amount, 0);
@@ -174,6 +175,22 @@ export const OwnerPortal: React.FC = () => {
   const rechargePendingCount = rechargeOrders.filter(
     (r) => r.status === 'payment_submitted' || r.status === 'payment_verified'
   ).length;
+
+  // Real-time listener for VLE Special Services
+  useEffect(() => {
+    const q = collection(db, 'services');
+    const unsub = onSnapshot(q, (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data.forVle) {
+          list.push({ ...data, id: d.id });
+        }
+      });
+      setVleSpecialServices(list);
+    });
+    return () => unsub();
+  }, []);
 
   const handleCreateService = (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,21 +230,6 @@ export const OwnerPortal: React.FC = () => {
     updateVleWallet(walletModalVle.id, walletAmount, walletType, walletReason);
     setWalletModalVle(null);
   };
-
-    useEffect(() => {
-    const q = collection(db, 'services');
-    const unsub = onSnapshot(q, (snap) => {
-      const list: any[] = [];
-      snap.forEach((d) => {
-        const data = d.data();
-        if (data.forVle) {
-          list.push({ ...data, id: d.id });
-        }
-      });
-      setVleSpecialServices(list);
-    });
-    return () => unsub();
-  }, []);
 
   const pendingVleAppsCount = vleApplications.filter((a) => a.status === 'pending').length;
 
@@ -601,11 +603,47 @@ export const OwnerPortal: React.FC = () => {
             💡 <strong>Note:</strong> Yahan se add kiye gaye services sirf VLE Portal mein dikhenge. "Enable for VLE Special" toggle ON karna zaroori hai.
           </div>
 
-          <div className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center">
-            <Package className="w-16 h-16 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm font-bold text-slate-700 mb-1">Services list yahan dikhegi</p>
-            <p className="text-xs text-slate-500">"Add New Service" click karke pehla service banao</p>
-          </div>
+          {vleSpecialServices.length === 0 ? (
+            <div className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center">
+              <Package className="w-16 h-16 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-bold text-slate-700 mb-1">Services list yahan dikhegi</p>
+              <p className="text-xs text-slate-500">"Add New Service" click karke pehla service banao</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {vleSpecialServices.map((srv) => (
+                <div key={srv.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                      <Package className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded-full uppercase">
+                      {srv.category?.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-sm">{srv.name}</h3>
+                  <p className="text-xs text-slate-500 line-clamp-2 mb-2">{srv.description || 'No description'}</p>
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <span className="text-lg font-black text-purple-700">₹{srv.price}</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${srv.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                      {srv.enabled ? 'Active' : 'Disabled'}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => {
+                        setEditingVleService(srv);
+                        setShowServiceBuilder(true);
+                      }}
+                      className="flex-1 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-lg hover:bg-blue-100"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
