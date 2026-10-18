@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   Crown, 
@@ -58,6 +58,7 @@ import ServiceOrdersManager from './ServiceOrdersManager';
 import PromotionsManager from './PromotionsManager';
 import CouponManager from './CouponManager';
 import ServiceFieldsBuilder from './ServiceFieldsBuilder';
+import { db } from '../../config/firebase';
 import VleOrdersManager from './VleOrdersManager';
 
 export const OwnerPortal: React.FC = () => {
@@ -160,6 +161,7 @@ export const OwnerPortal: React.FC = () => {
   const [orderSearch, setOrderSearch] = useState('');
   const [vleSearch, setVleSearch] = useState('');
   const [serviceSearch, setServiceSearch] = useState('');
+  const [vleSpecialServices, setVleSpecialServices] = useState<any[]>([]);
 
   // Stats calculations
   const totalRevenue = orders.reduce((sum, o) => sum + o.amount, 0);
@@ -211,6 +213,21 @@ export const OwnerPortal: React.FC = () => {
     updateVleWallet(walletModalVle.id, walletAmount, walletType, walletReason);
     setWalletModalVle(null);
   };
+
+    useEffect(() => {
+    const q = collection(db, 'services');
+    const unsub = onSnapshot(q, (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data.forVle) {
+          list.push({ ...data, id: d.id });
+        }
+      });
+      setVleSpecialServices(list);
+    });
+    return () => unsub();
+  }, []);
 
   const pendingVleAppsCount = vleApplications.filter((a) => a.status === 'pending').length;
 
