@@ -40,6 +40,7 @@ import {
   Sparkles,
   Ticket,
   Gift,
+  Zap,
 } from 'lucide-react';
 import { ServiceItem, ServiceCategory, CustomerOrder, VleOperator } from '../../types';
 import { AdsterraManager } from './AdsterraManager';
