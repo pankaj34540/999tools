@@ -399,7 +399,6 @@ export interface VleApplication {
 
   paymentUtr?: string;
 
-  // 🆕 Trial fields
   trialCouponCode?: string;
   trialCouponId?: string;
   isTrial?: boolean;
@@ -811,9 +810,9 @@ export interface ServiceField {
   type: ServiceFieldType;
   required: boolean;
   placeholder?: string;
-  options?: string[];      // for 'select' type
+  options?: string[];
   helpText?: string;
-  accept?: string;         // for 'file' type — e.g. 'image/*,application/pdf'
+  accept?: string;
 }
 
 export interface VleOrder {
@@ -828,17 +827,14 @@ export interface VleOrder {
   servicePrice: number;
   serviceCategory: string;
   
-  // Customer info (jo VLE ne form mein bhara)
   customerName: string;
   customerMobile: string;
-  customerData: Record<string, string>;   // dynamic fields
-  documentUrls: Record<string, string>;   // fieldId → Supabase URL
+  customerData: Record<string, string>;
+  documentUrls: Record<string, string>;
   
-  // Payment
   paidFromWallet: number;
   walletBalanceAfter: number;
   
-  // Status
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   ownerNotes: string;
   
@@ -848,10 +844,8 @@ export interface VleOrder {
 }
 
 // ============================================
-// OLD ServiceDefinition (already hai)
+// SERVICE DEFINITION (Unified — for VLE Special)
 // ============================================
-export interface ServiceDefinition {
-
 export interface ServiceDefinition {
   id: string;
   name: string;
@@ -861,6 +855,8 @@ export interface ServiceDefinition {
   processingDays: number;
   icon: string;
   enabled: boolean;
+  forVle?: boolean;
+  fields?: ServiceField[];
   googleFormUrl?: string;
   serviceFieldId?: string;
   createdAt: string;
