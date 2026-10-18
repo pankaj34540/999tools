@@ -56,6 +56,8 @@ import ServiceSettingsManager from './ServiceSettingsManager';
 import ServiceOrdersManager from './ServiceOrdersManager';
 import PromotionsManager from './PromotionsManager';
 import CouponManager from './CouponManager';
+import ServiceFieldsBuilder from './ServiceFieldsBuilder';
+import VleOrdersManager from './VleOrdersManager';
 
 export const OwnerPortal: React.FC = () => {
   const { 
@@ -108,6 +110,8 @@ export const OwnerPortal: React.FC = () => {
     | 'monetization'
     | 'promotions'
     | 'coupons'
+    | 'vle_special_services'
+    | 'vle_special_orders'
   >('overview');
 
   // Service modal
@@ -126,6 +130,10 @@ export const OwnerPortal: React.FC = () => {
 
   // Edit Service modal
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
+
+  // VLE Special Service Builder
+  const [showServiceBuilder, setShowServiceBuilder] = useState(false);
+  const [editingVleService, setEditingVleService] = useState<any>(null);
 
   // VLE Add modal
   const [showAddVleModal, setShowAddVleModal] = useState(false);
@@ -265,6 +273,8 @@ export const OwnerPortal: React.FC = () => {
             { id: 'services', label: `Form Services (${services.length})`, icon: Layers },
             { id: 'service_settings', label: `⚙️ Service Orders Setup`, icon: Package },
             { id: 'service_orders', label: `📦 Service Orders`, icon: Package, badge: 0 },
+            { id: 'vle_special_services', label: '⚡ VLE Special Services', icon: Zap, badge: 0 },
+            { id: 'vle_special_orders', label: '📦 VLE Orders', icon: Package, badge: 0 },
             { id: 'vles', label: `VLE Operators (${vles.length})`, icon: Store },
             { id: 'staff', label: `👥 Staff Management`, icon: UserCog },
             { id: 'orders', label: `Customer Orders (${orders.length})`, icon: FileText, badge: pendingOrders },
@@ -546,6 +556,44 @@ export const OwnerPortal: React.FC = () => {
 
       {activeTab === 'service_orders' && (
         <ServiceOrdersManager />
+      )}
+
+      {/* 🆕 TAB: VLE SPECIAL SERVICES */}
+      {activeTab === 'vle_special_services' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                ⚡ VLE Special Services
+              </h2>
+              <p className="text-xs text-slate-500">VLE portal ke liye services configure karo</p>
+            </div>
+            <button
+              onClick={() => {
+                setEditingVleService(null);
+                setShowServiceBuilder(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl"
+            >
+              <Plus className="w-4 h-4" /> Add New Service
+            </button>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+            💡 <strong>Note:</strong> Yahan se add kiye gaye services sirf VLE Portal mein dikhenge. "Enable for VLE Special" toggle ON karna zaroori hai.
+          </div>
+
+          <div className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center">
+            <Package className="w-16 h-16 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm font-bold text-slate-700 mb-1">Services list yahan dikhegi</p>
+            <p className="text-xs text-slate-500">"Add New Service" click karke pehla service banao</p>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 TAB: VLE SPECIAL ORDERS */}
+      {activeTab === 'vle_special_orders' && (
+        <VleOrdersManager />
       )}
 
       {/* ═══════════════════════════════════════════ */}
@@ -1454,6 +1502,20 @@ export const OwnerPortal: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* 🆕 Service Builder Modal */}
+      {showServiceBuilder && (
+        <ServiceFieldsBuilder
+          existingService={editingVleService}
+          onClose={() => {
+            setShowServiceBuilder(false);
+            setEditingVleService(null);
+          }}
+          onSuccess={() => {
+            showNotification('✅ Service saved successfully');
+          }}
+        />
       )}
     </div>
   );
