@@ -792,6 +792,66 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   content: '📝 Content Admin',
 };
 
+// ============================================
+// VLE SPECIAL — Dynamic Service Fields
+// ============================================
+export type ServiceFieldType = 
+  | 'text' 
+  | 'number' 
+  | 'date' 
+  | 'email' 
+  | 'tel' 
+  | 'file' 
+  | 'select' 
+  | 'textarea';
+
+export interface ServiceField {
+  id: string;
+  label: string;
+  type: ServiceFieldType;
+  required: boolean;
+  placeholder?: string;
+  options?: string[];      // for 'select' type
+  helpText?: string;
+  accept?: string;         // for 'file' type — e.g. 'image/*,application/pdf'
+}
+
+export interface VleOrder {
+  id: string;
+  vleId: string;
+  vleEmail: string;
+  vleCenterName: string;
+  vleMobile: string;
+  
+  serviceId: string;
+  serviceName: string;
+  servicePrice: number;
+  serviceCategory: string;
+  
+  // Customer info (jo VLE ne form mein bhara)
+  customerName: string;
+  customerMobile: string;
+  customerData: Record<string, string>;   // dynamic fields
+  documentUrls: Record<string, string>;   // fieldId → Supabase URL
+  
+  // Payment
+  paidFromWallet: number;
+  walletBalanceAfter: number;
+  
+  // Status
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  ownerNotes: string;
+  
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+// ============================================
+// OLD ServiceDefinition (already hai)
+// ============================================
+export interface ServiceDefinition {
+
 export interface ServiceDefinition {
   id: string;
   name: string;
