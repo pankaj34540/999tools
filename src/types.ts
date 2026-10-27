@@ -37,6 +37,8 @@ export interface UserAccount {
   createdAt: string;
   lastLoginAt?: string;
   vleData?: VleData;
+  eSuvidhaAccess?: boolean;
+  eSuvidhaPaidAt?: string;
   isTrial?: boolean;
   trialCouponCode?: string;
   trialStartedAt?: string;
