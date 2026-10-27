@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   ShieldCheck, CreditCard, AlertCircle,
-  ArrowRight, Sparkles, Calendar, ArrowLeft, Loader2,
-  Gift, Zap, CheckCircle2,
+  ArrowRight, Sparkles, ArrowLeft, Loader2,
+  Gift, Zap,
 } from 'lucide-react';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -69,6 +69,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
       const paymentAmount = isTrial ? 0 : esuvidhaFee;
       const paymentMethod = isTrial ? 'trial' : 'cashfree';
 
+      // 1. Save Application to Firestore (Always)
       await setDoc(doc(db, 'vleApplications', applicationId), {
         id: applicationId,
         operatorName: formData.operatorName.trim(),
@@ -94,6 +95,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         eSuvidhaAccess: !isTrial,
       });
 
+      // 2. Handle Trial Flow (No Payment)
       if (isTrial) {
         if (currentUser) {
           await updateDoc(doc(db, 'userAccounts', currentUser.id), {
@@ -121,7 +123,9 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         return;
       }
 
+      // 3. Handle E SUVIDHA Flow (Fake Payment Success)
       if (!isTrial) {
+        // Fake Delay
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         if (currentUser) {
@@ -183,7 +187,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
 
         <form onSubmit={handleSubmit} className="space-y-4 p-6 text-xs overflow-y-auto flex-1">
 
-          {/* 🆕 TOGGLE */}
+          {/* TOGGLE */}
           <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
             <button type="button" onClick={() => setRegType('trial')} disabled={loading} className={`py-2.5 rounded-lg text-xs font-bold transition flex flex-col items-center gap-1 ${regType === 'trial' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}>
               <Gift className="w-4 h-4" />
@@ -195,7 +199,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
             </button>
           </div>
 
-          {/* 🆕 BANNER */}
+          {/* BANNER */}
           {regType === 'trial' ? (
             <div className="bg-gradient-to-br from-amber-400 via-orange-400 to-pink-500 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
               <div className="relative flex items-center gap-3">
