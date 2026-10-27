@@ -13,6 +13,7 @@ import ContactPage from './pages/legal/ContactPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import BlogPage from './pages/blog/BlogPage';
 import BlogPostPage from './pages/blog/BlogPostPage';
+import ESuvidhaPage from './pages/ESuvidhaPage';
 
 export default function App() {
   return (
@@ -34,6 +35,9 @@ export default function App() {
           {/* 👑 Owner & Admin */}
           <Route path="/owner" element={<OwnerPage />} />
           <Route path="/admin" element={<AdminPage />} />
+
+          {/* 🆕 E SUVIDHA VLE Portal */}
+          <Route path="/e-suvidha" element={<ESuvidhaPage />} />
 
           {/* 💳 Payment */}
           <Route path="/payment-success" element={<PaymentSuccessPage />} />
