@@ -11,7 +11,7 @@ const ESuvidhaPage: React.FC = () => {
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
 
-  // Check Access on Load
+  // 🔥 CHECK ACCESS LOGIC
   useEffect(() => {
     const checkAccess = async () => {
       if (!currentUser) {
@@ -19,24 +19,31 @@ const ESuvidhaPage: React.FC = () => {
         return;
       }
 
-      // 1. Direct field check
+      // 1. Direct check in User Account
       if (currentUser.eSuvidhaAccess === true) {
         setHasAccess(true);
         setCheckingAccess(false);
         return;
       }
 
-      // 2. Fallback: Check vleApplications for this email
+      // 2. Fallback: Check vleApplications collection for this email
       try {
         const q = query(
           collection(db, 'vleApplications'),
-          where('email', '==', currentUser.email.toLowerCase()),
-          where('eSuvidhaAccess', '==', true)
+          where('email', '==', currentUser.email.toLowerCase())
         );
         const snap = await getDocs(q);
         
-        if (!snap.empty) {
-          // Found! Update user account
+        let foundAccess = false;
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.eSuvidhaAccess === true) {
+            foundAccess = true;
+          }
+        });
+
+        if (foundAccess) {
+          // 🔥 Auto-Fix: Update user account with eSuvidhaAccess
           await updateDoc(doc(db, 'userAccounts', currentUser.id), {
             eSuvidhaAccess: true,
             eSuvidhaPaidAt: new Date().toISOString()
@@ -46,7 +53,7 @@ const ESuvidhaPage: React.FC = () => {
           setHasAccess(false);
         }
       } catch (err) {
-        console.error('Error checking access:', err);
+        console.error('Error checking eSuvidha access:', err);
         setHasAccess(false);
       } finally {
         setCheckingAccess(false);
@@ -61,7 +68,7 @@ const ESuvidhaPage: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 font-bold">Checking Access...</p>
+          <p className="text-slate-500 font-bold">Verifying Access...</p>
         </div>
       </div>
     );
@@ -93,12 +100,29 @@ const ESuvidhaPage: React.FC = () => {
     const handlePayment = async () => {
       setLoading(true);
       try {
+        // 🔥 FAKE PAYMENT SUCCESS (Baad mein Cashfree API lagayenge)
         await new Promise(resolve => setTimeout(resolve, 1500));
+
         if (currentUser) {
+          // Update User Account
           await updateDoc(doc(db, 'userAccounts', currentUser.id), {
             eSuvidhaAccess: true,
             eSuvidhaPaidAt: new Date().toISOString()
           });
+
+          // Update VLE Application (agar hai)
+          const q = query(
+            collection(db, 'vleApplications'),
+            where('email', '==', currentUser.email.toLowerCase())
+          );
+          const snap = await getDocs(q);
+          snap.forEach(async (docSnap) => {
+             await updateDoc(doc(db, 'vleApplications', docSnap.id), {
+               eSuvidhaAccess: true,
+               status: 'approved'
+             });
+          });
+
           setHasAccess(true);
           showNotification('✅ Payment successful! Welcome to E SUVIDHA.');
           window.location.reload();
