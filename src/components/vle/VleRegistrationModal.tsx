@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   ShieldCheck, CreditCard, AlertCircle,
-  ArrowRight, Sparkles, ArrowLeft, Loader2,
+  Sparkles, ArrowLeft, Loader2,
   Gift, Zap,
 } from 'lucide-react';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { db, auth } from '../../config/firebase';
+import { saveUserAccount } from '../../services/subscriptionService';
 
 interface VleRegistrationModalProps {
   isOpen: boolean;
@@ -60,6 +62,8 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
     setErrorMsg('');
 
     try {
+      const emailClean = formData.email.trim().toLowerCase();
+      const password = formData.mobile.trim(); // Password = Mobile
       const applicationId = 'vleapp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5);
       const now = new Date();
       const trialEnd = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
@@ -69,94 +73,103 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
       const paymentAmount = isTrial ? 0 : esuvidhaFee;
       const paymentMethod = isTrial ? 'trial' : 'cashfree';
 
-      // 1. Save Application to Firestore (Always)
+      // 1. Firebase Auth Account Create/Login
+      let firebaseUser = null;
+      try {
+        const userCred = await createUserWithEmailAndPassword(auth, emailClean, password);
+        firebaseUser = userCred.user;
+      } catch (authErr: any) {
+        if (authErr.code === 'auth/email-already-in-use') {
+          // Agar user exist karta hai, toh login try karo
+          try {
+            const loginCred = await signInWithEmailAndPassword(auth, emailClean, password);
+            firebaseUser = loginCred.user;
+          } catch (loginErr) {
+            throw new Error('Email exists but password is incorrect. Try different email.');
+          }
+        } else {
+          throw authErr;
+        }
+      }
+
+      if (!firebaseUser) throw new Error('Failed to create user account');
+
+      // 2. Save VLE Application
       await setDoc(doc(db, 'vleApplications', applicationId), {
         id: applicationId,
         operatorName: formData.operatorName.trim(),
         centerName: formData.centerName.trim(),
         mobile: formData.mobile.trim(),
-        email: formData.email.trim().toLowerCase(),
+        email: emailClean,
         state: formData.state,
         district: formData.district.trim() || 'Main Center',
         address: formData.address.trim() || 'Shop address',
         cscId: formData.cscId.trim() || '',
         paymentAmount: paymentAmount,
         paymentMethod: paymentMethod,
-        paymentStatus: isTrial ? 'paid' : 'pending',
-        status: isTrial ? 'approved' : 'pending',
+        paymentStatus: isTrial ? 'paid' : 'paid', // Fake success
+        status: 'approved',
         appliedDate: now.toISOString(),
         isTrial: isTrial,
         trialStartedAt: isTrial ? now.toISOString() : '',
         trialEndsAt: isTrial ? trialEnd.toISOString() : '',
         cashfreeOrderId: '',
         cashfreePaymentId: '',
-        generatedVleId: isTrial ? tempVleId : '',
-        approvedDate: isTrial ? now.toLocaleString('en-IN') : '',
+        generatedVleId: tempVleId,
+        approvedDate: now.toLocaleString('en-IN'),
         eSuvidhaAccess: !isTrial,
+        userId: firebaseUser.uid,
       });
 
-      // 2. Handle Trial Flow (No Payment)
+      // 3. Save User Account
+      await saveUserAccount({
+        id: firebaseUser.uid,
+        email: emailClean,
+        name: formData.operatorName.trim(),
+        mobile: formData.mobile.trim(),
+        plan: 'vle',
+        subscriptionStatus: 'active',
+        subscriptionStart: now.toISOString(),
+        subscriptionEnd: isTrial ? trialEnd.toISOString() : '',
+        createdAt: now.toISOString(),
+        isTrial: isTrial,
+        eSuvidhaAccess: !isTrial,
+        eSuvidhaPaidAt: !isTrial ? now.toISOString() : '',
+        vleData: {
+          vleId: tempVleId,
+          centerName: formData.centerName.trim(),
+          operatorName: formData.operatorName.trim(),
+          mobile: formData.mobile.trim(),
+          state: formData.state,
+          district: formData.district.trim() || 'Main Center',
+          address: formData.address.trim() || 'Shop address',
+          cscId: formData.cscId.trim() || '',
+          status: 'active',
+          kycVerified: true,
+          joinedDate: now.toISOString(),
+          totalOrdersCompleted: 0,
+        },
+      });
+
+      // 4. Success Message and Redirect
       if (isTrial) {
-        if (currentUser) {
-          await updateDoc(doc(db, 'userAccounts', currentUser.id), {
-            plan: 'vle',
-            vleData: { 
-              vleId: tempVleId, 
-              centerName: formData.centerName, 
-              operatorName: formData.operatorName, 
-              mobile: formData.mobile, 
-              state: formData.state, 
-              district: formData.district, 
-              status: 'active', 
-              kycVerified: true, 
-              joinedDate: now.toISOString(),
-              totalOrdersCompleted: 0
-            },
-            subscriptionEnd: trialEnd.toISOString(),
-            isTrial: true
-          });
-        }
         showNotification(`🎉 ${trialDays} din ka FREE trial activate ho gaya!`);
-        setLoading(false);
-        onClose();
-        window.location.reload();
-        return;
+      } else {
+        showNotification(`✅ Payment Successful! Welcome to E SUVIDHA.`);
       }
 
-      // 3. Handle E SUVIDHA Flow (Fake Payment Success)
-      if (!isTrial) {
-        // Fake Delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        if (currentUser) {
-          await updateDoc(doc(db, 'userAccounts', currentUser.id), {
-            plan: 'vle',
-            vleData: { 
-              vleId: tempVleId, 
-              centerName: formData.centerName, 
-              operatorName: formData.operatorName, 
-              mobile: formData.mobile, 
-              state: formData.state, 
-              district: formData.district, 
-              status: 'active', 
-              kycVerified: true, 
-              joinedDate: now.toISOString(),
-              totalOrdersCompleted: 0
-            },
-            eSuvidhaAccess: true,
-            eSuvidhaPaidAt: now.toISOString()
-          });
-        }
-        
-        showNotification(`✅ Payment Successful! Welcome to E SUVIDHA.`);
-        setLoading(false);
-        onClose();
+      setLoading(false);
+      onClose();
+      
+      if (isTrial) {
+        window.location.href = '/';
+      } else {
         window.location.href = '/e-suvidha';
       }
 
     } catch (err: any) {
       console.error('VLE registration error:', err);
-      setErrorMsg('Failed to register. Please try again.');
+      setErrorMsg(err.message || 'Failed to register. Please try again.');
       setLoading(false);
     }
   };
@@ -165,6 +178,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 animate-in zoom-in-95 my-8 max-h-[92vh] flex flex-col">
 
+        {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 px-6 pt-6 sticky top-0 bg-white rounded-t-3xl z-10">
           <div className="flex items-center gap-3 min-w-0">
             <button onClick={handleBack} disabled={loading} className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition disabled:opacity-50 shrink-0">
