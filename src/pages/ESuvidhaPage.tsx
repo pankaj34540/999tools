@@ -1,81 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import ESuvidhaPortal from '../components/esuvidha/ESuvidhaPortal';
 import { Lock, ShieldCheck, CreditCard, Loader2 } from 'lucide-react';
-import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 const ESuvidhaPage: React.FC = () => {
   const { activeVle, vleLoggedIn, currentUser, showNotification } = useApp();
   const [loading, setLoading] = useState(false);
-  const [checkingAccess, setCheckingAccess] = useState(true);
-  const [hasAccess, setHasAccess] = useState(false);
 
-  // 🔥 CHECK ACCESS LOGIC
-  useEffect(() => {
-    const checkAccess = async () => {
-      if (!currentUser) {
-        setCheckingAccess(false);
-        return;
-      }
+  // 1. Check if user is a VLE (Direct Access)
+  const isVleUser = currentUser?.plan === 'vle' || activeVle;
+  const hasVleAccess = (activeVle && vleLoggedIn) || isVleUser;
 
-      // 1. Direct check in User Account
-      if (currentUser.eSuvidhaAccess === true) {
-        setHasAccess(true);
-        setCheckingAccess(false);
-        return;
-      }
-
-      // 2. Fallback: Check vleApplications collection for this email
-      try {
-        const q = query(
-          collection(db, 'vleApplications'),
-          where('email', '==', currentUser.email.toLowerCase())
-        );
-        const snap = await getDocs(q);
-        
-        let foundAccess = false;
-        snap.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data.eSuvidhaAccess === true) {
-            foundAccess = true;
-          }
-        });
-
-        if (foundAccess) {
-          // 🔥 Auto-Fix: Update user account with eSuvidhaAccess
-          await updateDoc(doc(db, 'userAccounts', currentUser.id), {
-            eSuvidhaAccess: true,
-            eSuvidhaPaidAt: new Date().toISOString()
-          });
-          setHasAccess(true);
-        } else {
-          setHasAccess(false);
-        }
-      } catch (err) {
-        console.error('Error checking eSuvidha access:', err);
-        setHasAccess(false);
-      } finally {
-        setCheckingAccess(false);
-      }
-    };
-
-    checkAccess();
-  }, [currentUser]);
-
-  if (checkingAccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 font-bold">Verifying Access...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const hasVleAccess = (activeVle && vleLoggedIn) || (currentUser?.plan === 'vle');
-
+  // Agar VLE hai hi nahi, toh Login Required dikhao
   if (!hasVleAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
@@ -96,37 +34,18 @@ const ESuvidhaPage: React.FC = () => {
     );
   }
 
-  if (!hasAccess) {
+  // 2. Agar VLE hai, par eSuvidhaAccess true nahi hai, toh Payment Page dikhao
+  if (currentUser && !currentUser.eSuvidhaAccess) {
     const handlePayment = async () => {
       setLoading(true);
       try {
-        // 🔥 FAKE PAYMENT SUCCESS (Baad mein Cashfree API lagayenge)
         await new Promise(resolve => setTimeout(resolve, 1500));
-
-        if (currentUser) {
-          // Update User Account
-          await updateDoc(doc(db, 'userAccounts', currentUser.id), {
-            eSuvidhaAccess: true,
-            eSuvidhaPaidAt: new Date().toISOString()
-          });
-
-          // Update VLE Application (agar hai)
-          const q = query(
-            collection(db, 'vleApplications'),
-            where('email', '==', currentUser.email.toLowerCase())
-          );
-          const snap = await getDocs(q);
-          snap.forEach(async (docSnap) => {
-             await updateDoc(doc(db, 'vleApplications', docSnap.id), {
-               eSuvidhaAccess: true,
-               status: 'approved'
-             });
-          });
-
-          setHasAccess(true);
-          showNotification('✅ Payment successful! Welcome to E SUVIDHA.');
-          window.location.reload();
-        }
+        await updateDoc(doc(db, 'userAccounts', currentUser.id), {
+          eSuvidhaAccess: true,
+          eSuvidhaPaidAt: new Date().toISOString()
+        });
+        showNotification('✅ Payment successful! Welcome to E SUVIDHA.');
+        window.location.reload();
       } catch (err) {
         console.error(err);
         showNotification('❌ Payment failed. Try again.');
@@ -173,6 +92,7 @@ const ESuvidhaPage: React.FC = () => {
     );
   }
 
+  // 3. Agar eSuvidhaAccess true hai, toh Dashboard dikhao
   return <ESuvidhaPortal />;
 };
 
