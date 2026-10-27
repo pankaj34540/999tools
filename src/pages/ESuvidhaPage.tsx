@@ -1,17 +1,73 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import ESuvidhaPortal from '../components/esuvidha/ESuvidhaPortal';
-import { AlertCircle, Lock, ShieldCheck, CreditCard, Loader2 } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { Lock, ShieldCheck, CreditCard, Loader2 } from 'lucide-react';
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 const ESuvidhaPage: React.FC = () => {
   const { activeVle, vleLoggedIn, currentUser, showNotification } = useApp();
   const [loading, setLoading] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
 
-  // 1. Check Access
+  // Check Access on Load
+  useEffect(() => {
+    const checkAccess = async () => {
+      if (!currentUser) {
+        setCheckingAccess(false);
+        return;
+      }
+
+      // 1. Direct field check
+      if (currentUser.eSuvidhaAccess === true) {
+        setHasAccess(true);
+        setCheckingAccess(false);
+        return;
+      }
+
+      // 2. Fallback: Check vleApplications for this email
+      try {
+        const q = query(
+          collection(db, 'vleApplications'),
+          where('email', '==', currentUser.email.toLowerCase()),
+          where('eSuvidhaAccess', '==', true)
+        );
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+          // Found! Update user account
+          await updateDoc(doc(db, 'userAccounts', currentUser.id), {
+            eSuvidhaAccess: true,
+            eSuvidhaPaidAt: new Date().toISOString()
+          });
+          setHasAccess(true);
+        } else {
+          setHasAccess(false);
+        }
+      } catch (err) {
+        console.error('Error checking access:', err);
+        setHasAccess(false);
+      } finally {
+        setCheckingAccess(false);
+      }
+    };
+
+    checkAccess();
+  }, [currentUser]);
+
+  if (checkingAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 font-bold">Checking Access...</p>
+        </div>
+      </div>
+    );
+  }
+
   const hasVleAccess = (activeVle && vleLoggedIn) || (currentUser?.plan === 'vle');
-  const hasPaid = currentUser?.eSuvidhaAccess === true;
 
   if (!hasVleAccess) {
     return (
@@ -33,24 +89,19 @@ const ESuvidhaPage: React.FC = () => {
     );
   }
 
-  // 2. Payment Page (Agar eSuvidhaAccess false hai)
-  if (!hasPaid) {
+  if (!hasAccess) {
     const handlePayment = async () => {
       setLoading(true);
       try {
-        // NOTE: Yahan Cashfree API call karni hai (Vercel Serverless Function).
-        // Abhi ke liye hum direct success maan rahe hain testing ke liye.
-        // Production mein, Cashfree se redirect karke webhook se update karenge.
-        
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Fake delay
-
+        await new Promise(resolve => setTimeout(resolve, 1500));
         if (currentUser) {
           await updateDoc(doc(db, 'userAccounts', currentUser.id), {
             eSuvidhaAccess: true,
             eSuvidhaPaidAt: new Date().toISOString()
           });
+          setHasAccess(true);
           showNotification('✅ Payment successful! Welcome to E SUVIDHA.');
-          window.location.reload(); // Reload to update state
+          window.location.reload();
         }
       } catch (err) {
         console.error(err);
@@ -63,8 +114,6 @@ const ESuvidhaPage: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
         <div className="max-w-lg w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-          
-          {/* Header */}
           <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-8 text-center text-white">
              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
                <ShieldCheck className="w-8 h-8 text-white" />
@@ -72,21 +121,17 @@ const ESuvidhaPage: React.FC = () => {
              <h1 className="text-3xl font-black mb-2">E SUVIDHA</h1>
              <p className="text-blue-100 font-semibold">One-Time Registration Portal</p>
           </div>
-
-          {/* Content */}
           <div className="p-8 space-y-6">
             <div className="text-center">
               <div className="text-5xl font-black text-slate-900 mb-2">₹139</div>
               <p className="text-sm text-slate-500 font-medium">One-Time Fee (Lifetime Access)</p>
             </div>
-
             <ul className="space-y-3 text-sm text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100">
               <li className="flex gap-2"><span className="text-emerald-500 font-bold">✔</span> Lifetime Access to E SUVIDHA Dashboard</li>
               <li className="flex gap-2"><span className="text-emerald-500 font-bold">✔</span> All Government Services (PAN, Aadhaar, etc.)</li>
               <li className="flex gap-2"><span className="text-emerald-500 font-bold">✔</span> Paid Tools & Free Tools Access</li>
               <li className="flex gap-2"><span className="text-emerald-500 font-bold">✔</span> Wallet System for Transactions</li>
             </ul>
-
             <button
               onClick={handlePayment}
               disabled={loading}
@@ -95,7 +140,6 @@ const ESuvidhaPage: React.FC = () => {
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
               {loading ? 'Processing...' : 'Pay ₹139 via Cashfree'}
             </button>
-            
             <p className="text-center text-[10px] text-slate-400">
               100% Secure Payment. No hidden charges.
             </p>
@@ -105,7 +149,6 @@ const ESuvidhaPage: React.FC = () => {
     );
   }
 
-  // 3. Main Dashboard
   return <ESuvidhaPortal />;
 };
 
