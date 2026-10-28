@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import {
   ShieldCheck, CreditCard, AlertCircle,
   Sparkles, ArrowLeft, Loader2,
-  Gift, Zap,
+  Gift, Zap, Eye, EyeOff,
 } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -18,7 +18,7 @@ interface VleRegistrationModalProps {
 type RegType = 'trial' | 'esuvidha';
 
 export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOpen, onClose }) => {
-  const { siteConfig, showNotification, currentUser } = useApp();
+  const { siteConfig, showNotification } = useApp();
 
   const [regType, setRegType] = useState<RegType>('trial');
 
@@ -27,12 +27,14 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
     operatorName: '',
     mobile: '',
     email: '',
+    password: '', // 🆕 New Password Field
     state: 'Uttar Pradesh',
     district: '',
     address: '',
     cscId: '',
   });
 
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -46,25 +48,19 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
     onClose();
   };
 
-  // Password Generator
-  const generatePassword = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-    let pass = '';
-    for (let i = 0; i < 8; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return pass;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.centerName || !formData.operatorName || !formData.mobile || !formData.email) {
+    if (!formData.centerName || !formData.operatorName || !formData.mobile || !formData.email || !formData.password) {
       setErrorMsg('Please fill all mandatory fields');
       return;
     }
     if (formData.mobile.length !== 10) {
       setErrorMsg('Mobile number 10-digit hona chahiye');
+      return;
+    }
+    if (formData.password.length < 6) {
+      setErrorMsg('Password kam se kam 6 characters ka hona chahiye');
       return;
     }
 
@@ -82,19 +78,14 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
       const paymentAmount = isTrial ? 0 : esuvidhaFee;
       const paymentMethod = isTrial ? 'trial' : 'cashfree';
 
-      // 🆕 Generate Random Password
-      const generatedPassword = formData.mobile.trim(); // Password = Mobile Number
-
-      // 🆕 Create Firebase Auth Account (Sirf naya user ke liye)
+      // 1. Create Firebase Auth Account with User's Password
       let firebaseUser = null;
       try {
-        const userCred = await createUserWithEmailAndPassword(auth, emailClean, generatedPassword);
+        const userCred = await createUserWithEmailAndPassword(auth, emailClean, formData.password);
         firebaseUser = userCred.user;
       } catch (authErr: any) {
         if (authErr.code === 'auth/email-already-in-use') {
-          // Agar already exist karta hai, toh mat karo kuch, bas aage badho
-          // (Kyunki ho sakta hai user pehle se ho)
-          throw new Error('Ye email already registered hai. Please login with existing credentials.');
+          throw new Error('Ye email already registered hai. Please login karein.');
         } else {
           throw authErr;
         }
@@ -115,7 +106,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         cscId: formData.cscId.trim() || '',
         paymentAmount: paymentAmount,
         paymentMethod: paymentMethod,
-        paymentStatus: isTrial ? 'paid' : 'paid', // Fake success
+        paymentStatus: 'paid',
         status: 'approved',
         appliedDate: now.toISOString(),
         isTrial: isTrial,
@@ -159,39 +150,16 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         },
       });
 
-      // 🆕 4. Send Email with Credentials
-      if (!isTrial) {
-        try {
-          await fetch('/api/send-credentials', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              toEmail: emailClean,
-              operatorName: formData.operatorName.trim(),
-              centerName: formData.centerName.trim(),
-              loginEmail: emailClean,
-              loginPassword: generatedPassword,
-              portalType: 'esuvidha',
-            }),
-          });
-        } catch (emailErr) {
-          console.error('Email send failed:', emailErr);
-        }
-      }
-
-      // 5. Success & Redirect
+      // 4. Success & Redirect
       if (isTrial) {
         showNotification(`🎉 ${trialDays} din ka FREE trial activate ho gaya!`);
-      } else {
-        showNotification(`✅ Payment Successful! Email pe login credentials bheje gaye hain.`);
-      }
-
-      setLoading(false);
-      onClose();
-      
-      if (isTrial) {
+        setLoading(false);
+        onClose();
         window.location.href = '/';
       } else {
+        showNotification(`✅ Registration Successful! Ab login karein.`);
+        setLoading(false);
+        onClose();
         window.location.href = '/e-suvidha';
       }
 
@@ -289,6 +257,29 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
             <div>
               <label className="block font-bold text-slate-700 mb-1">Email Address *</label>
               <input type="email" required disabled={loading} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="operator@gmail.com" className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-900 disabled:bg-slate-50" />
+            </div>
+          </div>
+
+          {/* 🆕 Password Field */}
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Create Password * (Min 6 chars)</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                disabled={loading}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="Enter a secure password"
+                className="w-full px-3 py-2 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-slate-900 disabled:bg-slate-50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
