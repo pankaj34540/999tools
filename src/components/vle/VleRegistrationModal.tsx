@@ -5,8 +5,8 @@ import {
   Sparkles, ArrowLeft, Loader2,
   Gift, Zap,
 } from 'lucide-react';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../../config/firebase';
 import { saveUserAccount } from '../../services/subscriptionService';
 
@@ -46,6 +46,16 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
     onClose();
   };
 
+  // Password Generator
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let pass = '';
+    for (let i = 0; i < 8; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pass;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -63,7 +73,6 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
 
     try {
       const emailClean = formData.email.trim().toLowerCase();
-      const password = formData.mobile.trim(); // Password = Mobile
       const applicationId = 'vleapp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5);
       const now = new Date();
       const trialEnd = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
@@ -73,20 +82,19 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
       const paymentAmount = isTrial ? 0 : esuvidhaFee;
       const paymentMethod = isTrial ? 'trial' : 'cashfree';
 
-      // 1. Firebase Auth Account Create/Login
+      // 🆕 Generate Random Password
+      const generatedPassword = generatePassword();
+
+      // 🆕 Create Firebase Auth Account (Sirf naya user ke liye)
       let firebaseUser = null;
       try {
-        const userCred = await createUserWithEmailAndPassword(auth, emailClean, password);
+        const userCred = await createUserWithEmailAndPassword(auth, emailClean, generatedPassword);
         firebaseUser = userCred.user;
       } catch (authErr: any) {
         if (authErr.code === 'auth/email-already-in-use') {
-          // Agar user exist karta hai, toh login try karo
-          try {
-            const loginCred = await signInWithEmailAndPassword(auth, emailClean, password);
-            firebaseUser = loginCred.user;
-          } catch (loginErr) {
-            throw new Error('Email exists but password is incorrect. Try different email.');
-          }
+          // Agar already exist karta hai, toh mat karo kuch, bas aage badho
+          // (Kyunki ho sakta hai user pehle se ho)
+          throw new Error('Ye email already registered hai. Please login with existing credentials.');
         } else {
           throw authErr;
         }
@@ -151,11 +159,31 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         },
       });
 
-      // 4. Success Message and Redirect
+      // 🆕 4. Send Email with Credentials
+      if (!isTrial) {
+        try {
+          await fetch('/api/send-credentials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toEmail: emailClean,
+              operatorName: formData.operatorName.trim(),
+              centerName: formData.centerName.trim(),
+              loginEmail: emailClean,
+              loginPassword: generatedPassword,
+              portalType: 'esuvidha',
+            }),
+          });
+        } catch (emailErr) {
+          console.error('Email send failed:', emailErr);
+        }
+      }
+
+      // 5. Success & Redirect
       if (isTrial) {
         showNotification(`🎉 ${trialDays} din ka FREE trial activate ho gaya!`);
       } else {
-        showNotification(`✅ Payment Successful! Welcome to E SUVIDHA.`);
+        showNotification(`✅ Payment Successful! Email pe login credentials bheje gaye hain.`);
       }
 
       setLoading(false);
@@ -178,7 +206,6 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 animate-in zoom-in-95 my-8 max-h-[92vh] flex flex-col">
 
-        {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 px-6 pt-6 sticky top-0 bg-white rounded-t-3xl z-10">
           <div className="flex items-center gap-3 min-w-0">
             <button onClick={handleBack} disabled={loading} className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition disabled:opacity-50 shrink-0">
