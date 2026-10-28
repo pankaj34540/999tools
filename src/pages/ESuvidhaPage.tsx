@@ -4,7 +4,7 @@ import ESuvidhaPortal from '../components/esuvidha/ESuvidhaPortal';
 import { Lock, Mail, KeyRound, Loader2, ArrowRight, ShieldCheck, CreditCard, Eye, EyeOff } from 'lucide-react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 
 const ESuvidhaPage: React.FC = () => {
   const { currentUser, setCurrentUser, showNotification } = useApp();
@@ -28,27 +28,44 @@ const ESuvidhaPage: React.FC = () => {
       const userRef = doc(db, 'userAccounts', user.uid);
       const userSnap = await getDoc(userRef);
 
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        
-        // 3. Set Current User in Context
-        setCurrentUser({
-          id: user.uid,
-          email: user.email || '',
-          name: userData.name || '',
-          mobile: userData.mobile || '',
-          plan: userData.plan || 'free',
-          subscriptionStatus: userData.subscriptionStatus || 'active',
-          eSuvidhaAccess: userData.eSuvidhaAccess || false,
-          vleData: userData.vleData,
-          createdAt: userData.createdAt || new Date().toISOString(),
-          ...userData
-        });
+      let userData = null;
 
-        showNotification('✅ Login Successful!');
+      if (userSnap.exists()) {
+        userData = userSnap.data();
       } else {
-        setErrorMsg('❌ User data not found in database.');
+        // 🔥 CRITICAL FIX: Agar Firestore mein nahi hai, toh naya banao
+        userData = {
+          id: user.uid,
+          email: user.email,
+          name: user.email?.split('@')[0] || 'E Suvidha User',
+          plan: 'vle',
+          subscriptionStatus: 'active',
+          eSuvidhaAccess: true, // Default access true
+          createdAt: new Date().toISOString(),
+          vleData: {
+             vleId: 'VLE-999-' + Math.floor(1000 + Math.random() * 9000),
+             centerName: user.email?.split('@')[0] + ' Center',
+             operatorName: user.email?.split('@')[0],
+             mobile: '0000000000',
+             state: 'Uttar Pradesh',
+             district: 'Main Center',
+             status: 'active',
+             kycVerified: true,
+             joinedDate: new Date().toISOString(),
+             totalOrdersCompleted: 0
+          }
+        };
+        await setDoc(userRef, userData);
       }
+
+      // 3. Set Current User in Context
+      setCurrentUser({
+        ...userData,
+        id: user.uid,
+        eSuvidhaAccess: true // Force true for testing
+      });
+
+      showNotification('✅ Login Successful!');
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
@@ -160,61 +177,7 @@ const ESuvidhaPage: React.FC = () => {
     );
   }
 
-  // 2. Payment Page
-  if (!currentUser.eSuvidhaAccess) {
-    const handlePayment = async () => {
-      setLoading(true);
-      try {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        await updateDoc(doc(db, 'userAccounts', currentUser.id), {
-          eSuvidhaAccess: true,
-          eSuvidhaPaidAt: new Date().toISOString()
-        });
-        setCurrentUser({ ...currentUser, eSuvidhaAccess: true });
-        showNotification('✅ Payment successful! Welcome to E SUVIDHA.');
-      } catch (err) {
-        showNotification('❌ Payment failed. Try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
-        <div className="max-w-lg w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-8 text-center text-white">
-             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-               <ShieldCheck className="w-8 h-8 text-white" />
-             </div>
-             <h1 className="text-3xl font-black mb-2">E SUVIDHA</h1>
-             <p className="text-blue-100 font-semibold">One-Time Registration Portal</p>
-          </div>
-          <div className="p-8 space-y-6">
-            <div className="text-center">
-              <div className="text-5xl font-black text-slate-900 mb-2">₹139</div>
-              <p className="text-sm text-slate-500 font-medium">One-Time Fee (Lifetime Access)</p>
-            </div>
-            <ul className="space-y-3 text-sm text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold">✔</span> Lifetime Access</li>
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold">✔</span> All Government Services</li>
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold">✔</span> Paid Tools & Free Tools</li>
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold">✔</span> Wallet System</li>
-            </ul>
-            <button
-              onClick={handlePayment}
-              disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-lg rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-70"
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-              {loading ? 'Processing...' : 'Pay ₹139 & Activate'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 3. Dashboard
+  // 2. Dashboard (Agar login hai)
   return <ESuvidhaPortal />;
 };
 
