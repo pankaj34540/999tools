@@ -83,7 +83,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
       const paymentMethod = isTrial ? 'trial' : 'cashfree';
 
       // 🆕 Generate Random Password
-      const generatedPassword = generatePassword();
+      const generatedPassword = formData.mobile.trim(); // Password = Mobile Number
 
       // 🆕 Create Firebase Auth Account (Sirf naya user ke liye)
       let firebaseUser = null;
