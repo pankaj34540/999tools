@@ -4,26 +4,51 @@ import ESuvidhaPortal from '../components/esuvidha/ESuvidhaPortal';
 import { Lock, Mail, KeyRound, Loader2, ArrowRight, ShieldCheck, CreditCard, Eye, EyeOff } from 'lucide-react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 
 const ESuvidhaPage: React.FC = () => {
-  const { currentUser, showNotification } = useApp();
+  const { currentUser, setCurrentUser, showNotification } = useApp();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [resetSent, setResetSent] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg('');
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password.trim());
-      showNotification('✅ Login Successful!');
-      window.location.reload();
+      // 1. Firebase Auth Login
+      const userCred = await signInWithEmailAndPassword(auth, email.trim(), password.trim());
+      const user = userCred.user;
+
+      // 2. Fetch User Data from Firestore
+      const userRef = doc(db, 'userAccounts', user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        
+        // 3. Set Current User in Context
+        setCurrentUser({
+          id: user.uid,
+          email: user.email || '',
+          name: userData.name || '',
+          mobile: userData.mobile || '',
+          plan: userData.plan || 'free',
+          subscriptionStatus: userData.subscriptionStatus || 'active',
+          eSuvidhaAccess: userData.eSuvidhaAccess || false,
+          vleData: userData.vleData,
+          createdAt: userData.createdAt || new Date().toISOString(),
+          ...userData
+        });
+
+        showNotification('✅ Login Successful!');
+      } else {
+        setErrorMsg('❌ User data not found in database.');
+      }
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
@@ -47,11 +72,9 @@ const ESuvidhaPage: React.FC = () => {
     setErrorMsg('');
     try {
       await sendPasswordResetEmail(auth, email.trim());
-      setResetSent(true);
       showNotification('✅ Password reset link aapke email pe bheja gaya hai.');
     } catch (err: any) {
-      console.error('Reset error:', err);
-      setErrorMsg(err.message || '❌ Failed to send reset email.');
+      setErrorMsg('❌ Failed to send reset email.');
     } finally {
       setLoading(false);
     }
@@ -147,8 +170,8 @@ const ESuvidhaPage: React.FC = () => {
           eSuvidhaAccess: true,
           eSuvidhaPaidAt: new Date().toISOString()
         });
+        setCurrentUser({ ...currentUser, eSuvidhaAccess: true });
         showNotification('✅ Payment successful! Welcome to E SUVIDHA.');
-        window.location.reload();
       } catch (err) {
         showNotification('❌ Payment failed. Try again.');
       } finally {
