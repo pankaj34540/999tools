@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import ESuvidhaPortal from '../components/esuvidha/ESuvidhaPortal';
 import { Lock, Mail, KeyRound, Loader2, ArrowRight, ShieldCheck, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 const MAX_ATTEMPTS = 3;
-const LOCK_TIME = 15 * 60 * 1000; // 15 mins in ms
+const LOCK_TIME = 15 * 60 * 1000;
 const STORAGE_KEY = 'esuvidha_login_attempts';
 
 const ESuvidhaPage: React.FC = () => {
@@ -17,8 +17,60 @@ const ESuvidhaPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [resetSent, setResetSent] = useState(false);
+
+  // 🔥 AUTO VERIFY ON MOUNT (Purane pending users ke liye)
+  useEffect(() => {
+    const autoVerify = async () => {
+      if (!currentUser || currentUser.eSuvidhaAccess) return;
+      if (!currentUser.email) return;
+
+      setVerifying(true);
+      try {
+        // Check vleApplications for pending payment
+        const appsRef = collection(db, 'vleApplications');
+        const q = query(
+          appsRef,
+          where('email', '==', currentUser.email.toLowerCase()),
+          where('paymentMethod', '==', 'cashfree')
+        );
+        const snap = await getDocs(q);
+
+        if (!snap.empty) {
+          const appData = snap.docs[0].data();
+          const orderId = appData.cashfreeOrderId;
+
+          if (orderId) {
+            // Verify with Cashfree
+            const res = await fetch('/api/cashfree-verify-esuvidha-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId }),
+            });
+            const data = await res.json();
+
+            if (data.success && data.status === 'paid') {
+              // Update User Account
+              await updateDoc(doc(db, 'userAccounts', currentUser.id), {
+                eSuvidhaAccess: true,
+                eSuvidhaPaidAt: new Date().toISOString(),
+              });
+              setCurrentUser({ ...currentUser, eSuvidhaAccess: true });
+              showNotification('✅ Payment verified! Welcome to E SUVIDHA.');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Auto verify error:', err);
+      } finally {
+        setVerifying(false);
+      }
+    };
+
+    autoVerify();
+  }, [currentUser?.id]);
 
   const getAttempts = () => {
     const data = localStorage.getItem(STORAGE_KEY);
@@ -35,7 +87,6 @@ const ESuvidhaPage: React.FC = () => {
     
     const { count, lastAttempt } = getAttempts();
     
-    // 🔥 CHECK LOCK
     if (count >= MAX_ATTEMPTS && Date.now() - lastAttempt < LOCK_TIME) {
       const remaining = Math.ceil((LOCK_TIME - (Date.now() - lastAttempt)) / 60000);
       setErrorMsg(`🔒 Account locked. Try again in ${remaining} minutes.`);
@@ -59,7 +110,6 @@ const ESuvidhaPage: React.FC = () => {
           email: user.email || '',
           ...userData
         });
-        // Reset attempts on success
         localStorage.removeItem(STORAGE_KEY);
         showNotification('✅ Login Successful!');
       } else {
@@ -67,8 +117,6 @@ const ESuvidhaPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      
-      // Increment attempts
       setAttempts(count + 1);
 
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
@@ -95,14 +143,25 @@ const ESuvidhaPage: React.FC = () => {
       setResetSent(true);
       showNotification('✅ Password reset link aapke email pe bheja gaya hai.');
     } catch (err: any) {
-      console.error('Reset error:', err);
       setErrorMsg(err.message || '❌ Failed to send reset email.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 1. Login Page
+  // 1. Loading state while auto-verifying
+  if (verifying) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-slate-600 font-bold">Verifying your payment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Login Page
   if (!currentUser) {
     const { count, lastAttempt } = getAttempts();
     const isLocked = count >= MAX_ATTEMPTS && Date.now() - lastAttempt < LOCK_TIME;
@@ -148,11 +207,7 @@ const ESuvidhaPage: React.FC = () => {
                   className="w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                   disabled={isLocked}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-                >
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -182,19 +237,15 @@ const ESuvidhaPage: React.FC = () => {
           </form>
 
           <div className="flex items-center justify-between mt-6 text-xs">
-            <button onClick={handleForgotPassword} className="text-blue-600 font-bold hover:underline">
-              Forgot Password?
-            </button>
-            <span className="text-slate-500">
-              Don't have an account? <a href="/" className="text-blue-600 font-bold hover:underline">Register</a>
-            </span>
+            <button onClick={handleForgotPassword} className="text-blue-600 font-bold hover:underline">Forgot Password?</button>
+            <span className="text-slate-500">Don't have an account? <a href="/" className="text-blue-600 font-bold hover:underline">Register</a></span>
           </div>
         </div>
       </div>
     );
   }
 
-  // 2. Payment Pending
+  // 3. Payment Pending (Agar login hai par access nahi hai)
   if (!currentUser.eSuvidhaAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
@@ -212,7 +263,7 @@ const ESuvidhaPage: React.FC = () => {
     );
   }
 
-  // 3. Dashboard
+  // 4. Dashboard
   return <ESuvidhaPortal />;
 };
 
