@@ -27,7 +27,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
     operatorName: '',
     mobile: '',
     email: '',
-    password: '', // 🆕 New Password Field
+    password: '',
     state: 'Uttar Pradesh',
     district: '',
     address: '',
@@ -75,10 +75,8 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
       const tempVleId = 'VLE-999-' + Math.floor(1000 + Math.random() * 9000);
 
       const isTrial = regType === 'trial';
-      const paymentAmount = isTrial ? 0 : esuvidhaFee;
-      const paymentMethod = isTrial ? 'trial' : 'cashfree';
 
-      // 1. Create Firebase Auth Account with User's Password
+      // 1. Create Firebase Auth Account
       let firebaseUser = null;
       try {
         const userCred = await createUserWithEmailAndPassword(auth, emailClean, formData.password);
@@ -94,7 +92,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
       if (!firebaseUser) throw new Error('Failed to create user account');
 
       // 2. Save VLE Application
-      await setDoc(doc(db, 'vleApplications', applicationId), {
+      const appData = {
         id: applicationId,
         operatorName: formData.operatorName.trim(),
         centerName: formData.centerName.trim(),
@@ -104,10 +102,10 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         district: formData.district.trim() || 'Main Center',
         address: formData.address.trim() || 'Shop address',
         cscId: formData.cscId.trim() || '',
-        paymentAmount: paymentAmount,
-        paymentMethod: paymentMethod,
-        paymentStatus: 'paid',
-        status: 'approved',
+        paymentAmount: isTrial ? 0 : esuvidhaFee,
+        paymentMethod: isTrial ? 'trial' : 'cashfree',
+        paymentStatus: isTrial ? 'paid' : 'pending',
+        status: isTrial ? 'approved' : 'pending',
         appliedDate: now.toISOString(),
         isTrial: isTrial,
         trialStartedAt: isTrial ? now.toISOString() : '',
@@ -115,10 +113,12 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         cashfreeOrderId: '',
         cashfreePaymentId: '',
         generatedVleId: tempVleId,
-        approvedDate: now.toLocaleString('en-IN'),
+        approvedDate: isTrial ? now.toLocaleString('en-IN') : '',
         eSuvidhaAccess: !isTrial,
         userId: firebaseUser.uid,
-      });
+      };
+
+      await setDoc(doc(db, 'vleApplications', applicationId), appData);
 
       // 3. Save User Account
       await saveUserAccount({
@@ -127,13 +127,12 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         name: formData.operatorName.trim(),
         mobile: formData.mobile.trim(),
         plan: 'vle',
-        subscriptionStatus: 'active',
+        subscriptionStatus: isTrial ? 'active' : 'pending',
         subscriptionStart: now.toISOString(),
         subscriptionEnd: isTrial ? trialEnd.toISOString() : '',
         createdAt: now.toISOString(),
         isTrial: isTrial,
-        eSuvidhaAccess: !isTrial,
-        eSuvidhaPaidAt: !isTrial ? now.toISOString() : '',
+        eSuvidhaAccess: isTrial ? false : false, // Will be true after payment
         vleData: {
           vleId: tempVleId,
           centerName: formData.centerName.trim(),
@@ -150,17 +149,50 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         },
       });
 
-      // 4. Success & Redirect
+      // 4. Handle Flows
       if (isTrial) {
         showNotification(`🎉 ${trialDays} din ka FREE trial activate ho gaya!`);
         setLoading(false);
         onClose();
         window.location.href = '/';
       } else {
-        showNotification(`✅ Registration Successful! Ab login karein.`);
+        // 🔥 REAL CASHFREE PAYMENT
+        const res = await fetch('/api/cashfree-create-esuvidha-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            applicationId,
+            amount: esuvidhaFee,
+            userName: formData.operatorName,
+            userEmail: emailClean,
+            userMobile: formData.mobile,
+            centerName: formData.centerName,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.error || 'Payment initialization failed');
+        }
+
+        // Load Cashfree SDK & Checkout
+        const { load } = await import('@cashfreepayments/cashfree-js');
+        const cashfree = await load({
+          mode: data.environment === 'production' ? 'production' : 'sandbox',
+        });
+
+        const result = await cashfree.checkout({
+          paymentSessionId: data.paymentSessionId,
+          redirectTarget: '_self',
+        });
+
+        if (result.error) {
+          throw new Error(result.error.message || 'Payment failed');
+        }
+        // Payment success → redirects to /payment-success
         setLoading(false);
         onClose();
-        window.location.href = '/e-suvidha';
       }
 
     } catch (err: any) {
@@ -260,7 +292,6 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
             </div>
           </div>
 
-          {/* 🆕 Password Field */}
           <div>
             <label className="block font-bold text-slate-700 mb-1">Create Password * (Min 6 chars)</label>
             <div className="relative">
