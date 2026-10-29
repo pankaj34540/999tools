@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Home, ArrowRight, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Home, ArrowRight, ShieldCheck, Loader2, AlertCircle, Wallet } from 'lucide-react';
+import { doc, updateDoc, getDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 const PaymentSuccessPage: React.FC = () => {
   const navigate = useNavigate();
@@ -9,9 +11,9 @@ const PaymentSuccessPage: React.FC = () => {
   
   const [verifying, setVerifying] = useState(true);
   const [verified, setVerified] = useState(false);
+  const [paymentType, setPaymentType] = useState<'esuvidha' | 'wallet' | 'unknown'>('unknown');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 🔥 Page load hote hi verify karo
   useEffect(() => {
     const verifyPayment = async () => {
       if (!orderId) {
@@ -21,6 +23,7 @@ const PaymentSuccessPage: React.FC = () => {
       }
 
       try {
+        // 1. Cashfree se status check karo
         const res = await fetch('/api/cashfree-verify-esuvidha-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -29,15 +32,90 @@ const PaymentSuccessPage: React.FC = () => {
 
         const data = await res.json();
 
-        if (data.success && data.status === 'paid') {
-          setVerified(true);
-        } else if (data.success && data.status !== 'paid') {
-          setErrorMsg(`Payment status: ${data.status}. Please wait or contact support.`);
-        } else {
-          setErrorMsg(data.error || 'Verification failed');
+        if (!data.success || data.status !== 'paid') {
+          setErrorMsg(data.error || `Payment status: ${data.status}. Please wait.`);
+          setVerifying(false);
+          return;
         }
+
+        // 2. Determine Payment Type
+        if (orderId.startsWith('ESUVIDHA_')) {
+          // E SUVIDHA Registration
+          setPaymentType('esuvidha');
+          
+          const appsSnap = await db
+            .collection('vleApplications')
+            .where('cashfreeOrderId', '==', orderId)
+            .limit(1)
+            .get();
+
+          if (!appsSnap.empty) {
+            const appDoc = appsSnap.docs[0];
+            const appData = appDoc.data();
+
+            await appDoc.ref.update({
+              paymentStatus: 'paid',
+              status: 'approved',
+              webhookReceivedAt: new Date().toISOString(),
+            });
+
+            if (appData.userId) {
+              await updateDoc(doc(db, 'userAccounts', appData.userId), {
+                eSuvidhaAccess: true,
+                eSuvidhaPaidAt: new Date().toISOString(),
+                subscriptionStatus: 'active',
+              });
+            }
+          }
+        } else if (orderId.startsWith('WALLET_')) {
+          // Wallet Recharge
+          setPaymentType('wallet');
+
+          // Find wallet order
+          const walletOrderRef = doc(db, 'walletOrders', orderId);
+          const walletSnap = await getDoc(walletOrderRef);
+          
+          if (walletSnap.exists()) {
+            const walletData = walletSnap.data();
+            const userId = walletData.userId;
+            const amount = walletData.amount;
+
+            // Check if already processed (idempotency)
+            if (walletData.status === 'completed') {
+              setVerified(true);
+              setVerifying(false);
+              return;
+            }
+
+            // Update User Wallet Balance
+            const userRef = doc(db, 'userAccounts', userId);
+            const userSnap = await getDoc(userRef);
+            
+            if (userSnap.exists()) {
+              const currentBalance = userSnap.data().walletBalance || 0;
+              const newBalance = currentBalance + amount;
+              
+              await updateDoc(userRef, { walletBalance: newBalance });
+
+              // Add Transaction Record
+              await addDoc(collection(db, 'walletTransactions'), {
+                userId,
+                type: 'credit',
+                amount,
+                description: `Wallet Recharge (${orderId})`,
+                createdAt: new Date().toISOString(),
+              });
+            }
+
+            // Mark order as completed
+            await updateDoc(walletOrderRef, { status: 'completed' });
+          }
+        }
+
+        setVerified(true);
       } catch (err: any) {
-        setErrorMsg('Failed to verify payment. Contact support.');
+        console.error('Verification error:', err);
+        setErrorMsg('Verification failed. Contact support.');
       } finally {
         setVerifying(false);
       }
@@ -45,6 +123,16 @@ const PaymentSuccessPage: React.FC = () => {
 
     verifyPayment();
   }, [orderId]);
+
+  const handleContinue = () => {
+    if (paymentType === 'wallet') {
+      // Wallet ka case hai, toh wapas E SUVIDHA pe bhejo (wallet tab)
+      navigate('/e-suvidha');
+    } else {
+      // E SUVIDHA ka case hai, toh login pe bhejo
+      navigate('/e-suvidha');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -67,21 +155,27 @@ const PaymentSuccessPage: React.FC = () => {
         {!verifying && verified && (
           <>
             <div className="w-20 h-20 mx-auto rounded-full bg-emerald-500/20 flex items-center justify-center border-4 border-emerald-500/30">
-              <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+              {paymentType === 'wallet' ? (
+                <Wallet className="w-10 h-10 text-emerald-400" />
+              ) : (
+                <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+              )}
             </div>
             <div>
-              <h1 className="text-3xl font-black text-white mb-2">Payment Successful! 🎉</h1>
-              <p className="text-slate-400 text-sm">Your E SUVIDHA account is ready.</p>
+              <h1 className="text-3xl font-black text-white mb-2">
+                {paymentType === 'wallet' ? 'Money Added! 💰' : 'Payment Successful! 🎉'}
+              </h1>
+              <p className="text-slate-400 text-sm">
+                {paymentType === 'wallet' 
+                  ? 'Wallet recharge successful. Balance updated.' 
+                  : 'Your E SUVIDHA account is ready.'}
+              </p>
             </div>
 
             <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 text-left space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-slate-500">Order ID</span>
-                <span className="text-xs font-mono font-bold text-white">{orderId}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Amount Paid</span>
-                <span className="text-sm font-black text-emerald-400">₹139</span>
+                <span className="text-xs font-mono font-bold text-white truncate ml-2">{orderId}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-slate-500">Status</span>
@@ -89,18 +183,11 @@ const PaymentSuccessPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-xs text-blue-200 flex gap-2">
-              <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <div className="text-left">
-                Aapka account ready hai. Ab E SUVIDHA Login page pe jaakar apne Email aur Password se login karein.
-              </div>
-            </div>
-
             <button
-              onClick={() => navigate('/e-suvidha')}
+              onClick={handleContinue}
               className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2"
             >
-              Go to E SUVIDHA Login
+              {paymentType === 'wallet' ? 'Go to Wallet' : 'Go to E SUVIDHA Login'}
               <ArrowRight className="w-4 h-4" />
             </button>
           </>
@@ -125,7 +212,7 @@ const PaymentSuccessPage: React.FC = () => {
           </>
         )}
 
-        {/* Home Button (Always Available) */}
+        {/* Home Button */}
         {!verifying && (
           <button
             onClick={() => navigate('/')}
