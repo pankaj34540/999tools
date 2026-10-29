@@ -5,8 +5,8 @@ import {
   Sparkles, ArrowLeft, Loader2,
   Gift, Zap, Eye, EyeOff,
 } from 'lucide-react';
-import { doc, setDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from 'firebase/auth';
 import { db, auth } from '../../config/firebase';
 import { saveUserAccount } from '../../services/subscriptionService';
 
@@ -69,21 +69,40 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
 
     try {
       const emailClean = formData.email.trim().toLowerCase();
+      
+      // 🔥 SECURITY CHECK 1: Duplicate Registration
+      try {
+        const signInMethods = await fetchSignInMethodsForEmail(auth, emailClean);
+        if (signInMethods.length > 0) {
+          throw new Error('Ye email already registered hai. Please Login karein.');
+        }
+      } catch (err: any) {
+        if (err.message.includes('already registered')) throw err;
+      }
+
+      // 🔥 SECURITY CHECK 2: Check Firestore
+      const usersRef = collection(db, 'userAccounts');
+      const q = query(usersRef, where('email', '==', emailClean));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        throw new Error('Ye email Firestore mein already registered hai.');
+      }
+
       const applicationId = 'vleapp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5);
       const now = new Date();
       const trialEnd = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
       const tempVleId = 'VLE-999-' + Math.floor(1000 + Math.random() * 9000);
-
       const isTrial = regType === 'trial';
 
-      // 1. Create Firebase Auth Account
+      // 3. Create Firebase Auth Account
       let firebaseUser = null;
       try {
         const userCred = await createUserWithEmailAndPassword(auth, emailClean, formData.password);
         firebaseUser = userCred.user;
       } catch (authErr: any) {
         if (authErr.code === 'auth/email-already-in-use') {
-          throw new Error('Ye email already registered hai. Please login karein.');
+          throw new Error('Ye email already registered hai.');
         } else {
           throw authErr;
         }
@@ -91,7 +110,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
 
       if (!firebaseUser) throw new Error('Failed to create user account');
 
-      // 2. Save VLE Application
+      // 4. Save VLE Application
       const appData = {
         id: applicationId,
         operatorName: formData.operatorName.trim(),
@@ -120,7 +139,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
 
       await setDoc(doc(db, 'vleApplications', applicationId), appData);
 
-      // 3. Save User Account
+      // 5. Save User Account
       await saveUserAccount({
         id: firebaseUser.uid,
         email: emailClean,
@@ -132,7 +151,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         subscriptionEnd: isTrial ? trialEnd.toISOString() : '',
         createdAt: now.toISOString(),
         isTrial: isTrial,
-        eSuvidhaAccess: isTrial ? false : false, // Will be true after payment
+        eSuvidhaAccess: false, 
         vleData: {
           vleId: tempVleId,
           centerName: formData.centerName.trim(),
@@ -149,7 +168,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         },
       });
 
-      // 4. Handle Flows
+      // 6. Flows
       if (isTrial) {
         showNotification(`🎉 ${trialDays} din ka FREE trial activate ho gaya!`);
         setLoading(false);
@@ -176,7 +195,6 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
           throw new Error(data.error || 'Payment initialization failed');
         }
 
-        // Load Cashfree SDK & Checkout
         const { load } = await import('@cashfreepayments/cashfree-js');
         const cashfree = await load({
           mode: data.environment === 'production' ? 'production' : 'sandbox',
@@ -190,13 +208,12 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         if (result.error) {
           throw new Error(result.error.message || 'Payment failed');
         }
-        // Payment success → redirects to /payment-success
         setLoading(false);
         onClose();
       }
 
     } catch (err: any) {
-      console.error('VLE registration error:', err);
+      console.error('Registration error:', err);
       setErrorMsg(err.message || 'Failed to register. Please try again.');
       setLoading(false);
     }
@@ -205,7 +222,8 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 animate-in zoom-in-95 my-8 max-h-[92vh] flex flex-col">
-
+        
+        {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 px-6 pt-6 sticky top-0 bg-white rounded-t-3xl z-10">
           <div className="flex items-center gap-3 min-w-0">
             <button onClick={handleBack} disabled={loading} className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition disabled:opacity-50 shrink-0">
@@ -227,8 +245,8 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 p-6 text-xs overflow-y-auto flex-1">
-
-          {/* TOGGLE */}
+          
+          {/* Toggle */}
           <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
             <button type="button" onClick={() => setRegType('trial')} disabled={loading} className={`py-2.5 rounded-lg text-xs font-bold transition flex flex-col items-center gap-1 ${regType === 'trial' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}>
               <Gift className="w-4 h-4" />
@@ -240,7 +258,7 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
             </button>
           </div>
 
-          {/* BANNER */}
+          {/* Banner */}
           {regType === 'trial' ? (
             <div className="bg-gradient-to-br from-amber-400 via-orange-400 to-pink-500 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
               <div className="relative flex items-center gap-3">
@@ -295,20 +313,8 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
           <div>
             <label className="block font-bold text-slate-700 mb-1">Create Password * (Min 6 chars)</label>
             <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                disabled={loading}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Enter a secure password"
-                className="w-full px-3 py-2 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-slate-900 disabled:bg-slate-50"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-              >
+              <input type={showPassword ? 'text' : 'password'} required disabled={loading} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Enter a secure password" className="w-full px-3 py-2 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-slate-900 disabled:bg-slate-50" />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
@@ -352,30 +358,14 @@ export const VleRegistrationModal: React.FC<VleRegistrationModalProps> = ({ isOp
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-4 text-white font-black text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2 ${
-              regType === 'trial'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500'
-            }`}
-          >
-            {loading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-            ) : regType === 'trial' ? (
-              <><Gift className="w-4 h-4" /> Start {trialDays} Days FREE Trial</>
-            ) : (
-              <><CreditCard className="w-4 h-4" /> Pay ₹{esuvidhaFee} & Register</>
-            )}
+          <button type="submit" disabled={loading} className={`w-full py-4 text-white font-black text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2 ${regType === 'trial' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500' : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500'}`}>
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> : regType === 'trial' ? <><Gift className="w-4 h-4" /> Start {trialDays} Days FREE Trial</> : <><CreditCard className="w-4 h-4" /> Pay ₹{esuvidhaFee} & Register</>}
           </button>
 
           <div className="flex items-start gap-2 pt-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
             <p className="text-[10px] text-slate-600 leading-relaxed">
-              {regType === 'trial'
-                ? 'No credit card required. Trial ke baad koi auto-charge nahi.'
-                : `One-time fee. Lifetime access to E SUVIDHA dashboard.`}
+              {regType === 'trial' ? 'No credit card required. Trial ke baad koi auto-charge nahi.' : `One-time fee. Lifetime access to E SUVIDHA dashboard.`}
             </p>
           </div>
 
