@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import ESuvidhaPortal from '../components/esuvidha/ESuvidhaPortal';
-import { Lock, Mail, KeyRound, Loader2, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, KeyRound, Loader2, ArrowRight, ShieldCheck, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+
+const MAX_ATTEMPTS = 3;
+const LOCK_TIME = 15 * 60 * 1000; // 15 mins in ms
+const STORAGE_KEY = 'esuvidha_login_attempts';
 
 const ESuvidhaPage: React.FC = () => {
   const { currentUser, setCurrentUser, showNotification } = useApp();
@@ -16,10 +20,31 @@ const ESuvidhaPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [resetSent, setResetSent] = useState(false);
 
+  const getAttempts = () => {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (!data) return { count: 0, lastAttempt: 0 };
+    return JSON.parse(data);
+  };
+
+  const setAttempts = (count: number) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ count, lastAttempt: Date.now() }));
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const { count, lastAttempt } = getAttempts();
+    
+    // 🔥 CHECK LOCK
+    if (count >= MAX_ATTEMPTS && Date.now() - lastAttempt < LOCK_TIME) {
+      const remaining = Math.ceil((LOCK_TIME - (Date.now() - lastAttempt)) / 60000);
+      setErrorMsg(`🔒 Account locked. Try again in ${remaining} minutes.`);
+      return;
+    }
+
     setLoading(true);
     setErrorMsg('');
+    
     try {
       const userCred = await signInWithEmailAndPassword(auth, email.trim(), password.trim());
       const user = userCred.user;
@@ -34,14 +59,20 @@ const ESuvidhaPage: React.FC = () => {
           email: user.email || '',
           ...userData
         });
+        // Reset attempts on success
+        localStorage.removeItem(STORAGE_KEY);
         showNotification('✅ Login Successful!');
       } else {
         setErrorMsg('❌ User data not found.');
       }
     } catch (err: any) {
       console.error('Login error:', err);
+      
+      // Increment attempts
+      setAttempts(count + 1);
+
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        setErrorMsg('❌ Galat Email ya Password. Check karein.');
+        setErrorMsg(`❌ Galat Email ya Password. Attempts left: ${MAX_ATTEMPTS - count - 1}`);
       } else if (err.code === 'auth/user-not-found') {
         setErrorMsg('❌ Ye email registered nahi hai. Pehle register karein.');
       } else {
@@ -73,6 +104,9 @@ const ESuvidhaPage: React.FC = () => {
 
   // 1. Login Page
   if (!currentUser) {
+    const { count, lastAttempt } = getAttempts();
+    const isLocked = count >= MAX_ATTEMPTS && Date.now() - lastAttempt < LOCK_TIME;
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
         <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full border border-slate-200">
@@ -96,6 +130,7 @@ const ESuvidhaPage: React.FC = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your-email@example.com"
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  disabled={isLocked}
                 />
               </div>
             </div>
@@ -111,6 +146,7 @@ const ESuvidhaPage: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
                   className="w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  disabled={isLocked}
                 />
                 <button
                   type="button"
@@ -123,7 +159,8 @@ const ESuvidhaPage: React.FC = () => {
             </div>
 
             {errorMsg && (
-              <div className="bg-rose-50 text-rose-700 text-xs p-3 rounded-lg border border-rose-200">
+              <div className="bg-rose-50 text-rose-700 text-xs p-3 rounded-lg border border-rose-200 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
                 {errorMsg}
               </div>
             )}
@@ -136,8 +173,8 @@ const ESuvidhaPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm"
+              disabled={loading || isLocked}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
               {loading ? 'Logging in...' : 'Login to E SUVIDHA'}
@@ -157,7 +194,7 @@ const ESuvidhaPage: React.FC = () => {
     );
   }
 
-  // 2. Payment Pending (Agar login hai par access nahi hai)
+  // 2. Payment Pending
   if (!currentUser.eSuvidhaAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
