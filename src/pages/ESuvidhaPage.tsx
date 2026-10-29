@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import ESuvidhaPortal from '../components/esuvidha/ESuvidhaPortal';
-import { Lock, Mail, KeyRound, Loader2, ArrowRight, ShieldCheck, CreditCard, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, KeyRound, Loader2, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 const ESuvidhaPage: React.FC = () => {
   const { currentUser, setCurrentUser, showNotification } = useApp();
@@ -14,58 +14,30 @@ const ESuvidhaPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [resetSent, setResetSent] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg('');
     try {
-      // 1. Firebase Auth Login
       const userCred = await signInWithEmailAndPassword(auth, email.trim(), password.trim());
       const user = userCred.user;
 
-      // 2. Fetch User Data from Firestore
       const userRef = doc(db, 'userAccounts', user.uid);
       const userSnap = await getDoc(userRef);
 
-      let userData = null;
-
       if (userSnap.exists()) {
-        userData = userSnap.data();
-      } else {
-        // 🔥 CRITICAL FIX: Agar Firestore mein nahi hai, toh naya banao
-        userData = {
+        const userData = userSnap.data();
+        setCurrentUser({
           id: user.uid,
-          email: user.email,
-          name: user.email?.split('@')[0] || 'E Suvidha User',
-          plan: 'vle',
-          subscriptionStatus: 'active',
-          eSuvidhaAccess: true, // Default access true
-          createdAt: new Date().toISOString(),
-          vleData: {
-             vleId: 'VLE-999-' + Math.floor(1000 + Math.random() * 9000),
-             centerName: user.email?.split('@')[0] + ' Center',
-             operatorName: user.email?.split('@')[0],
-             mobile: '0000000000',
-             state: 'Uttar Pradesh',
-             district: 'Main Center',
-             status: 'active',
-             kycVerified: true,
-             joinedDate: new Date().toISOString(),
-             totalOrdersCompleted: 0
-          }
-        };
-        await setDoc(userRef, userData);
+          email: user.email || '',
+          ...userData
+        });
+        showNotification('✅ Login Successful!');
+      } else {
+        setErrorMsg('❌ User data not found.');
       }
-
-      // 3. Set Current User in Context
-      setCurrentUser({
-        ...userData,
-        id: user.uid,
-        eSuvidhaAccess: true // Force true for testing
-      });
-
-      showNotification('✅ Login Successful!');
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
@@ -89,9 +61,11 @@ const ESuvidhaPage: React.FC = () => {
     setErrorMsg('');
     try {
       await sendPasswordResetEmail(auth, email.trim());
+      setResetSent(true);
       showNotification('✅ Password reset link aapke email pe bheja gaya hai.');
     } catch (err: any) {
-      setErrorMsg('❌ Failed to send reset email.');
+      console.error('Reset error:', err);
+      setErrorMsg(err.message || '❌ Failed to send reset email.');
     } finally {
       setLoading(false);
     }
@@ -154,6 +128,12 @@ const ESuvidhaPage: React.FC = () => {
               </div>
             )}
 
+            {resetSent && (
+              <div className="bg-emerald-50 text-emerald-700 text-xs p-3 rounded-lg border border-emerald-200">
+                ✅ Reset link sent! Check your email.
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -177,7 +157,25 @@ const ESuvidhaPage: React.FC = () => {
     );
   }
 
-  // 2. Dashboard (Agar login hai)
+  // 2. Payment Pending (Agar login hai par access nahi hai)
+  if (!currentUser.eSuvidhaAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldCheck className="w-8 h-8 text-amber-600" />
+          </div>
+          <h1 className="text-2xl font-black text-slate-900 mb-2">Payment Pending</h1>
+          <p className="text-slate-500 mb-6">Aapka registration complete nahi hua hai. Kripya payment complete karein.</p>
+          <a href="/" className="block w-full py-3 bg-blue-600 text-white font-bold rounded-xl">
+            Go to Home
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Dashboard
   return <ESuvidhaPortal />;
 };
 
