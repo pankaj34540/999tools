@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
-import { FileText, Download, X, Loader2 } from 'lucide-react';
+import { FileText, X, Loader2, AlertCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { db } from '../../../config/firebase';
 
 interface PassbookGeneratorProps {
   onClose: () => void;
   bankName?: 'Airtel' | 'Paytm' | 'Fino';
+  onSuccess?: () => void;
 }
 
-const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName = 'Airtel' }) => {
-  const { showNotification } = useApp();
+const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName = 'Airtel', onSuccess }) => {
+  const { showNotification, currentUser } = useApp();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const SERVICE_PRICE = 5;
 
   const [formData, setFormData] = useState({
     accountOpeningDate: '',
@@ -33,109 +39,172 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
     setFormData({ ...formData, [field]: value });
   };
 
-  const generatePDF = async () => {
+  const handleGenerateAndSave = async () => {
+    if (!currentUser) {
+      showNotification('Please login first');
+      return;
+    }
+    if (!formData.accountNumber || !formData.accountHolderName) {
+      setError('Account Number and Holder Name required');
+      return;
+    }
+
     setLoading(true);
+    setError('');
+
     try {
+      // 🔥 1. Check Wallet Balance
+      const userRef = doc(db, 'userAccounts', currentUser.id);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error('User data not found');
+      }
+
+      const currentBalance = userSnap.data().walletBalance || 0;
+      if (currentBalance < SERVICE_PRICE) {
+        throw new Error(`Insufficient balance. Need ₹${SERVICE_PRICE}, you have ₹${currentBalance}.`);
+      }
+
+      // 🔥 2. Deduct ₹5 from Wallet
+      const newBalance = currentBalance - SERVICE_PRICE;
+      await updateDoc(userRef, { walletBalance: newBalance });
+
+      // 🔥 3. Save Transaction Record
+      await addDoc(collection(db, 'walletTransactions'), {
+        userId: currentUser.id,
+        type: 'debit',
+        amount: SERVICE_PRICE,
+        description: `${bankName} Passbook Generated`,
+        createdAt: new Date().toISOString(),
+      });
+
+      // 🔥 4. Generate PDF Blob
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
-      // 1. Watermark (Background)
+      // Watermark
       doc.setTextColor(245, 245, 245);
       doc.setFontSize(60);
       doc.setFont('helvetica', 'bold');
       doc.text('airtel Payments Bank', pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
 
-      // 2. Header (Logo and Title)
-      doc.setTextColor(227, 28, 38); // Airtel Red
-      doc.setFontSize(28);
-      doc.setFont('helvetica', 'bold');
-      doc.text('airtel', 15, 20);
-      
+      // Red Header
+      doc.setFillColor(227, 28, 38);
+      doc.rect(0, 0, pageWidth, 20, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.text('airtel', 15, 13);
+      doc.setFontSize(10);
+      doc.text('Payments Bank', 40, 13);
+
+      // Title
       doc.setTextColor(0, 0, 0);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Passbook Front Page', pageWidth / 2, 35, { align: 'center' });
+
+      // Details
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text('Payments Bank', 15, 26);
-
-      // 3. Left Column (CIF, Name, Address, Acc No, IFSC)
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(10);
-      let y = 40;
+      let y = 50;
 
       doc.setFont('helvetica', 'bold');
-      doc.text(`CIF NO: ${formData.cifNumber || 'NA'}`, 15, y);
-      y += 7;
+      doc.text(`CIF NO : ${formData.cifNumber || 'NA'}`, 15, y);
+      y += 8;
       
-      doc.text(`A/C HOLDER NAME: ${formData.accountHolderName || 'NA'}`, 15, y);
-      y += 7;
+      doc.text(`A/C HOLDER NAME : ${formData.accountHolderName}`, 15, y);
+      y += 8;
       
       doc.setFont('helvetica', 'normal');
-      doc.text(`ADDRESS: ${formData.address || 'NA'}`, 15, y);
-      y += 7;
+      doc.text(`ADDRESS : ${formData.address || 'NA'}`, 15, y);
+      y += 8;
 
-      doc.text(`ACCOUNT NUMBER: ${formData.accountNumber || 'NA'}`, 15, y);
-      y += 7;
+      doc.text(`ACCOUNT NUMBER : ${formData.accountNumber}`, 15, y);
+      y += 8;
 
-      doc.text(`IFSC CODE: ${bankName === 'Airtel' ? 'AIRP0000001' : 'NA'}`, 15, y);
+      doc.text(`IFSC CODE : ${bankName === 'Airtel' ? 'AIRP0000001' : 'NA'}`, 15, y);
 
-      // 4. Right Column (Photo Copy Box)
+      // Photo Box
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.5);
-      doc.rect(140, 35, 40, 45); // Box
+      doc.rect(145, 45, 40, 50);
       
-      // Watermark in Photo Box
       doc.setTextColor(240, 240, 240);
-      doc.setFontSize(20);
-      doc.text('airtel', 160, 55, { align: 'center', angle: 45 });
+      doc.setFontSize(25);
+      doc.text('airtel', 165, 70, { align: 'center', angle: 45 });
       
       doc.setTextColor(0, 0, 0);
-      doc.setFontSize(12);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text('PHOTO COPY', 160, 65, { align: 'center' });
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('(1.1 inc X 1.3inc)', 160, 70, { align: 'center' });
+      doc.text('PHOTO COPY', 165, 80, { align: 'center' });
+      doc.setFontSize(7);
+      doc.text('(1.1 inc X 1.3inc)', 165, 85, { align: 'center' });
 
-      // 5. Bottom Details (Dates, PAN, Aadhaar, Type)
-      y = 100;
+      // Bottom details
+      y = 110;
       doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`A/C OPENING DATE: ${formData.accountOpeningDate || 'NA'}`, 15, y);
-      doc.text(`PASSBOOK ISSUE DATE: ${formData.passbookIssueDate || 'NA'}`, 85, y);
+      doc.text(`A/C OPENING DATE : ${formData.accountOpeningDate || 'NA'}`, 15, y);
+      doc.text(`PASSBOOK ISSUE DATE : ${formData.passbookIssueDate || 'NA'}`, 110, y);
       y += 7;
-
-      doc.text(`PAN NUMBER: ${formData.panNumber || 'NA'}`, 15, y);
-      doc.text(`AADHAAR NUMBER: ${formData.aadhaarNumber || 'NA'}`, 85, y);
+      doc.text(`PAN NUMBER : ${formData.panNumber || 'NA'}`, 15, y);
+      doc.text(`AADHAAR NUMBER : ${formData.aadhaarNumber || 'NA'}`, 110, y);
       y += 7;
+      doc.text(`TYPE OF ACCOUNT : ${formData.accountType || 'NA'}`, 15, y);
 
-      doc.text(`TYPE OF ACCOUNT: ${formData.accountType || 'NA'}`, 15, y);
-
-      // 6. Footer (Branch Details)
+      // Branch info
       y += 15;
-      doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text('BRANCH NAME: Airtel Payments Bank, Gurgaon', 15, y);
-      doc.text('BRANCH CODE: 000001', 15, y + 5);
+      doc.text(`BRANCH NAME : ${bankName} Payments Bank, Gurgaon`, 15, y);
+      y += 5;
+      doc.text(`BRANCH CODE : 000001`, 15, y);
+      y += 5;
       doc.setFont('helvetica', 'normal');
-      doc.text('BRANCH ADDRESS: Airtel Center, Plat No- 16, Udyog Vihar, Phase- 4, Gurgaon, Haryana', 15, y + 10);
-      doc.text('CONTACT: 124 4222222', 15, y + 15);
+      doc.text(`BRANCH ADDRESS : Airtel Center, Plat No- 16, Udyog Vihar, Phase- 4, Gurgaon, Haryana`, 15, y);
+      y += 5;
+      doc.text(`CONTACT : 124 4222222`, 15, y);
 
-      // 7. BC Details
-      y += 25;
+      // BC info
+      y += 10;
       doc.setFont('helvetica', 'bold');
-      doc.text(`BC NAME: ${formData.bcName || 'NA'}`, 15, y);
-      y += 7;
-      doc.text(`BC LOCATION: ${formData.bcLocation || 'NA'}`, 15, y);
+      doc.text(`BC NAME : ${formData.bcName || 'NA'}`, 15, y);
+      y += 5;
+      doc.text(`BC LOCATION : ${formData.bcLocation || 'NA'}`, 15, y);
 
-      // 8. Save PDF
-      doc.save(`${bankName}_Passbook_${formData.accountNumber || 'Unknown'}.pdf`);
+      // 🔥 5. Save to Firestore (Passbook History)
+      const pdfBlob = doc.output('blob');
       
-      showNotification('✅ PDF Generated Successfully!');
-      onClose();
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      showNotification('❌ Failed to generate PDF.');
-    } finally {
+      // Convert blob to base64 (for storage)
+      const reader = new FileReader();
+      reader.readAsDataURL(pdfBlob);
+      reader.onloadend = async () => {
+        const base64data = reader.result as string;
+
+        await addDoc(collection(db, 'passbookHistory'), {
+          userId: currentUser.id,
+          userEmail: currentUser.email,
+          bankName,
+          customerName: formData.accountHolderName,
+          accountNumber: formData.accountNumber,
+          cifNumber: formData.cifNumber,
+          formData: formData,
+          pdfBase64: base64data,
+          price: SERVICE_PRICE,
+          createdAt: new Date().toISOString(),
+        });
+
+        showNotification('✅ Passbook generated! ₹5 deducted from wallet.');
+        setLoading(false);
+        
+        if (onSuccess) onSuccess();
+        onClose();
+      };
+
+    } catch (err: any) {
+      console.error('Passbook error:', err);
+      setError(err.message || 'Failed to generate passbook');
       setLoading(false);
     }
   };
@@ -151,7 +220,7 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">{bankName} Passbook Print</h2>
-              <p className="text-xs text-slate-500">Customer details bharein</p>
+              <p className="text-xs text-slate-500">Fee: ₹{SERVICE_PRICE} (Wallet se katega)</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -222,11 +291,30 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
           </div>
         </div>
 
-        <button onClick={generatePDF} disabled={loading || !formData.accountNumber || !formData.accountHolderName} className={`w-full mt-6 py-4 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 ${bankName === 'Airtel' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-700 hover:bg-blue-800'} disabled:opacity-50 disabled:cursor-not-allowed`}>
-          {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</> : <><Download className="w-5 h-5" /> Generate & Download PDF</>}
+        {error && (
+          <div className="mt-4 bg-rose-50 border border-rose-200 rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-rose-700 font-semibold">{error}</p>
+          </div>
+        )}
+
+        <button
+          onClick={handleGenerateAndSave}
+          disabled={loading}
+          className={`w-full mt-6 py-4 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 ${
+            bankName === 'Airtel' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-700 hover:bg-blue-800'
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {loading ? (
+            <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</>
+          ) : (
+            <>Generate PDF (₹{SERVICE_PRICE})</>
+          )}
         </button>
 
-        <p className="text-center text-[10px] text-slate-400 mt-3">Wallet se ₹5 deduct honge. PDF automatically download ho jayegi.</p>
+        <p className="text-center text-[10px] text-slate-400 mt-3">
+          Wallet se ₹{SERVICE_PRICE} deduct honge. PDF history mein save hogi.
+        </p>
       </div>
     </div>
   );
