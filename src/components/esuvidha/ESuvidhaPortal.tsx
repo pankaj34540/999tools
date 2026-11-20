@@ -6,7 +6,7 @@ import {
   Landmark, Building2, ScrollText, Smartphone, Download, History
 } from 'lucide-react';
 import PassbookGenerator from '../vle/services/PassbookGenerator';
-import { doc, getDoc, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
 interface Transaction {
@@ -27,6 +27,15 @@ interface PassbookHistoryItem {
   pdfBase64: string;
 }
 
+interface BankTemplate {
+  id: string;
+  bankName: string;
+  color: string;
+  logoUrl: string;
+  ifscCode: string;
+  enabled: boolean;
+}
+
 const CATEGORIES = [
   { id: 'all', label: 'All Services', icon: ShoppingBag },
   { id: 'banking', label: 'Banking', icon: Landmark },
@@ -39,7 +48,7 @@ const ESuvidhaPortal: React.FC = () => {
   const { currentUser, vleLogout, showNotification } = useApp();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'services' | 'wallet'>('dashboard');
   const [showPassbook, setShowPassbook] = useState(false);
-  const [selectedBank, setSelectedBank] = useState<'Airtel' | 'Paytm' | 'Fino'>('Airtel');
+  const [selectedBank, setSelectedBank] = useState<string>('Airtel');
   
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,6 +60,24 @@ const ESuvidhaPortal: React.FC = () => {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [addAmount, setAddAmount] = useState(50);
   const [adding, setAdding] = useState(false);
+
+  // 🆕 Dynamic Banks State
+  const [dynamicBanks, setDynamicBanks] = useState<BankTemplate[]>([]);
+
+  // 🆕 Listen to passbookTemplates from Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'passbookTemplates'), (snap) => {
+      const list: BankTemplate[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data.enabled) {
+          list.push({ id: d.id, ...data } as BankTemplate);
+        }
+      });
+      setDynamicBanks(list);
+    });
+    return () => unsub();
+  }, []);
 
   const fetchWalletData = useCallback(async () => {
     if (!currentUser) return;
@@ -171,13 +198,36 @@ const ESuvidhaPortal: React.FC = () => {
     fetchPassbookHistory();
   };
 
-  const allServices = [
-    { id: 'airtel', name: 'Airtel Payments Bank Passbook', desc: 'Front page print for Airtel Payments Bank customers.', price: 5, category: 'banking', bank: 'Airtel', icon: FileText, color: 'red' },
-    { id: 'paytm', name: 'Paytm Payments Bank Passbook', desc: 'Front page print for Paytm Payments Bank customers.', price: 5, category: 'banking', bank: 'Paytm', icon: FileText, color: 'blue' },
-    { id: 'fino', name: 'Fino Payments Bank', desc: 'Coming soon...', price: 5, category: 'banking', bank: 'Fino', icon: FileText, color: 'slate', comingSoon: true },
+  // 🆕 Dynamic Services (Firestore banks + static Fino coming soon)
+  const staticServices = [
+    { 
+      id: 'fino', 
+      name: 'Fino Payments Bank', 
+      desc: 'Coming soon...', 
+      price: 5, 
+      category: 'banking', 
+      bank: 'Fino', 
+      icon: FileText, 
+      color: 'slate', 
+      comingSoon: true 
+    },
   ];
 
-  const filteredServices = allServices.filter(s => {
+  const dynamicServices = dynamicBanks.map((b) => ({
+    id: b.id,
+    name: `${b.bankName} Payments Bank Passbook`,
+    desc: `Front page print for ${b.bankName} customers.`,
+    price: 5,
+    category: 'banking',
+    bank: b.bankName,
+    icon: FileText,
+    color: 'blue',
+    comingSoon: false,
+  }));
+
+  const allServices = [...dynamicServices, ...staticServices];
+
+  const filteredServices = allServices.filter((s) => {
     const matchCat = selectedCategory === 'all' || s.category === selectedCategory;
     const matchSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchCat && matchSearch;
@@ -299,14 +349,13 @@ const ESuvidhaPortal: React.FC = () => {
                 ) : (
                   filteredServices.map((service) => {
                     const Icon = service.icon;
-                    const colorClass = service.color === 'red' ? 'red' : service.color === 'blue' ? 'blue' : 'slate';
                     return (
-                      <div key={service.id} className={`bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-${colorClass}-400 transition group ${service.comingSoon ? 'opacity-60' : ''}`}>
+                      <div key={service.id} className={`bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-blue-400 transition group ${service.comingSoon ? 'opacity-60' : ''}`}>
                          <div className="flex items-start justify-between mb-4">
-                           <div className={`w-12 h-12 rounded-xl bg-${colorClass}-100 flex items-center justify-center`}>
-                              <Icon className={`w-6 h-6 text-${colorClass}-600`} />
+                           <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                              <Icon className="w-6 h-6 text-blue-600" />
                            </div>
-                           <span className={`px-2 py-1 bg-${colorClass}-50 text-${colorClass}-700 text-[10px] font-bold rounded-full uppercase`}>
+                           <span className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full uppercase">
                              {service.category}
                            </span>
                          </div>
@@ -316,8 +365,8 @@ const ESuvidhaPortal: React.FC = () => {
                            <span className="font-black text-slate-900">₹{service.price}</span>
                            {!service.comingSoon && (
                              <button 
-                               onClick={() => { setSelectedBank(service.bank as any); setShowPassbook(true); }}
-                               className={`flex items-center gap-1 text-xs font-bold text-${colorClass}-600 group-hover:translate-x-1 transition`}
+                               onClick={() => { setSelectedBank(service.bank); setShowPassbook(true); }}
+                               className="flex items-center gap-1 text-xs font-bold text-blue-600 group-hover:translate-x-1 transition"
                              >
                                Open <ChevronRight className="w-3 h-3" />
                              </button>
@@ -360,7 +409,6 @@ const ESuvidhaPortal: React.FC = () => {
                 </div>
               </div>
 
-              {/* 🆕 PASSBOOK HISTORY */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
                   <History className="w-5 h-5 text-indigo-600" />
@@ -383,7 +431,7 @@ const ESuvidhaPortal: React.FC = () => {
                     {passbookHistory.map((item) => (
                       <div key={item.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.bankName === 'Airtel' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-indigo-100 text-indigo-600">
                             <FileText className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
@@ -410,7 +458,6 @@ const ESuvidhaPortal: React.FC = () => {
                 )}
               </div>
 
-              {/* TRANSACTION HISTORY */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100">
                   <h3 className="text-lg font-bold text-slate-900">Wallet Transactions</h3>
