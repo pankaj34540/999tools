@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   Wallet, LogOut, LayoutDashboard, ShoppingBag, 
   Zap, FileText, Search, ChevronRight, Plus, Loader2, ArrowDownLeft, ArrowUpRight,
-  Landmark, Building2, ScrollText, Smartphone
+  Landmark, Building2, ScrollText, Smartphone, Download, History
 } from 'lucide-react';
 import PassbookGenerator from '../vle/services/PassbookGenerator';
 import { doc, getDoc, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
@@ -15,6 +15,16 @@ interface Transaction {
   amount: number;
   description: string;
   createdAt: string;
+}
+
+interface PassbookHistoryItem {
+  id: string;
+  bankName: string;
+  customerName: string;
+  accountNumber: string;
+  price: number;
+  createdAt: string;
+  pdfBase64: string;
 }
 
 const CATEGORIES = [
@@ -31,48 +41,71 @@ const ESuvidhaPortal: React.FC = () => {
   const [showPassbook, setShowPassbook] = useState(false);
   const [selectedBank, setSelectedBank] = useState<'Airtel' | 'Paytm' | 'Fino'>('Airtel');
   
-  // 🆕 Category Filter
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Wallet State
   const [walletBalance, setWalletBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [passbookHistory, setPassbookHistory] = useState<PassbookHistoryItem[]>([]);
   const [loadingWallet, setLoadingWallet] = useState(true);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const [addAmount, setAddAmount] = useState(50);
   const [adding, setAdding] = useState(false);
 
-  // Fetch Wallet Data
-  useEffect(() => {
-    const fetchWallet = async () => {
-      if (!currentUser) return;
-      try {
-        const userRef = doc(db, 'userAccounts', currentUser.id);
-        const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          setWalletBalance(data.walletBalance || 0);
-        }
-
-        const txRef = collection(db, 'walletTransactions');
-        const q = query(txRef, where('userId', '==', currentUser.id), orderBy('createdAt', 'desc'));
-        const txSnap = await getDocs(q);
-        
-        const txList: Transaction[] = [];
-        txSnap.forEach((d) => {
-          txList.push({ ...d.data() as Transaction, id: d.id });
-        });
-        setTransactions(txList);
-      } catch (err) {
-        console.error('Error fetching wallet:', err);
-      } finally {
-        setLoadingWallet(false);
+  const fetchWalletData = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const userRef = doc(db, 'userAccounts', currentUser.id);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        setWalletBalance(userSnap.data().walletBalance || 0);
       }
-    };
 
-    fetchWallet();
+      const txRef = collection(db, 'walletTransactions');
+      const q = query(txRef, where('userId', '==', currentUser.id), orderBy('createdAt', 'desc'));
+      const txSnap = await getDocs(q);
+      const txList: Transaction[] = [];
+      txSnap.forEach((d) => txList.push({ ...(d.data() as Transaction), id: d.id }));
+      setTransactions(txList);
+    } catch (err) {
+      console.error('Error fetching wallet:', err);
+    } finally {
+      setLoadingWallet(false);
+    }
   }, [currentUser]);
+
+  const fetchPassbookHistory = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      setLoadingHistory(true);
+      const histRef = collection(db, 'passbookHistory');
+      const q = query(histRef, where('userId', '==', currentUser.id), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const list: PassbookHistoryItem[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          bankName: data.bankName || 'N/A',
+          customerName: data.customerName || 'N/A',
+          accountNumber: data.accountNumber || 'N/A',
+          price: data.price || 0,
+          createdAt: data.createdAt || new Date().toISOString(),
+          pdfBase64: data.pdfBase64 || '',
+        });
+      });
+      setPassbookHistory(list);
+    } catch (err) {
+      console.error('Error fetching passbook history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    fetchWalletData();
+    fetchPassbookHistory();
+  }, [fetchWalletData, fetchPassbookHistory]);
 
   const handleLogout = async () => {
     await vleLogout();
@@ -85,7 +118,6 @@ const ESuvidhaPortal: React.FC = () => {
       showNotification('Minimum add amount is ₹50');
       return;
     }
-
     setAdding(true);
     try {
       const orderId = `WALLET_${Date.now()}`;
@@ -101,26 +133,18 @@ const ESuvidhaPortal: React.FC = () => {
           userName: currentUser.name || '',
         }),
       });
-
       const data = await res.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Payment initialization failed');
-      }
+      if (!data.success) throw new Error(data.error || 'Payment initialization failed');
 
       const { load } = await import('@cashfreepayments/cashfree-js');
       const cashfree = await load({
         mode: data.environment === 'production' ? 'production' : 'sandbox',
       });
-
       const result = await cashfree.checkout({
         paymentSessionId: data.paymentSessionId,
         redirectTarget: '_self',
       });
-
-      if (result.error) {
-        throw new Error(result.error.message || 'Payment failed');
-      }
+      if (result.error) throw new Error(result.error.message || 'Payment failed');
     } catch (err: any) {
       console.error('Add money error:', err);
       showNotification(err.message || 'Failed to add money');
@@ -129,7 +153,24 @@ const ESuvidhaPortal: React.FC = () => {
     }
   };
 
-  // 🆕 Mock Services for Filtering
+  const handleDownloadPassbook = (item: PassbookHistoryItem) => {
+    if (!item.pdfBase64) {
+      showNotification('PDF not available for this record');
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = item.pdfBase64;
+    link.download = `${item.bankName}_Passbook_${item.accountNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePassbookSuccess = () => {
+    fetchWalletData();
+    fetchPassbookHistory();
+  };
+
   const allServices = [
     { id: 'airtel', name: 'Airtel Payments Bank Passbook', desc: 'Front page print for Airtel Payments Bank customers.', price: 5, category: 'banking', bank: 'Airtel', icon: FileText, color: 'red' },
     { id: 'paytm', name: 'Paytm Payments Bank Passbook', desc: 'Front page print for Paytm Payments Bank customers.', price: 5, category: 'banking', bank: 'Paytm', icon: FileText, color: 'blue' },
@@ -147,7 +188,6 @@ const ESuvidhaPortal: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
       
-      {/* SIDEBAR */}
       <aside className="w-full md:w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-auto md:h-screen z-20 shadow-sm">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-xl">E</div>
@@ -192,7 +232,6 @@ const ESuvidhaPortal: React.FC = () => {
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col">
         <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
           <h2 className="text-xl font-black text-slate-900">
@@ -205,7 +244,6 @@ const ESuvidhaPortal: React.FC = () => {
         </header>
 
         <div className="p-6 flex-1 overflow-y-auto">
-          {/* DASHBOARD */}
           {activeTab === 'dashboard' && (
             <div className="space-y-8">
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -217,7 +255,6 @@ const ESuvidhaPortal: React.FC = () => {
             </div>
           )}
 
-          {/* ALL SERVICES (With Categories) */}
           {activeTab === 'services' && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -234,7 +271,6 @@ const ESuvidhaPortal: React.FC = () => {
                 </div>
               </div>
 
-              {/* 🆕 Category Tabs */}
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {CATEGORIES.map((cat) => {
                   const Icon = cat.icon;
@@ -255,7 +291,6 @@ const ESuvidhaPortal: React.FC = () => {
                 })}
               </div>
 
-              {/* Services Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredServices.length === 0 ? (
                   <div className="col-span-full text-center py-12 text-slate-400">
@@ -296,7 +331,6 @@ const ESuvidhaPortal: React.FC = () => {
             </div>
           )}
 
-          {/* WALLET TAB */}
           {activeTab === 'wallet' && (
             <div className="space-y-6">
               
@@ -326,9 +360,60 @@ const ESuvidhaPortal: React.FC = () => {
                 </div>
               </div>
 
+              {/* 🆕 PASSBOOK HISTORY */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+                  <History className="w-5 h-5 text-indigo-600" />
+                  <h3 className="text-lg font-bold text-slate-900">Passbook History</h3>
+                  <span className="ml-auto text-xs font-bold text-slate-400">{passbookHistory.length} records</span>
+                </div>
+                
+                {loadingHistory ? (
+                  <div className="p-12 text-center">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+                  </div>
+                ) : passbookHistory.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500">
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="font-bold">No passbook generated yet.</p>
+                    <p className="text-xs mt-1">Services tab se passbook generate karo.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {passbookHistory.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.bankName === 'Airtel' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900 text-sm truncate">
+                              {item.bankName} — {item.customerName}
+                            </div>
+                            <div className="text-xs text-slate-500 truncate">
+                              A/C: {item.accountNumber} • {new Date(item.createdAt).toLocaleString('en-IN')}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-xs font-bold text-rose-600 font-mono">-₹{item.price}</span>
+                          <button
+                            onClick={() => handleDownloadPassbook(item)}
+                            className="flex items-center gap-1 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg transition"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Download
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* TRANSACTION HISTORY */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100">
-                  <h3 className="text-lg font-bold text-slate-900">Transaction History</h3>
+                  <h3 className="text-lg font-bold text-slate-900">Wallet Transactions</h3>
                 </div>
                 
                 {loadingWallet ? (
@@ -369,7 +454,8 @@ const ESuvidhaPortal: React.FC = () => {
       {showPassbook && (
         <PassbookGenerator 
           bankName={selectedBank}
-          onClose={() => setShowPassbook(false)} 
+          onClose={() => setShowPassbook(false)}
+          onSuccess={handlePassbookSuccess}
         />
       )}
     </div>
