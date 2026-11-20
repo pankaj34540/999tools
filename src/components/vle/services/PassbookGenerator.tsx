@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { FileText, X, Loader2, AlertCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../../../config/firebase';
 
 interface PassbookGeneratorProps {
   onClose: () => void;
-  bankName?: 'Airtel' | 'Paytm' | 'Fino';
+  bankName?: string;
   onSuccess?: () => void;
 }
 
@@ -39,24 +39,37 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
     setFormData({ ...formData, [field]: value });
   };
 
+  // 🎨 Dynamic theme based on bank
+  const getBankTheme = (bank: string) => {
+    const norm = bank.toLowerCase();
+    if (norm.includes('airtel')) return { bg: [227, 28, 38] as [number, number, number], text: 'airtel' };
+    if (norm.includes('paytm')) return { bg: [0, 48, 135] as [number, number, number], text: 'Paytm' };
+    if (norm.includes('fino')) return { bg: [0, 122, 204] as [number, number, number], text: 'Fino' };
+    return { bg: [50, 50, 50] as [number, number, number], text: bank };
+  };
+
   const buildPdf = () => {
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    const theme = getBankTheme(bankName);
 
     // Watermark
     doc.setTextColor(245, 245, 245);
     doc.setFontSize(60);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${bankName} Payments Bank`, pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
+    doc.text(`${bankName} Payments Bank`, pageWidth / 2, pageHeight / 2, {
+      align: 'center',
+      angle: 45,
+    });
 
-    // Header
-    doc.setFillColor(bankName === 'Airtel' ? 227 : 0, bankName === 'Airtel' ? 28 : 48, bankName === 'Airtel' ? 38 : 135);
+    // Dynamic Header
+    doc.setFillColor(theme.bg[0], theme.bg[1], theme.bg[2]);
     doc.rect(0, 0, pageWidth, 20, 'F');
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
-    doc.text(bankName === 'Airtel' ? 'airtel' : bankName, 15, 13);
+    doc.text(theme.text, 15, 13);
     doc.setFontSize(10);
     doc.text('Payments Bank', 40, 13);
 
@@ -81,7 +94,7 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
     y += 8;
     doc.text(`ACCOUNT NUMBER : ${formData.accountNumber}`, 15, y);
     y += 8;
-    doc.text(`IFSC CODE : ${bankName === 'Airtel' ? 'AIRP0000001' : 'NA'}`, 15, y);
+    doc.text(`IFSC CODE : ${formData.bcLocation ? 'NA' : 'NA'}`, 15, y);
 
     // Photo Box
     doc.setDrawColor(0, 0, 0);
@@ -146,7 +159,6 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
     setError('');
 
     try {
-      // 1. Balance check
       const userRef = doc(db, 'userAccounts', currentUser.id);
       const userSnap = await getDoc(userRef);
       if (!userSnap.exists()) throw new Error('User data not found');
@@ -156,11 +168,9 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         throw new Error(`Insufficient balance. Need ₹${SERVICE_PRICE}, you have ₹${currentBalance}.`);
       }
 
-      // 2. Build PDF (agar ye fail ho toh paisa nahi katega)
       const pdfDoc = buildPdf();
       const pdfBlob = pdfDoc.output('blob');
 
-      // 3. Convert to base64
       const base64data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
@@ -168,8 +178,7 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         reader.readAsDataURL(pdfBlob);
       });
 
-      // 4. Save history FIRST
-      const historyRef = await addDoc(collection(db, 'passbookHistory'), {
+      await addDoc(collection(db, 'passbookHistory'), {
         userId: currentUser.id,
         userEmail: currentUser.email,
         bankName,
@@ -182,11 +191,9 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         createdAt: new Date().toISOString(),
       });
 
-      // 5. Deduct wallet AFTER history save
       const newBalance = currentBalance - SERVICE_PRICE;
       await updateDoc(userRef, { walletBalance: newBalance });
 
-      // 6. Wallet transaction log
       await addDoc(collection(db, 'walletTransactions'), {
         userId: currentUser.id,
         type: 'debit',
@@ -195,14 +202,12 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         createdAt: new Date().toISOString(),
       });
 
-      // 7. Direct download to user
       pdfDoc.save(`${bankName}_Passbook_${formData.accountNumber}.pdf`);
 
       showNotification('✅ Passbook downloaded! ₹5 deducted from wallet.');
       setLoading(false);
       if (onSuccess) onSuccess();
       onClose();
-
     } catch (err: any) {
       console.error('Passbook error:', err);
       setError(err.message || 'Failed to generate passbook');
@@ -210,13 +215,17 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
     }
   };
 
+  const themeColor = getBankTheme(bankName);
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
-        
         <div className="flex items-center justify-between border-b pb-3 mb-4">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${bankName === 'Airtel' ? 'bg-red-600' : 'bg-blue-700'}`}>
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: `rgb(${themeColor.bg.join(',')})` }}
+            >
               <FileText className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -302,9 +311,8 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         <button
           onClick={handleGenerateAndSave}
           disabled={loading}
-          className={`w-full mt-6 py-4 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 ${
-            bankName === 'Airtel' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-700 hover:bg-blue-800'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          className="w-full mt-6 py-4 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ backgroundColor: `rgb(${themeColor.bg.join(',')})` }}
         >
           {loading ? (
             <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</>
