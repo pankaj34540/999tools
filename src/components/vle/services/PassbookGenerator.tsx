@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { FileText, X, Loader2, AlertCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
-import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../config/firebase';
 
 interface PassbookGeneratorProps {
@@ -15,6 +15,8 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
   const { showNotification, currentUser } = useApp();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [templateImage, setTemplateImage] = useState<string>('');
+  const [fetchingTemplate, setFetchingTemplate] = useState(true);
 
   const SERVICE_PRICE = 5;
 
@@ -35,112 +37,85 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
     bcLocation: '',
   });
 
+  // 🆕 Fetch the uploaded image from Firestore
+  useEffect(() => {
+    const fetchTemplate = async () => {
+      try {
+        const q = query(collection(db, 'passbookTemplates'), where('bankName', '==', bankName));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          if (data.templateImage) {
+            setTemplateImage(data.templateImage);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching template:', err);
+      } finally {
+        setFetchingTemplate(false);
+      }
+    };
+    fetchTemplate();
+  }, [bankName]);
+
   const updateField = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
   };
 
-  // 🎨 Dynamic theme based on bank
-  const getBankTheme = (bank: string) => {
-    const norm = bank.toLowerCase();
-    if (norm.includes('airtel')) return { bg: [227, 28, 38] as [number, number, number], text: 'airtel' };
-    if (norm.includes('paytm')) return { bg: [0, 48, 135] as [number, number, number], text: 'Paytm' };
-    if (norm.includes('fino')) return { bg: [0, 122, 204] as [number, number, number], text: 'Fino' };
-    return { bg: [50, 50, 50] as [number, number, number], text: bank };
-  };
-
+  // 🆕 PDF Build with Image Overlay
   const buildPdf = () => {
+    // A4 size in mm (Standard)
     const doc = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const theme = getBankTheme(bankName);
+    
+    // 1. Image ko poore page par background mein daalo
+    if (templateImage) {
+      doc.addImage(templateImage, 'JPEG', 0, 0, 210, 297); // 210x297 is A4 size in mm
+    }
 
-    // Watermark
-    doc.setTextColor(245, 245, 245);
-    doc.setFontSize(60);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${bankName} Payments Bank`, pageWidth / 2, pageHeight / 2, {
-      align: 'center',
-      angle: 45,
-    });
-
-    // Dynamic Header
-    doc.setFillColor(theme.bg[0], theme.bg[1], theme.bg[2]);
-    doc.rect(0, 0, pageWidth, 20, 'F');
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.text(theme.text, 15, 13);
-    doc.setFontSize(10);
-    doc.text('Payments Bank', 40, 13);
-
-    // Title
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Passbook Front Page', pageWidth / 2, 35, { align: 'center' });
-
-    // Details
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    let y = 50;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text(`CIF NO : ${formData.cifNumber || 'NA'}`, 15, y);
-    y += 8;
-    doc.text(`A/C HOLDER NAME : ${formData.accountHolderName}`, 15, y);
-    y += 8;
-    doc.setFont('helvetica', 'normal');
-    doc.text(`ADDRESS : ${formData.address || 'NA'}`, 15, y);
-    y += 8;
-    doc.text(`ACCOUNT NUMBER : ${formData.accountNumber}`, 15, y);
-    y += 8;
-    doc.text(`IFSC CODE : ${formData.bcLocation ? 'NA' : 'NA'}`, 15, y);
-
-    // Photo Box
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    doc.rect(145, 45, 40, 50);
-
-    doc.setTextColor(240, 240, 240);
-    doc.setFontSize(25);
-    doc.text(bankName, 165, 70, { align: 'center', angle: 45 });
-
-    doc.setTextColor(0, 0, 0);
+    // 2. Text Coordinates (X aur Y adjust karna padega image ke hisaab se)
+    // NOTE: Ye coordinates tumhari image ke hisaab se maine guess kiye hain. 
+    // Agar thoda idhar-udhar lage toh in numbers ko change karna.
+    doc.setTextColor(0, 0, 0); // Black text
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text('PHOTO COPY', 165, 80, { align: 'center' });
-    doc.setFontSize(7);
-    doc.text('(1.1 inc X 1.3inc)', 165, 85, { align: 'center' });
 
-    // Bottom details
-    y = 110;
+    // CIF NO (Image ke hisaab se X=25, Y=65)
+    doc.text(formData.cifNumber || 'NA', 45, 65);
+
+    // A/C HOLDER NAME (X=25, Y=72)
+    doc.text(formData.accountHolderName, 50, 72);
+
+    // ADDRESS (X=25, Y=78)
     doc.setFontSize(9);
-    doc.text(`A/C OPENING DATE : ${formData.accountOpeningDate || 'NA'}`, 15, y);
-    doc.text(`PASSBOOK ISSUE DATE : ${formData.passbookIssueDate || 'NA'}`, 110, y);
-    y += 7;
-    doc.text(`PAN NUMBER : ${formData.panNumber || 'NA'}`, 15, y);
-    doc.text(`AADHAAR NUMBER : ${formData.aadhaarNumber || 'NA'}`, 110, y);
-    y += 7;
-    doc.text(`TYPE OF ACCOUNT : ${formData.accountType || 'NA'}`, 15, y);
-
-    // Branch info
-    y += 15;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`BRANCH NAME : ${bankName} Payments Bank, Gurgaon`, 15, y);
-    y += 5;
-    doc.text('BRANCH CODE : 000001', 15, y);
-    y += 5;
     doc.setFont('helvetica', 'normal');
-    doc.text('BRANCH ADDRESS : Airtel Center, Plat No- 16, Udyog Vihar, Phase- 4, Gurgaon, Haryana', 15, y);
-    y += 5;
-    doc.text('CONTACT : 124 4222222', 15, y);
+    doc.text(formData.address || 'NA', 40, 78);
 
-    // BC info
-    y += 10;
+    // ACCOUNT NUMBER (X=135, Y=72)
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(`BC NAME : ${formData.bcName || 'NA'}`, 15, y);
-    y += 5;
-    doc.text(`BC LOCATION : ${formData.bcLocation || 'NA'}`, 15, y);
+    doc.text(formData.accountNumber, 155, 72);
+
+    // IFSC CODE (X=135, Y=78)
+    doc.text(formData.ifscCode || (bankName === 'Airtel' ? 'AIRP0000001' : 'NA'), 155, 78);
+
+    // A/C OPENING DATE (X=50, Y=110)
+    doc.setFontSize(9);
+    doc.text(formData.accountOpeningDate || 'NA', 55, 110);
+
+    // PAN (X=50, Y=117)
+    doc.text(formData.panNumber || 'NA', 55, 117);
+
+    // AADHAAR (X=50, Y=123)
+    doc.text(formData.aadhaarNumber || 'NA', 55, 123);
+
+    // PASSBOOK ISSUE DATE (X=55, Y=113)
+    doc.text(formData.passbookIssueDate || 'NA', 75, 113);
+
+    // BC NAME (X=25, Y=150)
+    doc.text(formData.bcName || 'NA', 50, 150);
+
+    // BC LOCATION (X=130, Y=150)
+    doc.text(formData.bcLocation || 'NA', 155, 150);
 
     return doc;
   };
@@ -152,6 +127,10 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
     }
     if (!formData.accountNumber || !formData.accountHolderName) {
       setError('Account Number and Holder Name required');
+      return;
+    }
+    if (!templateImage) {
+      setError('Template image not found. Owner se sampark karein.');
       return;
     }
 
@@ -168,9 +147,11 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         throw new Error(`Insufficient balance. Need ₹${SERVICE_PRICE}, you have ₹${currentBalance}.`);
       }
 
+      // Build PDF
       const pdfDoc = buildPdf();
       const pdfBlob = pdfDoc.output('blob');
 
+      // Convert to Base64
       const base64data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
@@ -178,6 +159,7 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         reader.readAsDataURL(pdfBlob);
       });
 
+      // Save History
       await addDoc(collection(db, 'passbookHistory'), {
         userId: currentUser.id,
         userEmail: currentUser.email,
@@ -191,9 +173,11 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         createdAt: new Date().toISOString(),
       });
 
+      // Deduct Wallet
       const newBalance = currentBalance - SERVICE_PRICE;
       await updateDoc(userRef, { walletBalance: newBalance });
 
+      // Add Wallet Transaction
       await addDoc(collection(db, 'walletTransactions'), {
         userId: currentUser.id,
         type: 'debit',
@@ -202,6 +186,7 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         createdAt: new Date().toISOString(),
       });
 
+      // Download PDF
       pdfDoc.save(`${bankName}_Passbook_${formData.accountNumber}.pdf`);
 
       showNotification('✅ Passbook downloaded! ₹5 deducted from wallet.');
@@ -215,17 +200,21 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
     }
   };
 
-  const themeColor = getBankTheme(bankName);
+  if (fetchingTemplate) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
+        
         <div className="flex items-center justify-between border-b pb-3 mb-4">
           <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: `rgb(${themeColor.bg.join(',')})` }}
-            >
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-slate-800">
               <FileText className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -256,16 +245,8 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
             <input type="text" value={formData.accountHolderName} onChange={(e) => updateField('accountHolderName', e.target.value)} placeholder="Enter Account Holder Name" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-xs font-bold text-slate-700 mb-1">S/o, W/o, D/o</label>
-            <input type="text" value={formData.sonOf} onChange={(e) => updateField('sonOf', e.target.value)} placeholder="Enter Father/Husband Name" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          </div>
-          <div className="sm:col-span-2">
             <label className="block text-xs font-bold text-slate-700 mb-1">Address</label>
             <textarea value={formData.address} onChange={(e) => updateField('address', e.target.value)} rows={2} placeholder="Enter Full Address" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">PIN Code</label>
-            <input type="text" value={formData.pinCode} onChange={(e) => updateField('pinCode', e.target.value)} placeholder="Enter PIN Code" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">PAN Number</label>
@@ -274,18 +255,6 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Aadhaar Number</label>
             <input type="text" value={formData.aadhaarNumber} onChange={(e) => updateField('aadhaarNumber', e.target.value)} placeholder="Enter Aadhaar Number" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Mobile Number</label>
-            <input type="text" value={formData.mobileNumber} onChange={(e) => updateField('mobileNumber', e.target.value)} placeholder="Enter Mobile Number" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Account Type</label>
-            <select value={formData.accountType} onChange={(e) => updateField('accountType', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-              <option value="Suraksha Savings Account">Suraksha Savings Account</option>
-              <option value="Savings Account">Savings Account</option>
-              <option value="Current Account">Current Account</option>
-            </select>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Passbook Issue Date</label>
@@ -311,8 +280,7 @@ const PassbookGenerator: React.FC<PassbookGeneratorProps> = ({ onClose, bankName
         <button
           onClick={handleGenerateAndSave}
           disabled={loading}
-          className="w-full mt-6 py-4 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ backgroundColor: `rgb(${themeColor.bg.join(',')})` }}
+          className="w-full mt-6 py-4 bg-slate-900 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800"
         >
           {loading ? (
             <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</>
